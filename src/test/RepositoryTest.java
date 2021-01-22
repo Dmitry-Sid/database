@@ -102,31 +102,6 @@ public class RepositoryTest {
         assertEquals(applications.get(3), testRepository.get("TEST" + 3));
     }
 
-    @Test
-    public void timeDeleteTest() {
-        final List<Long> calculationList = new ArrayList<>();
-        final int size = 10;
-        for (int i = 0; i < 100; i++) {
-            for (int j = 0; j < size; j++) {
-                prepareFile(i + 2);
-                final Repository testRepository = new RepositoryImpl(fileName, applicationConverter);
-                assertEquals(BaseApplicationTest.generateApplication("TEST" + 1, 1), testRepository.get("TEST1"));
-                long begin = System.currentTimeMillis();
-                testRepository.delete("TEST1");
-                long end = System.currentTimeMillis();
-                if (calculationList.size() < i + 1) {
-                    calculationList.add((end - begin) / size);
-                } else {
-                    calculationList.set(i, calculationList.get(i) + (end - begin) / size);
-                }
-                assertNull(testRepository.get("TEST1"));
-            }
-        }
-        for (Long time : calculationList) {
-            System.out.println(time);
-        }
-    }
-
     private void prepareFile(int size) {
         try (FileOutputStream fous = new FileOutputStream(fileName)) {
             for (Application application : getAppList(size)) {
