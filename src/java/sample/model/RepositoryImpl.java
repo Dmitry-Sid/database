@@ -1,23 +1,65 @@
 package sample.model;
 
-import sample.model.pojo.Application;
-
-import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import sample.model.pojo.Row;
 
 public class RepositoryImpl implements Repository {
-    private final String fileName;
-    private final ApplicationConverter applicationConverter;
+    private final ObjectConverter objectConverter;
+    private final RowIdManager rowIdManager;
+    private final FileHelper fileHelper;
+
+    public RepositoryImpl(ObjectConverter objectConverter, RowIdManager rowIdManager, FileHelper fileHelper) {
+        this.objectConverter = objectConverter;
+        this.rowIdManager = rowIdManager;
+        this.fileHelper = fileHelper;
+    }
+
+    @Override
+    public void add(Row row) {
+        synchronized (row) {
+            if (row.getId() == 0) {
+                row.setId(rowIdManager.newId());
+            }
+            LockKeeper.getRowIdLock().lock(row.getId());
+            try {
+                final boolean processed = rowIdManager.process(row.getId(),
+                        rowAddress -> fileHelper.collectFile(rowAddress, (inputStream, outputStream) -> {
+                            final byte[] rowBytes = objectConverter.toBytes(row);
+                            inputStream.skip(rowAddress.getSize() - 1);
+                            outputStream.write(rowBytes);
+                            rowIdManager.transform(rowAddress, rowAddress.getSize(), rowBytes.length);
+                        }));
+                if (!processed) {
+                    rowIdManager.add(row.getId(), rowAddress -> {
+
+                    });
+                }
+                // transformIndexes(row, processed);
+            } finally {
+                LockKeeper.getRowIdLock().unlock(row.getId());
+            }
+        }
+    }
+
+    @Override
+    public void delete(String id) {
+
+    }
+
+    @Override
+    public Row get(int id) {
+        return null;
+    }
+
+
+    /*private final String fileName;
+    private final RowConverter rowConverter;
     private static final byte[] markBytes = "mark".getBytes();
     private Map<String, AppAddress> appAddressMap = new HashMap<>();
     private AppAddress last;
 
-    public RepositoryImpl(String fileName, ApplicationConverter applicationConverter) {
+    public RepositoryImpl(String fileName, RowConverter rowConverter) {
         this.fileName = fileName;
-        this.applicationConverter = applicationConverter;
+        this.rowConverter = rowConverter;
         processFile();
     }
 
@@ -56,7 +98,7 @@ public class RepositoryImpl implements Repository {
     }
 
     private AppAddress processApplication(AppAddress last, long position, byte[] bytes) {
-        final Application application = applicationConverter.fromBytes(bytes);
+        final Application application = rowConverter.fromBytes(bytes);
         final AppAddress appAddress = new AppAddress(position - bytes.length, bytes.length);
         appAddressMap.put(application.getId(), appAddress);
         if (last != null) {
@@ -78,14 +120,14 @@ public class RepositoryImpl implements Repository {
         final AppAddress appAddress = appAddressMap.get(application.getId());
         if (appAddress != null) {
             collectFile(appAddress, (inputStream, outputStream) -> {
-                final byte[] appBytes = applicationConverter.toBytes(application);
+                final byte[] appBytes = rowConverter.toBytes(application);
                 inputStream.skip(appAddress.size - 1);
                 outputStream.write(appBytes);
                 transformAppMap(appAddress, appAddress.size, appBytes.length);
             });
         } else {
             try (FileOutputStream output = new FileOutputStream(fileName, true)) {
-                final byte[] bytes = applicationConverter.toBytes(application);
+                final byte[] bytes = rowConverter.toBytes(application);
                 output.write(markBytes);
                 output.write(bytes);
                 last = processApplication(last, last.position + last.size + bytes.length + markBytes.length, bytes);
@@ -117,31 +159,9 @@ public class RepositoryImpl implements Repository {
         });
     }
 
-    private void collectFile(AppAddress appAddress, InputOutputConsumer inputOutputConsumer) {
-        final File fileInput = new File(fileName);
-        final File fileOutput = new File(fileName + ".tmp");
-        try (FileInputStream input = new FileInputStream(fileInput);
-             BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(fileOutput), 10000)) {
-            long position = 0;
-            int bit;
-            while ((bit = input.read()) != -1) {
-                if (position == appAddress.position) {
-                    inputOutputConsumer.accept(input, output);
-                } else {
-                    output.write(bit);
-                }
-                position++;
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        fileInput.delete();
-        fileOutput.renameTo(fileInput);
-    }
 
-    private interface InputOutputConsumer {
-        void accept(InputStream inputStream, OutputStream outputStream) throws IOException;
-    }
+
+
 
     @Override
     public Application get(String id) {
@@ -153,20 +173,11 @@ public class RepositoryImpl implements Repository {
             fis.skip(appAddress.position);
             final byte[] bytes = new byte[appAddress.size];
             fis.read(bytes);
-            return applicationConverter.fromBytes(bytes);
+            return rowConverter.fromBytes(bytes);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static class AppAddress {
-        private long position;
-        private int size;
-        private AppAddress next;
-
-        private AppAddress(long position, int size) {
-            this.position = position;
-            this.size = size;
-        }
-    }
+    */
 }

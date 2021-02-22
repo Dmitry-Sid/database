@@ -1,12 +1,12 @@
 package sample.model;
 
-import sample.model.pojo.Application;
+import sample.model.pojo.Row;
 
 public interface Repository {
 
-    public void add(Application application);
+    public void add(Row row);
 
     public void delete(String id);
 
-    public Application get(String id);
+    public Row get(int id);
 }
