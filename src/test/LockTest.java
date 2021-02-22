@@ -11,9 +11,10 @@ import static org.junit.Assert.assertTrue;
 
 public class LockTest {
 
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
+
     @Test
     public void fullTest() throws InterruptedException, ExecutionException {
-        final ExecutorService executorService = Executors.newCachedThreadPool();
         {
             final Lock<Integer> lock = new Lock<>();
             lock.lock(1);
@@ -24,7 +25,7 @@ public class LockTest {
             lock.unlock(1);
             assertTrue(((future1.get() > 2000 && future1.get() < 3000) && (future3.get() > 3000 && future3.get() < 4000) ||
                     ((future1.get() > 3000 && future1.get() < 4000) && (future3.get() > 2000 && future3.get() < 3000))));
-            assertTrue(future2.get() > 1000 && future2.get() < 2000);
+            assertTrue(future2.get() < future1.get() && future2.get() < future3.get());
 
             lock.lock(3);
             final Future<Long> future4 = createFuture(executorService, lock, 3, new RuntimeException("test exception"));
@@ -50,8 +51,29 @@ public class LockTest {
             lock.unlock("test1");
             assertTrue(((future1.get() > 2000 && future1.get() < 3000) && (future3.get() > 3000 && future3.get() < 4000) ||
                     ((future1.get() > 3000 && future1.get() < 4000) && (future3.get() > 2000 && future3.get() < 3000))));
-            assertTrue(future2.get() > 1000 && future2.get() < 2000);
+            assertTrue(future2.get() < future1.get() && future2.get() < future3.get());
         }
+    }
+
+    @Test
+    public void doubleLockTest() throws InterruptedException, ExecutionException {
+        final Lock<Integer> lock = new Lock<>();
+        lock.lock(1);
+        lock.lock(1);
+        final Future<Long> future = executorService.submit(() -> {
+            final long begin = System.currentTimeMillis();
+            lock.lock(1);
+            lock.lock(1);
+            try {
+                Thread.sleep(1000);
+                return System.currentTimeMillis() - begin;
+            } finally {
+                lock.unlock(1);
+            }
+        });
+        Thread.sleep(1000);
+        lock.unlock(1);
+        assertTrue(future.get() > 2000 && future.get() < 3000);
     }
 
     private <T> Future<Long> createFuture(ExecutorService executorService, Lock<T> lock, T value, Exception exc) {
