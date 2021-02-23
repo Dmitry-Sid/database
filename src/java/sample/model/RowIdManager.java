@@ -10,8 +10,8 @@ public interface RowIdManager {
 
     public boolean process(int id, Consumer<RowAddress> rowAddressConsumer);
 
-    public void transform(RowAddress rowAddress, int sizeBefore, int sizeAfter);
+    public void transform(int id, int newSize);
 
-    public boolean add(int id, Consumer<RowAddress> rowAddressConsumer);
+    public void add(int id, String rowFileName, Consumer<RowAddress> rowAddressConsumer);
 
 }

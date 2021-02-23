@@ -26,12 +26,12 @@ public class RepositoryImpl implements Repository {
                             final byte[] rowBytes = objectConverter.toBytes(row);
                             inputStream.skip(rowAddress.getSize() - 1);
                             outputStream.write(rowBytes);
-                            rowIdManager.transform(rowAddress, rowAddress.getSize(), rowBytes.length);
+                            rowIdManager.transform(rowAddress.getId(), rowBytes.length);
                         }));
                 if (!processed) {
-                    rowIdManager.add(row.getId(), rowAddress -> {
+                    /*rowIdManager.add(row.getId(), "", rowAddress -> {
 
-                    });
+                    });*/
                 }
                 // transformIndexes(row, processed);
             } finally {
