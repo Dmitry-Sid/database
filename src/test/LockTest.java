@@ -6,8 +6,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class LockTest {
 
@@ -73,7 +72,10 @@ public class LockTest {
         });
         Thread.sleep(1000);
         lock.unlock(1);
-        assertTrue(future.get() > 2000 && future.get() < 3000);
+        assertFalse(future.isDone());
+        Thread.sleep(1000);
+        lock.unlock(1);
+        assertTrue(future.get() > 3000 && future.get() < 4000);
     }
 
     private <T> Future<Long> createFuture(ExecutorService executorService, Lock<T> lock, T value, Exception exc) {

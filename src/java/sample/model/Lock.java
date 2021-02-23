@@ -3,22 +3,21 @@ package sample.model;
 import com.sun.org.slf4j.internal.Logger;
 import com.sun.org.slf4j.internal.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class Lock<T> {
-    final Logger log = LoggerFactory.getLogger(getClass());
+    private static final Logger log = LoggerFactory.getLogger(Lock.class);
 
     private final Set<T> lockedObjects = new HashSet<>();
-    private final ThreadLocal<T> threadLocal = new ThreadLocal<>();
+    private final ThreadLocal<Map<T, Integer>> threadLocal = ThreadLocal.withInitial(HashMap::new);
 
     public synchronized void lock(T value) {
-        if (value.equals(threadLocal.get())) {
-            log.warn("try to acquire lock second time : " + threadLocal.get() + ", thread : " + Thread.currentThread());
-            return;
-        }
         while (true) {
-            if (lockedObjects.contains(value)) {
+            final Integer count = threadLocal.get().get(value);
+            if (lockedObjects.contains(value) && (count == null || count <= 0)) {
                 try {
                     wait();
                 } catch (InterruptedException e) {
@@ -28,18 +27,25 @@ public class Lock<T> {
                 break;
             }
         }
-        lockedObjects.add(value);
-        threadLocal.set(value);
+        final Integer count = threadLocal.get().get(value);
+        threadLocal.get().put(value, count == null ? 1 : count + 1);
+        if (threadLocal.get().get(value) == 1) {
+            lockedObjects.add(value);
+        }
     }
 
     public synchronized void unlock(T value) {
-        if (!value.equals(threadLocal.get())) {
-            log.warn("try to unlock not acquired lock : " + threadLocal.get() + ", thread : " + Thread.currentThread());
+        final Integer count = threadLocal.get().get(value);
+        if (count != null && count <= 0) {
+            log.warn("try to unlock not acquired lock : " + threadLocal.get() + ", count : " + count + ", thread : " + Thread.currentThread());
             return;
         }
-        lockedObjects.remove(value);
-        threadLocal.set(null);
-        notify();
+        if (count == null || count == 1) {
+            threadLocal.get().remove(value);
+            lockedObjects.remove(value);
+            notify();
+        } else {
+            threadLocal.get().put(value, count - 1);
+        }
     }
-
 }
