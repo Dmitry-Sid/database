@@ -12,6 +12,8 @@ public interface RowIdManager {
 
     public void transform(int id, int newSize);
 
-    public void add(int id, String rowFileName, Consumer<RowAddress> rowAddressConsumer);
+    public void add(RowAddress rowAddress);
+
+    public void delete(int id);
 
 }

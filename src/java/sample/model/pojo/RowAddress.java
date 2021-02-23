@@ -9,6 +9,7 @@ public class RowAddress implements Serializable {
     private final int id;
     private long position;
     private int size;
+    private RowAddress previous;
     private RowAddress next;
 
     public RowAddress(String filePath, int id, long position, int size) {
@@ -36,6 +37,14 @@ public class RowAddress implements Serializable {
 
     public synchronized void setSize(int size) {
         this.size = size;
+    }
+
+    public synchronized RowAddress getPrevious() {
+        return previous;
+    }
+
+    public synchronized void setPrevious(RowAddress previous) {
+        this.previous = previous;
     }
 
     public synchronized RowAddress getNext() {
@@ -67,6 +76,6 @@ public class RowAddress implements Serializable {
 
     @Override
     public int hashCode() {
-        return Objects.hash(getFilePath(), getId(), getPosition(), getSize(), getNext());
+        return Objects.hash(getFilePath(), getId(), getPosition(), getSize());
     }
 }

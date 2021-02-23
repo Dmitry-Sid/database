@@ -42,6 +42,7 @@ public class RowIdManagerTest {
     @Test
     public void newIdTest() {
         assertEquals(1, rowIdManager.newId());
+        assertEquals(1, rowIdManager.newId());
     }
 
     @Test
@@ -186,21 +187,25 @@ public class RowIdManagerTest {
         rowIdManager = prepareRowIdManager();
         String exceptionStr = null;
         try {
-            rowIdManager.add(250, "row1", null);
+            rowIdManager.add(new RowAddress("row1", 250, 0, 0));
         } catch (Exception e) {
             exceptionStr = e.getMessage();
         }
         assertEquals("already has same id : " + 250, exceptionStr);
         try {
-            rowIdManager.add(573, "row1", null);
+            rowIdManager.add(new RowAddress("row1", 573, 0, 0));
         } catch (Exception e) {
             exceptionStr = e.getMessage();
         }
         assertEquals("already has same id : " + 573, exceptionStr);
-        rowIdManager.add(751, filesRowPath + 3, rowAddress -> {
-            rowAddress.setPosition(1251);
-            rowAddress.setSize(10);
-        });
+        {
+            final RowAddress rowAddress = new RowAddress(filesRowPath + 3, 751, 1251, 10);
+            assertTrue(rowIdManager.process(750, rowAddressPrevious -> {
+                rowAddress.setPrevious(rowAddressPrevious);
+                rowAddressPrevious.setNext(rowAddress);
+            }));
+            rowIdManager.add(rowAddress);
+        }
         assertEquals(752, rowIdManager.newId());
         assertTrue(rowIdManager.process(250, rowAddress -> {
             assertEquals(filesRowPath + 1, rowAddress.getFilePath());
@@ -234,15 +239,12 @@ public class RowIdManagerTest {
             assertEquals(rowAddressNext, rowAddress.getNext());
         }));
         try {
-            rowIdManager.add(751, "row1", null);
+            rowIdManager.add(new RowAddress(filesRowPath + 3, 751, 1251, 10));
         } catch (Exception e) {
             exceptionStr = e.getMessage();
         }
         assertEquals("already has same id : " + 751, exceptionStr);
-        rowIdManager.add(1200, filesRowPath + 4, rowAddress -> {
-            rowAddress.setPosition(0);
-            rowAddress.setSize(67);
-        });
+        rowIdManager.add(new RowAddress(filesRowPath + 4, 1200, 0, 67));
         assertEquals(1201, rowIdManager.newId());
         assertTrue(rowIdManager.process(250, rowAddress -> {
             assertEquals(filesRowPath + 1, rowAddress.getFilePath());
@@ -287,6 +289,57 @@ public class RowIdManagerTest {
         }
     }
 
+    @Test
+    public void deleteTest() {
+        final int lastId = 750;
+        createFiles(lastId);
+        rowIdManager = prepareRowIdManager();
+        assertTrue(rowIdManager.process(300, rowAddress -> {
+            assertEquals(filesRowPath + 1, rowAddress.getFilePath());
+            assertEquals(300, rowAddress.getId());
+            assertEquals(1496, rowAddress.getPosition());
+            assertEquals(rowAddressSize, rowAddress.getSize());
+            final RowAddress rowAddressPrevious = new RowAddress(filesRowPath + 1, 299, 1491, rowAddressSize);
+            assertEquals(rowAddressPrevious, rowAddress.getPrevious());
+            final RowAddress rowAddressNext = new RowAddress(filesRowPath + 1, 301, 1501, rowAddressSize);
+            assertEquals(rowAddressNext, rowAddress.getNext());
+        }));
+        rowIdManager.delete(300);
+        assertFalse(rowIdManager.process(300, rowAddress -> {
+
+        }));
+        assertTrue(rowIdManager.process(750, rowAddress -> {
+            assertEquals(filesRowPath + 2, rowAddress.getFilePath());
+            assertEquals(750, rowAddress.getId());
+            assertEquals(1246, rowAddress.getPosition());
+            assertEquals(rowAddressSize, rowAddress.getSize());
+            assertNull(rowAddress.getNext());
+        }));
+        assertTrue(rowIdManager.process(299, rowAddress -> {
+            assertEquals(filesRowPath + 1, rowAddress.getFilePath());
+            assertEquals(299, rowAddress.getId());
+            assertEquals(1491, rowAddress.getPosition());
+            assertEquals(rowAddressSize, rowAddress.getSize());
+            final RowAddress rowAddressPrevious = new RowAddress(filesRowPath + 1, 298, 1486, rowAddressSize);
+            assertEquals(rowAddressPrevious, rowAddress.getPrevious());
+            final RowAddress rowAddressNext = new RowAddress(filesRowPath + 1, 301, 1496, rowAddressSize);
+            assertEquals(rowAddressNext, rowAddress.getNext());
+        }));
+        assertTrue(rowIdManager.process(301, rowAddress -> {
+            assertEquals(filesRowPath + 1, rowAddress.getFilePath());
+            assertEquals(301, rowAddress.getId());
+            assertEquals(1496, rowAddress.getPosition());
+            assertEquals(rowAddressSize, rowAddress.getSize());
+            final RowAddress rowAddressPrevious = new RowAddress(filesRowPath + 1, 299, 1491, rowAddressSize);
+            assertEquals(rowAddressPrevious, rowAddress.getPrevious());
+            final RowAddress rowAddressNext = new RowAddress(filesRowPath + 1, 302, 1501, rowAddressSize);
+            assertEquals(rowAddressNext, rowAddress.getNext());
+        }));
+        for (Map.Entry<RowIdManagerImpl.IdBounds, String> entry : prepareBoundsMap(750).entrySet()) {
+            new File(entry.getValue()).delete();
+        }
+    }
+
     private RowIdManager prepareRowIdManager() {
         return new RowIdManagerImpl(new ObjectConverterImpl(), maxSize, fileName, filesIdPath, filesRowPath);
     }
@@ -308,6 +361,7 @@ public class RowIdManagerTest {
                 lastEndPosition += rowAddressSize;
                 if (rowAddressPrevious != null) {
                     rowAddressPrevious.setNext(rowAddress);
+                    rowAddress.setPrevious(rowAddressPrevious);
                 }
                 rowAddressPrevious = rowAddress;
                 rowAddressMap.put(id, rowAddress);
