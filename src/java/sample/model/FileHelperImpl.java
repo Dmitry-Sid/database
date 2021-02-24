@@ -1,17 +1,21 @@
 package sample.model;
 
+import com.sun.org.slf4j.internal.Logger;
+import com.sun.org.slf4j.internal.LoggerFactory;
+import sample.model.pojo.Pair;
 import sample.model.pojo.RowAddress;
 
 import java.io.*;
+import java.util.function.Consumer;
 
 public class FileHelperImpl implements FileHelper {
+    private static final Logger log = LoggerFactory.getLogger(FileHelperImpl.class);
+
     @Override
     public void collectFile(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer) {
-        LockService.doInFileLock(rowAddress.getFilePath(), () -> {
-            final File fileInput = new File(rowAddress.getFilePath());
-            final File fileOutput = new File(rowAddress.getFilePath() + ".tmp");
-            try (FileInputStream input = new FileInputStream(fileInput);
-                 BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(fileOutput), 10000)) {
+        actionWithRollBack(rowAddress.getFilePath(), (pair) -> {
+            try (FileInputStream input = new FileInputStream(pair.getFirst());
+                 BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(pair.getSecond()), 10000)) {
                 long position = 0;
                 int bit;
                 while ((bit = input.read()) != -1) {
@@ -25,9 +29,49 @@ public class FileHelperImpl implements FileHelper {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            fileInput.delete();
-            fileOutput.renameTo(fileInput);
+        });
+    }
+
+    private void actionWithRollBack(String fileName, Consumer<Pair<File, File>> consumer) {
+        final String tempFile = fileName + ".tmp";
+        LockService.doInFileLock(fileName, () -> {
+            LockService.doInFileLock(tempFile, () -> {
+                final Pair<File, File> pair = new Pair<>(new File(fileName), new File(tempFile));
+                try {
+                    consumer.accept(pair);
+                    if (delete(pair.getFirst())) {
+                        rename(pair.getSecond(), pair.getFirst());
+                    }
+                } catch (Throwable throwable) {
+                    delete(pair.getSecond());
+                    log.error("error", throwable);
+                    throw throwable;
+                }
+                return null;
+            });
             return null;
         });
+    }
+
+    private boolean delete(File file) {
+        if (file == null) {
+            return false;
+        }
+        if (!file.delete()) {
+            log.warn("cannot delete file : " + file.getAbsolutePath());
+            return false;
+        }
+        return true;
+    }
+
+    private boolean rename(File fileFrom, File fileTo) {
+        if (fileFrom == null || fileTo == null) {
+            return false;
+        }
+        if (!fileFrom.renameTo(fileTo)) {
+            log.warn("cannot rename file " + fileFrom.getAbsolutePath() + " to " + fileTo.getName());
+            return false;
+        }
+        return true;
     }
 }
