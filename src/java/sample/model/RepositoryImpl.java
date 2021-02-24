@@ -16,11 +16,7 @@ public class RepositoryImpl implements Repository {
     @Override
     public void add(Row row) {
         synchronized (row) {
-            if (row.getId() == 0) {
-                row.setId(rowIdManager.newId());
-            }
-            LockKeeper.getRowIdLock().lock(row.getId());
-            try {
+            LockService.doInRowIdLock(row.getId(), () -> {
                 final boolean processed = rowIdManager.process(row.getId(),
                         rowAddress -> fileHelper.collectFile(rowAddress, (inputStream, outputStream) -> {
                             final byte[] rowBytes = objectConverter.toBytes(row);
@@ -34,9 +30,8 @@ public class RepositoryImpl implements Repository {
                     });*/
                 }
                 // transformIndexes(row, processed);
-            } finally {
-                LockKeeper.getRowIdLock().unlock(row.getId());
-            }
+                return null;
+            });
         }
     }
 
