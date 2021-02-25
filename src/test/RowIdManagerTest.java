@@ -50,6 +50,8 @@ public class RowIdManagerTest {
         try {
             assertFalse(rowIdManager.process(0, rowAddress -> {
             }));
+            assertFalse(rowIdManager.process(1200, rowAddress -> {
+            }));
             assertTrue(rowIdManager.process(1, rowAddress -> {
                 assertEquals(filesRowPath + 1, rowAddress.getFilePath());
                 assertEquals(1, rowAddress.getId());

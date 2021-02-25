@@ -37,10 +37,10 @@ public class RowIdManagerImpl implements RowIdManager {
         if (id <= 0) {
             return false;
         }
-        final String fileName = getRowIdFileName(id);
-        if (fileName == null) {
+        if (!variables.idBatches.contains(getRowIdFileNumber(id))) {
             return false;
         }
+        final String fileName = getRowIdFileName(id);
         return LockService.doInFileLock(fileName, () -> {
             final RowAddress rowAddress = cacheAndGetRowAddress(id, fileName);
             if (rowAddress == null) {
@@ -220,7 +220,7 @@ public class RowIdManagerImpl implements RowIdManager {
         return filesIdPath + getRowIdFileNumber(id);
     }
 
-    public Map<Integer, RowAddress> getRowAddressesFromFile(String fileName) {
+    private Map<Integer, RowAddress> getRowAddressesFromFile(String fileName) {
         synchronized (CACHED_LOCK) {
             return objectConverter.fromFile(variables.cachedRowAddresses.rowAddressMap.getClass(), fileName);
         }
