@@ -59,6 +59,53 @@ public class RepositoryTest {
             repository.add(TestUtils.generateRow(0, 5004));
             assertEquals(TestUtils.generateRow(751, 200), repository.get(751));
             assertEquals(TestUtils.generateRow(752, 5004), repository.get(752));
+            repository.add(TestUtils.generateRow(751, 7664));
+            assertEquals(TestUtils.generateRow(751, 7664), repository.get(751));
+            assertEquals(TestUtils.generateRow(752, 5004), repository.get(752));
+            repository.add(TestUtils.generateRow(20, 96));
+            assertEquals(TestUtils.generateRow(19, 19), repository.get(19));
+            assertEquals(TestUtils.generateRow(20, 96), repository.get(20));
+            assertEquals(TestUtils.generateRow(21, 21), repository.get(21));
+            assertEquals(TestUtils.generateRow(22, 22), repository.get(22));
+            repository.add(TestUtils.generateRow(0, 753));
+            assertEquals(TestUtils.generateRow(751, 7664), repository.get(751));
+            assertEquals(TestUtils.generateRow(752, 5004), repository.get(752));
+            assertEquals(TestUtils.generateRow(753, 753), repository.get(753));
+        } finally {
+            for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
+                new File(filesIdPath + value).delete();
+            }
+            String lastFileName = null;
+            for (Map.Entry<Integer, byte[]> entry : TestUtils.createRowMap(lastId).entrySet()) {
+                final String fileName = filesRowPath + TestUtils.getRowFileNumber(entry.getKey(), maxIdSize / compressSize);
+                if (!fileName.equals(lastFileName)) {
+                    lastFileName = fileName;
+                    new File(fileName).delete();
+                }
+            }
+        }
+    }
+
+    @Test
+    public void deleteTest() {
+        int lastId = 750;
+        try {
+            createFiles(lastId);
+            final Repository repository = prepareRepository();
+            lastId++;
+            assertEquals(TestUtils.generateRow(299, 299), repository.get(299));
+            assertEquals(TestUtils.generateRow(300, 300), repository.get(300));
+            assertEquals(TestUtils.generateRow(301, 301), repository.get(301));
+            repository.delete(300);
+            assertEquals(TestUtils.generateRow(299, 299), repository.get(299));
+            assertNull(repository.get(300));
+            assertEquals(TestUtils.generateRow(301, 301), repository.get(301));
+            assertEquals(TestUtils.generateRow(749, 749), repository.get(749));
+            assertEquals(TestUtils.generateRow(750, 750), repository.get(750));
+            repository.delete(750);
+            assertNull(repository.get(750));
+            repository.add(TestUtils.generateRow(0, 750));
+            assertEquals(TestUtils.generateRow(750, 750), repository.get(750));
         } finally {
             for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
                 new File(filesIdPath + value).delete();

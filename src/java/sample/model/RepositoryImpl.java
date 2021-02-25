@@ -21,7 +21,7 @@ public class RepositoryImpl implements Repository {
                 processed = LockService.doInRowIdLock(row.getId(), () -> rowIdManager.process(row.getId(),
                         rowAddress -> fileHelper.collect(rowAddress, (inputStream, outputStream) -> {
                             final byte[] rowBytes = objectConverter.toBytes(row);
-                            inputStream.skip(rowAddress.getSize());
+                            inputStream.skip(rowAddress.getSize() - 1);
                             outputStream.write(rowBytes);
                             rowIdManager.transform(rowAddress.getId(), rowBytes.length);
                         })));
@@ -44,9 +44,8 @@ public class RepositoryImpl implements Repository {
         LockService.doInRowIdLock(id, () -> {
             final boolean processed = rowIdManager.process(id, rowAddress ->
                     fileHelper.collect(rowAddress, (inputStream, outputStream) -> {
-                        inputStream.skip(rowAddress.getSize());
+                        inputStream.skip(rowAddress.getSize() - 1);
                         rowIdManager.delete(id);
-                        rowIdManager.transform(rowAddress.getId(), 0);
                         // transformIndexes(row, processed);
                     }));
             if (!processed) {
