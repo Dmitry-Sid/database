@@ -9,8 +9,10 @@ import sample.model.pojo.RowAddress;
 
 import java.io.File;
 import java.io.Serializable;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -104,8 +106,8 @@ public class RowIdManagerTest {
             assertFalse(rowIdManager.process(751, rowAddress -> {
             }));
         } finally {
-            for (Map.Entry<Integer, String> entry : prepareBoundsMap(lastId).entrySet()) {
-                new File(entry.getValue()).delete();
+            for (Integer value : prepareBoundsBatch(lastId)) {
+                new File(filesIdPath + value).delete();
             }
         }
     }
@@ -198,8 +200,8 @@ public class RowIdManagerTest {
                 assertEquals(rowAddressNext, rowAddress.getNext());
             }));
         } finally {
-            for (Map.Entry<Integer, String> entry : prepareBoundsMap(lastId).entrySet()) {
-                new File(entry.getValue()).delete();
+            for (Integer value : prepareBoundsBatch(lastId)) {
+                new File(filesIdPath + value).delete();
             }
         }
     }
@@ -296,8 +298,8 @@ public class RowIdManagerTest {
                 assertNull(rowAddress.getNext());
             }));
         } finally {
-            for (Map.Entry<Integer, String> entry : prepareBoundsMap(752).entrySet()) {
-                new File(entry.getValue()).delete();
+            for (Integer value : prepareBoundsBatch(752)) {
+                new File(filesIdPath + value).delete();
             }
         }
     }
@@ -357,8 +359,8 @@ public class RowIdManagerTest {
             });
             assertEquals(750, id[0]);
         } finally {
-            for (Map.Entry<Integer, String> entry : prepareBoundsMap(750).entrySet()) {
-                new File(entry.getValue()).delete();
+            for (Integer value : prepareBoundsBatch(lastId)) {
+                new File(filesIdPath + value).delete();
             }
         }
     }
@@ -368,18 +370,18 @@ public class RowIdManagerTest {
     }
 
     private void createFiles(int lastId) {
-        final Map<Integer, String> boundsMap = prepareBoundsMap(lastId);
+        final Set<Integer> boundsBatch = prepareBoundsBatch(lastId);
         final ObjectConverter objectConverter = new ObjectConverterImpl();
         RowIdManagerImpl.CachedRowAddresses cachedRowAddresses = null;
         int id = 1;
         int lastRowFileNumber = 1;
-        for (Map.Entry<Integer, String> entry : boundsMap.entrySet()) {
+        for (Integer value : boundsBatch) {
             final Map<Integer, RowAddress> rowAddressMap = new ConcurrentHashMap<>();
             int lastEndPosition = 0;
             RowAddress rowAddress;
             RowAddress rowAddressPrevious = null;
-            final int max = Math.min(entry.getKey() * maxIdSize, lastId);
-            for (int i = (entry.getKey() - 1) * maxIdSize + 1; i <= max; i++) {
+            final int max = Math.min(value * maxIdSize, lastId);
+            for (int i = (value - 1) * maxIdSize + 1; i <= max; i++) {
                 final int rowFileNumber = getRowFileNumber(id);
                 if (lastRowFileNumber != rowFileNumber) {
                     lastRowFileNumber = rowFileNumber;
@@ -396,19 +398,23 @@ public class RowIdManagerTest {
                 rowAddressMap.put(id, rowAddress);
                 id++;
             }
-            objectConverter.toFile((Serializable) rowAddressMap, entry.getValue());
-            cachedRowAddresses = new RowIdManagerImpl.CachedRowAddresses(entry.getValue(), rowAddressMap);
+            objectConverter.toFile((Serializable) rowAddressMap, filesIdPath + value);
+            cachedRowAddresses = new RowIdManagerImpl.CachedRowAddresses(filesIdPath + value, rowAddressMap);
         }
-        final RowIdManagerImpl.Variables variables = new RowIdManagerImpl.Variables(new AtomicInteger(lastId), boundsMap, cachedRowAddresses);
+        final RowIdManagerImpl.Variables variables = new RowIdManagerImpl.Variables(new AtomicInteger(lastId), boundsBatch, cachedRowAddresses);
         objectConverter.toFile(variables, fileName);
     }
 
-    private Map<Integer, String> prepareBoundsMap(int lastId) {
-        final Map<Integer, String> map = new HashMap<>();
+    private Set<Integer> prepareBoundsBatch(int lastId) {
+        final Set<Integer> set = Collections.synchronizedSet(new LinkedHashSet<>());
         for (int i = 0; i <= lastId / maxIdSize; i++) {
-            map.put(i + 1, filesIdPath + (i + 1));
+            set.add(i + 1);
         }
-        return map;
+        return set;
+    }
+
+    private int getRowIdFileNumber(int id) {
+        return 1 + (id - 1) / maxIdSize;
     }
 
     private int getRowFileNumber(int id) {

@@ -6,8 +6,8 @@ import sample.model.pojo.RowAddress;
 
 import java.io.Serializable;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -59,38 +59,48 @@ public class RowIdManagerImpl implements RowIdManager {
         if (newSize < 0) {
             throw new RuntimeException("new size must be not negative");
         }
-        synchronized (CACHED_LOCK) {
-            if (variables.cachedRowAddresses.rowAddressMap.containsKey(id)) {
-                LockService.doInFileLock(variables.cachedRowAddresses.fileName, () -> {
-                    transform(id, newSize, variables.cachedRowAddresses.rowAddressMap);
-                    objectConverter.toFile((Serializable) variables.cachedRowAddresses.rowAddressMap, variables.cachedRowAddresses.fileName);
+        LockService.doInRowIdLock(id, () -> {
+            synchronized (CACHED_LOCK) {
+                if (variables.cachedRowAddresses.rowAddressMap.containsKey(id)) {
+                    LockService.doInFileLock(variables.cachedRowAddresses.fileName, () -> {
+                        transform(id, newSize, variables.cachedRowAddresses.rowAddressMap);
+                        objectConverter.toFile((Serializable) variables.cachedRowAddresses.rowAddressMap, variables.cachedRowAddresses.fileName);
+                        return null;
+                    });
                     return null;
-                });
-                return;
+                }
             }
-        }
-        final String fileName = getRowIdFileName(id);
-        if (fileName == null) {
-            throw new RuntimeException("cannot find rowAddress with id : " + id);
-        }
-        LockService.doInFileLock(variables.cachedRowAddresses.fileName, () -> {
-            final Map<Integer, RowAddress> map = getRowAddressesFromFile(fileName);
-            transform(id, newSize, map);
-            objectConverter.toFile((Serializable) map, fileName);
+            if (!variables.idBatches.contains(getRowIdFileNumber(id))) {
+                throw new RuntimeException("cannot find rowAddress with id : " + id);
+            }
+            final String fileName = getRowIdFileName(id);
+            LockService.doInFileLock(fileName, () -> {
+                final Map<Integer, RowAddress> map = getRowAddressesFromFile(fileName);
+                transform(id, newSize, map);
+                objectConverter.toFile((Serializable) map, fileName);
+                return null;
+            });
             return null;
         });
     }
 
     private void transform(int id, int sizeAfter, Map<Integer, RowAddress> rowAddressMap) {
-        RowAddress rowAddressNext = rowAddressMap.get(id);
-        if (rowAddressNext == null) {
-            throw new RuntimeException("cannot find rowAddress with id : " + id);
-        }
-        final int sizeBefore = rowAddressNext.getSize();
-        rowAddressNext.setSize(sizeAfter);
-        while ((rowAddressNext = rowAddressNext.getNext()) != null) {
-            rowAddressNext.setPosition(rowAddressNext.getPosition() + (sizeAfter - sizeBefore));
-        }
+        LockService.doInRowIdLock(id, () -> {
+            RowAddress rowAddressNext = rowAddressMap.get(id);
+            if (rowAddressNext == null) {
+                throw new RuntimeException("cannot find rowAddress with id : " + id);
+            }
+            final int sizeBefore = rowAddressNext.getSize();
+            rowAddressNext.setSize(sizeAfter);
+            while ((rowAddressNext = rowAddressNext.getNext()) != null) {
+                final RowAddress finalRowAddressNext = rowAddressNext;
+                LockService.doInRowIdLock(rowAddressNext.getId(), () -> {
+                    finalRowAddressNext.setPosition(finalRowAddressNext.getPosition() + (sizeAfter - sizeBefore));
+                    return null;
+                });
+            }
+            return null;
+        });
     }
 
     @Override
@@ -101,21 +111,21 @@ public class RowIdManagerImpl implements RowIdManager {
                 final int id = variables.lastId.incrementAndGet();
                 try {
                     LockService.doInRowIdLock(id, () -> {
-                        String fileName;
-                        final AtomicBoolean created = new AtomicBoolean(false);
-                        synchronized (variables.idBatchMap) {
-                            fileName = variables.idBatchMap.get(getRowIdFileNumber(id));
-                            if (fileName == null) {
-                                fileName = getNewRowIdFileName(id);
-                                created.set(true);
-                            }
-                        }
-                        final String finalFileName = fileName;
+                        final String fileName = getRowIdFileName(id);
+                        final boolean created = !variables.idBatches.contains(getRowIdFileNumber(id));
                         LockService.doInFileLock(fileName, () -> {
-                            final RowAddress rowAddress = new RowAddress(getNewRowFileName(id), id, 0, 0);
-                            if (!created.get()) {
+                            final RowAddress rowAddress = new RowAddress(getRowFileName(id), id, 0, 0);
+                            final Runnable actionFalse = variables.lastId::decrementAndGet;
+                            if (created) {
+                                doOrAnotherAction(function.apply(rowAddress), () -> {
+                                    variables.idBatches.add(getRowIdFileNumber(id));
+                                    final Map<Integer, RowAddress> rowAddressMap = emptyRowAddressMap();
+                                    rowAddressMap.put(id, rowAddress);
+                                    objectConverter.toFile((Serializable) rowAddressMap, fileName);
+                                }, actionFalse);
+                            } else {
                                 synchronized (CACHED_LOCK) {
-                                    final RowAddress lastRowAddress = cacheAndGetRowAddress(lastId, finalFileName);
+                                    final RowAddress lastRowAddress = cacheAndGetRowAddress(lastId, fileName);
                                     if (variables.cachedRowAddresses.rowAddressMap.containsKey(id)) {
                                         throw new RuntimeException("already has same id : " + id);
                                     }
@@ -124,22 +134,10 @@ public class RowIdManagerImpl implements RowIdManager {
                                         lastRowAddress.setNext(rowAddress);
                                         rowAddress.setPrevious(lastRowAddress);
                                     }
-                                    if (function.apply(rowAddress)) {
+                                    doOrAnotherAction(function.apply(rowAddress), () -> {
                                         variables.cachedRowAddresses.rowAddressMap.put(id, rowAddress);
-                                        objectConverter.toFile((Serializable) variables.cachedRowAddresses.rowAddressMap, finalFileName);
-                                    }
-                                }
-                            } else {
-                                if (function.apply(rowAddress)) {
-                                    synchronized (variables.idBatchMap) {
-                                        variables.idBatchMap.put(getRowIdFileNumber(id), finalFileName);
-                                    }
-                                    final Map<Integer, RowAddress> rowAddressMap = emptyRowAddressMap();
-                                    rowAddressMap.put(id, rowAddress);
-                                    synchronized (variables.idBatchMap) {
-                                        variables.idBatchMap.put(getRowIdFileNumber(id), finalFileName);
-                                    }
-                                    objectConverter.toFile((Serializable) rowAddressMap, finalFileName);
+                                        objectConverter.toFile((Serializable) variables.cachedRowAddresses.rowAddressMap, fileName);
+                                    }, actionFalse);
                                 }
                             }
                             return null;
@@ -152,6 +150,14 @@ public class RowIdManagerImpl implements RowIdManager {
                 }
                 return null;
             });
+        }
+    }
+
+    private void doOrAnotherAction(boolean flag, Runnable actionTrue, Runnable actionFalse) {
+        if (flag) {
+            actionTrue.run();
+        } else {
+            actionFalse.run();
         }
     }
 
@@ -175,9 +181,7 @@ public class RowIdManagerImpl implements RowIdManager {
                     }
                     variables.cachedRowAddresses.rowAddressMap.remove(id);
                     if (variables.cachedRowAddresses.rowAddressMap.isEmpty()) {
-                        synchronized (variables.idBatchMap) {
-                            variables.idBatchMap.remove(getRowIdFileNumber(id));
-                        }
+                        variables.idBatches.remove(getRowIdFileNumber(id));
                     } else {
                         objectConverter.toFile((Serializable) variables.cachedRowAddresses.rowAddressMap, fileName);
                     }
@@ -208,18 +212,12 @@ public class RowIdManagerImpl implements RowIdManager {
         return 1 + (id - 1) * compressSize / maxIdSize;
     }
 
-    private String getNewRowFileName(int id) {
+    private String getRowFileName(int id) {
         return filesRowPath + getRowFileNumber(id);
     }
 
-    private String getNewRowIdFileName(int id) {
-        return filesIdPath + getRowIdFileNumber(id);
-    }
-
     private String getRowIdFileName(int id) {
-        synchronized (variables.idBatchMap) {
-            return variables.idBatchMap.get(getRowIdFileNumber(id));
-        }
+        return filesIdPath + getRowIdFileNumber(id);
     }
 
     public Map<Integer, RowAddress> getRowAddressesFromFile(String fileName) {
@@ -235,12 +233,12 @@ public class RowIdManagerImpl implements RowIdManager {
     public static class Variables implements Serializable {
         private static final long serialVersionUID = 1228422981455428546L;
         private final AtomicInteger lastId;
-        private final Map<Integer, String> idBatchMap;
+        private final Set<Integer> idBatches;
         private CachedRowAddresses cachedRowAddresses;
 
-        public Variables(AtomicInteger lastId, Map<Integer, String> idBatchMap, CachedRowAddresses cachedRowAddresses) {
+        public Variables(AtomicInteger lastId, Set<Integer> idBatches, CachedRowAddresses cachedRowAddresses) {
             this.lastId = lastId;
-            this.idBatchMap = idBatchMap;
+            this.idBatches = idBatches;
             this.cachedRowAddresses = cachedRowAddresses;
         }
     }
