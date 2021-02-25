@@ -6,7 +6,7 @@ public interface Repository {
 
     public void add(Row row);
 
-    public void delete(String id);
+    public void delete(int id);
 
     public Row get(int id);
 }

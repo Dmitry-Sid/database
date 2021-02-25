@@ -12,7 +12,34 @@ public class FileHelperImpl implements FileHelper {
     private static final Logger log = LoggerFactory.getLogger(FileHelperImpl.class);
 
     @Override
-    public void collectFile(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer) {
+    public void write(String fileName, byte[] bytes, boolean append) {
+        LockService.doInFileLock(fileName, () -> {
+            try (BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(fileName, append))) {
+                output.write(bytes);
+                output.flush();
+            } catch (IOException e) {
+                throw new RuntimeException();
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public byte[] read(RowAddress rowAddress) {
+        return LockService.doInFileLock(rowAddress.getFilePath(), () -> {
+            try (FileInputStream fis = new FileInputStream(rowAddress.getFilePath())) {
+                fis.skip(rowAddress.getPosition());
+                final byte[] bytes = new byte[rowAddress.getSize()];
+                fis.read(bytes);
+                return bytes;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    @Override
+    public void collect(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer) {
         actionWithRollBack(rowAddress.getFilePath(), (pair) -> {
             try (FileInputStream input = new FileInputStream(pair.getFirst());
                  BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(pair.getSecond()), 10000)) {
@@ -26,6 +53,7 @@ public class FileHelperImpl implements FileHelper {
                     }
                     position++;
                 }
+                output.flush();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

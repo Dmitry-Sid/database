@@ -1,20 +1,10 @@
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import sample.model.ObjectConverter;
-import sample.model.ObjectConverterImpl;
 import sample.model.RowIdManager;
-import sample.model.RowIdManagerImpl;
 import sample.model.pojo.RowAddress;
 
 import java.io.File;
-import java.io.Serializable;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 
@@ -26,7 +16,6 @@ public class RowIdManagerTest {
     private static final String filesRowPath = "row";
     private static final int maxIdSize = 500;
     private static final int compressSize = 2;
-    private static final int maxRowSize = maxIdSize / compressSize;
     private static final int rowAddressSize = 5;
 
     @Before
@@ -108,7 +97,7 @@ public class RowIdManagerTest {
             assertFalse(rowIdManager.process(751, rowAddress -> {
             }));
         } finally {
-            for (Integer value : prepareBoundsBatch(lastId)) {
+            for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
                 new File(filesIdPath + value).delete();
             }
         }
@@ -202,7 +191,7 @@ public class RowIdManagerTest {
                 assertEquals(rowAddressNext, rowAddress.getNext());
             }));
         } finally {
-            for (Integer value : prepareBoundsBatch(lastId)) {
+            for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
                 new File(filesIdPath + value).delete();
             }
         }
@@ -300,7 +289,7 @@ public class RowIdManagerTest {
                 assertNull(rowAddress.getNext());
             }));
         } finally {
-            for (Integer value : prepareBoundsBatch(752)) {
+            for (Integer value : TestUtils.prepareBoundsBatch(752, maxIdSize)) {
                 new File(filesIdPath + value).delete();
             }
         }
@@ -361,66 +350,18 @@ public class RowIdManagerTest {
             });
             assertEquals(750, id[0]);
         } finally {
-            for (Integer value : prepareBoundsBatch(lastId)) {
+            for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
                 new File(filesIdPath + value).delete();
             }
         }
     }
 
-    private RowIdManager prepareRowIdManager() {
-        return new RowIdManagerImpl(new ObjectConverterImpl(), maxIdSize, compressSize, fileName, filesIdPath, filesRowPath);
-    }
-
     private void createFiles(int lastId) {
-        final Set<Integer> boundsBatch = prepareBoundsBatch(lastId);
-        final ObjectConverter objectConverter = new ObjectConverterImpl();
-        RowIdManagerImpl.CachedRowAddresses cachedRowAddresses = null;
-        int id = 1;
-        int lastRowFileNumber = 1;
-        for (Integer value : boundsBatch) {
-            final Map<Integer, RowAddress> rowAddressMap = new ConcurrentHashMap<>();
-            int lastEndPosition = 0;
-            RowAddress rowAddress;
-            RowAddress rowAddressPrevious = null;
-            final int max = Math.min(value * maxIdSize, lastId);
-            for (int i = (value - 1) * maxIdSize + 1; i <= max; i++) {
-                final int rowFileNumber = getRowFileNumber(id);
-                if (lastRowFileNumber != rowFileNumber) {
-                    lastRowFileNumber = rowFileNumber;
-                    lastEndPosition = 0;
-                    rowAddressPrevious = null;
-                }
-                rowAddress = new RowAddress(filesRowPath + getRowFileNumber(id), id, lastEndPosition, rowAddressSize);
-                lastEndPosition += rowAddressSize;
-                if (rowAddressPrevious != null) {
-                    rowAddressPrevious.setNext(rowAddress);
-                    rowAddress.setPrevious(rowAddressPrevious);
-                }
-                rowAddressPrevious = rowAddress;
-                rowAddressMap.put(id, rowAddress);
-                id++;
-            }
-            objectConverter.toFile((Serializable) rowAddressMap, filesIdPath + value);
-            cachedRowAddresses = new RowIdManagerImpl.CachedRowAddresses(filesIdPath + value, rowAddressMap);
-        }
-        final RowIdManagerImpl.Variables variables = new RowIdManagerImpl.Variables(new AtomicInteger(lastId), boundsBatch, cachedRowAddresses);
-        objectConverter.toFile(variables, fileName);
+        TestUtils.createIdFiles(lastId, maxIdSize, compressSize, fileName, filesIdPath, filesRowPath, rowAddressSize, null);
     }
 
-    private Set<Integer> prepareBoundsBatch(int lastId) {
-        final Set<Integer> set = Collections.synchronizedSet(new LinkedHashSet<>());
-        for (int i = 0; i <= lastId / maxIdSize; i++) {
-            set.add(i + 1);
-        }
-        return set;
-    }
-
-    private int getRowIdFileNumber(int id) {
-        return 1 + (id - 1) / maxIdSize;
-    }
-
-    private int getRowFileNumber(int id) {
-        return 1 + (id - 1) / maxRowSize;
+    private RowIdManager prepareRowIdManager() {
+        return TestUtils.prepareRowIdManager(maxIdSize, compressSize, fileName, filesIdPath, filesRowPath);
     }
 
 }

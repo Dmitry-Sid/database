@@ -8,7 +8,11 @@ import java.io.OutputStream;
 
 public interface FileHelper {
 
-    public void collectFile(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer);
+    public void write(String fileName, byte[] bytes, boolean append);
+
+    public byte[] read(RowAddress rowAddress);
+
+    public void collect(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer);
 
     public interface InputOutputConsumer {
         void accept(InputStream inputStream, OutputStream outputStream) throws IOException;
