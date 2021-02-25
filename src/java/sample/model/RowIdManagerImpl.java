@@ -55,6 +55,30 @@ public class RowIdManagerImpl implements RowIdManager {
     }
 
     @Override
+    public void stream(Consumer<RowAddress> rowAddressConsumer) {
+        variables.idBatches.forEach(value -> {
+            final String fileName = filesIdPath + value;
+            LockService.doInFileLock(fileName, () -> {
+                synchronized (CACHED_LOCK) {
+                    if (variables.cachedRowAddresses.fileName.equals(fileName)) {
+                        stream(variables.cachedRowAddresses.rowAddressMap, rowAddressConsumer);
+                        return null;
+                    }
+                }
+                stream(getRowAddressesFromFile(fileName), rowAddressConsumer);
+                return null;
+            });
+        });
+    }
+
+    private void stream(Map<Integer, RowAddress> rowAddressMap, Consumer<RowAddress> rowAddressConsumer) {
+        rowAddressMap.forEach((key, value) -> LockService.doInRowIdLock(key, () -> {
+            rowAddressConsumer.accept(value);
+            return null;
+        }));
+    }
+
+    @Override
     public void transform(int id, int newSize) {
         if (newSize < 0) {
             throw new RuntimeException("new size must be not negative");

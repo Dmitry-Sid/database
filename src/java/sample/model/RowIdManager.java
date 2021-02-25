@@ -9,6 +9,8 @@ public interface RowIdManager {
 
     public boolean process(int id, Consumer<RowAddress> rowAddressConsumer);
 
+    public void stream(Consumer<RowAddress> rowAddressConsumer);
+
     public void transform(int id, int newSize);
 
     public void add(Function<RowAddress, Boolean> function);

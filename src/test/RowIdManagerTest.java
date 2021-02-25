@@ -5,6 +5,7 @@ import sample.model.RowIdManager;
 import sample.model.pojo.RowAddress;
 
 import java.io.File;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 
@@ -349,6 +350,28 @@ public class RowIdManagerTest {
                 return true;
             });
             assertEquals(750, id[0]);
+        } finally {
+            for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
+                new File(filesIdPath + value).delete();
+            }
+        }
+    }
+
+    @Test
+    public void streamTest() {
+        final int lastId = 750;
+        createFiles(lastId);
+        rowIdManager = prepareRowIdManager();
+
+        try {
+            final AtomicInteger counter = new AtomicInteger();
+            rowIdManager.stream(rowAddress -> {
+                assertTrue(rowIdManager.process(rowAddress.getId(), rowAddressProcessed -> {
+                    assertEquals(rowAddress, rowAddressProcessed);
+                }));
+                counter.incrementAndGet();
+            });
+            assertEquals(lastId, counter.get());
         } finally {
             for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
                 new File(filesIdPath + value).delete();
