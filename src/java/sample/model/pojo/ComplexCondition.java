@@ -2,10 +2,7 @@ package sample.model.pojo;
 
 import sample.model.ConditionException;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 public class ComplexCondition implements ICondition {
     private final ComplexType type;
@@ -17,6 +14,14 @@ public class ComplexCondition implements ICondition {
         }
         this.type = type;
         this.conditions = new HashSet<>(Arrays.asList(conditions));
+    }
+
+    public ComplexCondition(ComplexType type, Collection<ICondition> conditions) {
+        if (conditions == null || conditions.size() == 0) {
+            throw new ConditionException("empty inner conditions");
+        }
+        this.type = type;
+        this.conditions = new HashSet<>(conditions);
     }
 
     public ComplexType getType() {

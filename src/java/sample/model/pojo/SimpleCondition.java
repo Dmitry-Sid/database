@@ -1,5 +1,6 @@
 package sample.model.pojo;
 
+import org.apache.commons.lang3.StringUtils;
 import sample.model.ConditionException;
 
 import java.util.Objects;
@@ -17,7 +18,7 @@ public class SimpleCondition implements ICondition {
     }
 
     private void check(SimpleType type, String field, Comparable value) {
-        if (field == null || field.trim().isEmpty()) {
+        if (StringUtils.isBlank(field)) {
             throw new ConditionException("empty field name");
         }
         if (!(value instanceof String) && SimpleType.LIKE.equals(type)) {

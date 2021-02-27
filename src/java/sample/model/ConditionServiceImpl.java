@@ -1,14 +1,146 @@
 package sample.model;
 
-import sample.model.pojo.ComplexCondition;
-import sample.model.pojo.ICondition;
-import sample.model.pojo.Row;
-import sample.model.pojo.SimpleCondition;
+import org.apache.commons.lang3.StringUtils;
+import sample.model.pojo.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ConditionServiceImpl implements ConditionService {
+    private static final ICondition empty = new EmptyCondition();
+
+    private final ModelService modelService;
+
+    public ConditionServiceImpl(ModelService modelService) {
+        this.modelService = modelService;
+    }
+
     @Override
     public ICondition parse(String input) {
-        return null;
+        if (StringUtils.isBlank(input)) {
+            return empty;
+        }
+        final String formatted = input.trim().toLowerCase()
+                .replace("\r", "").replace("\n", "");
+        if (formatted.contains(ICondition.ComplexType.AND.toString().toLowerCase()) ||
+                formatted.contains(ICondition.ComplexType.OR.toString().toLowerCase())) {
+            return parseComplexCondition(formatted);
+        }
+        return parseSimpleCondition(formatted);
+    }
+
+    private ICondition parseComplexCondition(String input) {
+        final int first = input.indexOf("(");
+        if (first < 0) {
+            throw new ConditionException("cannot find ( for ComplexCondition");
+        }
+        final int last = input.lastIndexOf(")");
+        if (last < 0) {
+            throw new ConditionException("cannot find ) for ComplexCondition");
+        }
+        final ICondition.ComplexType type;
+        final String typeStr = input.substring(0, first);
+        try {
+            type = ICondition.ComplexType.valueOf(typeStr.toUpperCase());
+        } catch (Exception e) {
+            throw new ConditionException("unknown ComplexType type : " + typeStr);
+        }
+        final List<ICondition> conditions = new ArrayList<>();
+        for (String part : getMainParts(input.substring(first + 1, last).trim())) {
+            conditions.add(parse(part));
+        }
+        return new ComplexCondition(type, conditions);
+    }
+
+    private String[] getMainParts(String input) {
+        if (!(input.contains("(") || input.contains(")"))) {
+            return input.split(";");
+        }
+        final List<String> parts = new ArrayList<>();
+        int leftBrackets = 0;
+        int rightBrackets = 0;
+        int leftIndex = 0;
+        int rightIndex = 0;
+        int lastRightIndex = 0;
+        boolean found = false;
+        final char[] chars = input.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            char ch = chars[i];
+            if (ch == '(') {
+                leftBrackets++;
+            } else if (ch == ')') {
+                rightBrackets++;
+            }
+            if (leftBrackets != 0 && leftBrackets == rightBrackets && !found) {
+                found = true;
+                rightIndex = i + 1;
+                leftBrackets = 0;
+                rightBrackets = 0;
+            }
+            if (found) {
+                if (leftBrackets != rightBrackets) {
+                    throw new ConditionException("wrong brackets number");
+                }
+                if (ch == ';') {
+                    found = false;
+                    parts.add(input.substring(leftIndex, rightIndex));
+                    lastRightIndex = rightIndex;
+                    leftIndex = i + 1;
+                }
+            }
+        }
+        if (rightIndex != lastRightIndex) {
+            parts.add(input.substring(leftIndex, rightIndex));
+        }
+        final String[] array = new String[parts.size()];
+        return parts.toArray(array);
+    }
+
+    private SimpleCondition parseSimpleCondition(String input) {
+        final String formatted = input.trim();
+        final ICondition.SimpleType conditionType = getConditionSign(formatted, ICondition.SimpleType.values());
+        final String[] parts = formatted.split(conditionType.toString().toLowerCase());
+        if (parts.length != 2) {
+            throw new ConditionException("wrong condition patter : " + input);
+        }
+        final Pair<String, Comparable> pair = parseValue(parts);
+        return new SimpleCondition(conditionType, pair.getFirst(), pair.getSecond());
+    }
+
+    private Pair<String, Comparable> parseValue(String[] parts) {
+        final String field = parts[0].trim();
+        final String valueStr = parts[1].trim();
+        checkFieldName(field);
+        final Comparable value;
+        try {
+            value = modelService.getValue(field, valueStr);
+        } catch (NumberFormatException e) {
+            throw new ConditionException("wrong value type for field : " + field + ", value : " + valueStr);
+        }
+        return new Pair<>(field, value);
+    }
+
+    private void checkFieldName(String field) {
+        if (!modelService.containsField(field)) {
+            throw new ConditionException("unknown field : " + field);
+        }
+    }
+
+    private <T> T getConditionSign(String formatted, T[] values) {
+        if (values instanceof ICondition.SimpleType[]) {
+            if (formatted.contains(ICondition.SimpleType.GTE.toString().toLowerCase())) {
+                return (T) ICondition.SimpleType.GTE;
+            } else if (formatted.contains(ICondition.SimpleType.LTE.toString().toLowerCase())) {
+                return (T) ICondition.SimpleType.LTE;
+            }
+        }
+        for (T type : values) {
+            final String typeStr = type.toString();
+            if (formatted.contains(typeStr.toLowerCase())) {
+                return type;
+            }
+        }
+        throw new ConditionException("input String does now contains allowed condition");
     }
 
     @Override
@@ -17,6 +149,8 @@ public class ConditionServiceImpl implements ConditionService {
             return check(row, (SimpleCondition) condition);
         } else if (condition instanceof ComplexCondition) {
             return check(row, (ComplexCondition) condition);
+        } else if (condition instanceof EmptyCondition) {
+            return true;
         }
         throw new ConditionException("Unknown condition class : " + condition.getClass());
     }
@@ -63,6 +197,8 @@ public class ConditionServiceImpl implements ConditionService {
         switch (condition.getType()) {
             case EQ:
                 return compareResult == 0;
+            case NOT:
+                return compareResult != 0;
             case GT:
                 return compareResult > 0;
             case LT:

@@ -1,6 +1,7 @@
 import org.junit.Test;
 import sample.model.ConditionService;
 import sample.model.ConditionServiceImpl;
+import sample.model.ModelServiceImpl;
 import sample.model.pojo.ComplexCondition;
 import sample.model.pojo.ICondition;
 import sample.model.pojo.Row;
@@ -9,11 +10,11 @@ import sample.model.pojo.SimpleCondition;
 import java.util.HashMap;
 import java.util.Map;
 
-import static junit.framework.TestCase.assertFalse;
-import static junit.framework.TestCase.assertTrue;
+import static junit.framework.TestCase.*;
+import static org.junit.Assert.assertNotEquals;
 
 public class ConditionServiceTest {
-    private static final ConditionService conditionService = new ConditionServiceImpl();
+    private static final ConditionService conditionService = new ConditionServiceImpl(new ModelServiceImpl());
 
     @Test
     public void checkSimpleTest() {
@@ -71,6 +72,14 @@ public class ConditionServiceTest {
             }
             {
                 final ICondition condition = new SimpleCondition(ICondition.SimpleType.LTE, "int", 49);
+                assertFalse(conditionService.check(row, condition));
+            }
+            {
+                final ICondition condition = new SimpleCondition(ICondition.SimpleType.NOT, "int", 49);
+                assertTrue(conditionService.check(row, condition));
+            }
+            {
+                final ICondition condition = new SimpleCondition(ICondition.SimpleType.NOT, "int", 50);
                 assertFalse(conditionService.check(row, condition));
             }
         }
@@ -163,6 +172,47 @@ public class ConditionServiceTest {
                             new SimpleCondition(ICondition.SimpleType.LTE, "int", 50),
                             new SimpleCondition(ICondition.SimpleType.EQ, "String", "tes")));
             assertFalse(conditionService.check(row, condition));
+        }
+    }
+
+    @Test
+    public void parseTest() {
+        assertEquals(new SimpleCondition(ICondition.SimpleType.EQ, "int", 50), conditionService.parse("   int  eq         50 "));
+        assertEquals(new SimpleCondition(ICondition.SimpleType.EQ, "double", 22.3), conditionService.parse("double EQ 22.3"));
+        assertNotEquals(new SimpleCondition(ICondition.SimpleType.NOT, "int", 50), conditionService.parse("int EQ 50"));
+        assertEquals(new SimpleCondition(ICondition.SimpleType.NOT, "int", 50), conditionService.parse("int NOT 50"));
+        assertEquals(new SimpleCondition(ICondition.SimpleType.GTE, "int", 50), conditionService.parse("int GTE 50"));
+        assertEquals(new SimpleCondition(ICondition.SimpleType.GT, "int", 50), conditionService.parse("int GT 50"));
+        assertEquals(new SimpleCondition(ICondition.SimpleType.LTE, "int", 50), conditionService.parse("int LTE 50"));
+        assertEquals(new SimpleCondition(ICondition.SimpleType.LT, "int", 50), conditionService.parse("int LT 50"));
+        assertEquals(new SimpleCondition(ICondition.SimpleType.LIKE, "String", "se"), conditionService.parse("String LIKE se"));
+        {
+            final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
+                    new SimpleCondition(ICondition.SimpleType.EQ, "int", 50),
+                    new SimpleCondition(ICondition.SimpleType.EQ, "double", 30.0),
+                    new SimpleCondition(ICondition.SimpleType.EQ, "String", "tes"));
+            assertEquals(condition, conditionService.parse("OR(int EQ 50;double EQ 30.0;String EQ tes)"));
+        }
+        {
+            final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
+                    new ComplexCondition(ICondition.ComplexType.AND,
+                            new SimpleCondition(ICondition.SimpleType.EQ, "int", 50),
+                            new SimpleCondition(ICondition.SimpleType.EQ, "double", 30.0)),
+                    new SimpleCondition(ICondition.SimpleType.EQ, "String", "test"),
+                    new ComplexCondition(ICondition.ComplexType.AND,
+                            new SimpleCondition(ICondition.SimpleType.LTE, "int", 50),
+                            new SimpleCondition(ICondition.SimpleType.GT, "double", 30.0)));
+            assertEquals(condition, conditionService.parse("OR(AND(int EQ 50;double EQ 30.0);String EQ test;AND(int LTE 50;double GT 30.0))"));
+        }
+        {
+            final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
+                    new ComplexCondition(ICondition.ComplexType.AND,
+                            new SimpleCondition(ICondition.SimpleType.EQ, "int", 50),
+                            new SimpleCondition(ICondition.SimpleType.EQ, "double", 30.0)),
+                    new ComplexCondition(ICondition.ComplexType.AND,
+                            new SimpleCondition(ICondition.SimpleType.LTE, "int", 49),
+                            new SimpleCondition(ICondition.SimpleType.EQ, "String", "test")));
+            assertEquals(condition, conditionService.parse("OR(AND(int EQ 50;double EQ 30.0);AND(int LTE 49;String EQ test))"));
         }
     }
 
