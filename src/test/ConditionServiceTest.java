@@ -214,6 +214,26 @@ public class ConditionServiceTest {
                             new SimpleCondition(ICondition.SimpleType.EQ, "String", "test")));
             assertEquals(condition, conditionService.parse("OR(AND(int EQ 50;double EQ 30.0);AND(int LTE 49;String EQ test))"));
         }
+        {
+            final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
+                    new ComplexCondition(ICondition.ComplexType.AND,
+                            new ComplexCondition(ICondition.ComplexType.OR,
+                                    new SimpleCondition(ICondition.SimpleType.LIKE, "String", "te"),
+                                    new SimpleCondition(ICondition.SimpleType.NOT, "double", 30.0)),
+                            new SimpleCondition(ICondition.SimpleType.EQ, "int", 50),
+                            new SimpleCondition(ICondition.SimpleType.EQ, "double", 30.0)),
+                    new SimpleCondition(ICondition.SimpleType.EQ, "String", "test"),
+                    new ComplexCondition(ICondition.ComplexType.AND,
+                            new SimpleCondition(ICondition.SimpleType.LTE, "int", 50),
+                            new SimpleCondition(ICondition.SimpleType.GT, "double", 30.0),
+                            new ComplexCondition(ICondition.ComplexType.AND,
+                                    new SimpleCondition(ICondition.SimpleType.GT, "String", "st"),
+                                    new SimpleCondition(ICondition.SimpleType.GTE, "double", 20.0))));
+            assertEquals(condition, conditionService.parse("OR(" +
+                    "AND(OR(String like te;double not 30.0);int EQ 50;double EQ 30.0);" +
+                    "String EQ test;" +
+                    "AND(int LTE 50;double GT 30.0;AND(String GT st;double GTE 20.0)))"));
+        }
     }
 
 }

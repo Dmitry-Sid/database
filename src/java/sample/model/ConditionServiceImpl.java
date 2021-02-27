@@ -32,11 +32,11 @@ public class ConditionServiceImpl implements ConditionService {
     private ICondition parseComplexCondition(String input) {
         final int first = input.indexOf("(");
         if (first < 0) {
-            throw new ConditionException("cannot find ( for ComplexCondition");
+            throw new ConditionException("cannot find ( for ComplexCondition, input : " + input);
         }
         final int last = input.lastIndexOf(")");
         if (last < 0) {
-            throw new ConditionException("cannot find ) for ComplexCondition");
+            throw new ConditionException("cannot find ) for ComplexCondition, input : " + input);
         }
         final ICondition.ComplexType type;
         final String typeStr = input.substring(0, first);
@@ -52,17 +52,14 @@ public class ConditionServiceImpl implements ConditionService {
         return new ComplexCondition(type, conditions);
     }
 
-    private String[] getMainParts(String input) {
+    public static String[] getMainParts(String input) {
         if (!(input.contains("(") || input.contains(")"))) {
             return input.split(";");
         }
-        final List<String> parts = new ArrayList<>();
         int leftBrackets = 0;
         int rightBrackets = 0;
-        int leftIndex = 0;
-        int rightIndex = 0;
-        int lastRightIndex = 0;
-        boolean found = false;
+        final List<Integer> indexes = new ArrayList<>();
+        indexes.add(0);
         final char[] chars = input.toCharArray();
         for (int i = 0; i < chars.length; i++) {
             char ch = chars[i];
@@ -71,29 +68,23 @@ public class ConditionServiceImpl implements ConditionService {
             } else if (ch == ')') {
                 rightBrackets++;
             }
-            if (leftBrackets != 0 && leftBrackets == rightBrackets && !found) {
-                found = true;
-                rightIndex = i + 1;
-                leftBrackets = 0;
-                rightBrackets = 0;
-            }
-            if (found) {
-                if (leftBrackets != rightBrackets) {
-                    throw new ConditionException("wrong brackets number");
-                }
-                if (ch == ';') {
-                    found = false;
-                    parts.add(input.substring(leftIndex, rightIndex));
-                    lastRightIndex = rightIndex;
-                    leftIndex = i + 1;
-                }
+            if (ch == ';' && leftBrackets == rightBrackets) {
+                indexes.add(i);
             }
         }
-        if (rightIndex != lastRightIndex) {
-            parts.add(input.substring(leftIndex, rightIndex));
+        if (leftBrackets != rightBrackets) {
+            throw new ConditionException("wrong brackets number for String " + input);
         }
-        final String[] array = new String[parts.size()];
-        return parts.toArray(array);
+        indexes.add(chars.length);
+        final String[] parts = new String[indexes.size() - 1];
+        for (int i = 0; i < indexes.size() - 1; i++) {
+            if (i == 0) {
+                parts[i] = input.substring(indexes.get(i), indexes.get(i + 1));
+            } else {
+                parts[i] = input.substring(indexes.get(i) + 1, indexes.get(i + 1));
+            }
+        }
+        return parts;
     }
 
     private SimpleCondition parseSimpleCondition(String input) {
