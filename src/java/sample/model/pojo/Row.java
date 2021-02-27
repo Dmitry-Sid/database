@@ -8,13 +8,13 @@ public class Row implements Serializable {
     private static final long serialVersionUID = -172808855119652235L;
 
     private int id;
-    private final Map<String, Object> fields;
+    private final Map<String, Comparable> fields;
 
-    public Row(Map<String, Object> fields) {
+    public Row(Map<String, Comparable> fields) {
         this.fields = fields;
     }
 
-    public Row(int id, Map<String, Object> fields) {
+    public Row(int id, Map<String, Comparable> fields) {
         this.id = id;
         this.fields = fields;
     }
@@ -27,7 +27,7 @@ public class Row implements Serializable {
         return id;
     }
 
-    public Map<String, Object> getFields() {
+    public Map<String, Comparable> getFields() {
         return fields;
     }
 

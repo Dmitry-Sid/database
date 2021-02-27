@@ -1,6 +1,9 @@
 package sample.model;
 
+import sample.model.pojo.ICondition;
 import sample.model.pojo.Row;
+
+import java.util.List;
 
 public class RepositoryImpl implements Repository {
     private final ObjectConverter objectConverter;
@@ -62,5 +65,10 @@ public class RepositoryImpl implements Repository {
             rowIdManager.process(id, rowAddress -> rows[0] = objectConverter.fromBytes(Row.class, fileHelper.read(rowAddress)));
             return rows[0];
         });
+    }
+
+    @Override
+    public List<Row> getList(ICondition iCondition, int from, int size) {
+        return null;
     }
 }

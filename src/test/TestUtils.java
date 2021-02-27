@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestUtils {
     public static Row generateRow(int id, int intValue) {
-        return new Row(id, new HashMap<String, Object>() {{
+        return new Row(id, new HashMap<String, Comparable>() {{
             put("field" + intValue, intValue);
         }});
     }
