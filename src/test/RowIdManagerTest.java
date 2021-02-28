@@ -381,34 +381,6 @@ public class RowIdManagerTest {
         }
     }
 
-    @Test
-    public void groupAddressesTest() {
-        final int lastId = 750;
-        createFiles(lastId);
-        rowIdManager = prepareRowIdManager();
-
-        try {
-            final List<RowAddress> rowAddresses = new ArrayList<>();
-            rowIdManager.stream(rowAddresses::add);
-            final List<RowIdManager.RowAddressGroup> groups = rowIdManager.groupAndSort(rowAddresses);
-            assertEquals(3, groups.size());
-            int fileIndex = 1;
-            int rowId = 1;
-            for (RowIdManager.RowAddressGroup rowAddressGroup : groups) {
-                assertEquals(filesRowPath + fileIndex, rowAddressGroup.fileName);
-                for (RowAddress rowAddress : rowAddressGroup.rowAddresses) {
-                    assertEquals(rowId, rowAddress.getId());
-                    rowId++;
-                }
-                fileIndex++;
-            }
-        } finally {
-            for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
-                new File(filesIdPath + value).delete();
-            }
-        }
-    }
-
     private void createFiles(int lastId) {
         TestUtils.createIdFiles(lastId, maxIdSize, compressSize, fileName, filesIdPath, filesRowPath, rowAddressSize, null);
     }

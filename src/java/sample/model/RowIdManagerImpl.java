@@ -5,11 +5,15 @@ import com.sun.org.slf4j.internal.LoggerFactory;
 import sample.model.pojo.RowAddress;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class RowIdManagerImpl implements RowIdManager {
     private static final Logger log = LoggerFactory.getLogger(RowIdManagerImpl.class);
@@ -51,6 +55,17 @@ public class RowIdManagerImpl implements RowIdManager {
             });
             return true;
         });
+    }
+
+    @Override
+    public void process(Set<Integer> inputSet, Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker) {
+        final Set<Integer> idSet = inputSet.stream().sorted().collect(Collectors.toCollection(LinkedHashSet::new));
+        for (Integer id : idSet) {
+            if (stopChecker.get()) {
+                return;
+            }
+            process(id, rowAddressConsumer);
+        }
     }
 
     @Override
@@ -214,26 +229,6 @@ public class RowIdManagerImpl implements RowIdManager {
             });
             return null;
         });
-    }
-
-    @Override
-    public List<RowAddressGroup> groupAndSort(List<RowAddress> rowAddresses) {
-        rowAddresses.sort(Comparator.comparingInt(RowAddress::getId));
-        final List<RowAddressGroup> groupedRowAddresses = new ArrayList<>();
-        int index = 0;
-        String fileName = null;
-        for (RowAddress rowAddress : rowAddresses) {
-            if (fileName == null) {
-                fileName = rowAddress.getFilePath();
-                groupedRowAddresses.add(new RowAddressGroup(fileName, new ArrayList<>()));
-            } else if (!fileName.equals(rowAddress.getFilePath())) {
-                index++;
-                fileName = rowAddress.getFilePath();
-                groupedRowAddresses.add(new RowAddressGroup(fileName, new ArrayList<>()));
-            }
-            groupedRowAddresses.get(index).rowAddresses.add(rowAddress);
-        }
-        return groupedRowAddresses;
     }
 
     private RowAddress cacheAndGetRowAddress(int id, String fileName) {

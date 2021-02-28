@@ -6,11 +6,20 @@ public class LockService {
     private static final Lock<Integer> rowIdLock = new Lock<>();
     private static final Lock<String> fileLock = new Lock<>();
 
+    public static Lock<Integer> getRowIdLock() {
+        return rowIdLock;
+    }
+
+    public static Lock<String> getFileLock() {
+        return fileLock;
+    }
+
+
     public static <T> T doInRowIdLock(int id, Supplier<T> supplier) {
         return doInLock(rowIdLock, id, supplier);
     }
 
-    public static <T> T doInFileLock(String fileName,  Supplier<T> supplier) {
+    public static <T> T doInFileLock(String fileName, Supplier<T> supplier) {
         return doInLock(fileLock, fileName, supplier);
     }
 

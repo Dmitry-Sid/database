@@ -2,14 +2,15 @@ package sample.model;
 
 import sample.model.pojo.ICondition;
 import sample.model.pojo.Row;
-import sample.model.pojo.RowAddress;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class RepositoryImpl implements Repository {
     private final ObjectConverter objectConverter;
@@ -88,23 +89,44 @@ public class RepositoryImpl implements Repository {
         if (size == 0) {
             return Collections.emptyList();
         }
-        final Set<Integer> idSet = indexService.search(iCondition);
-        final List<RowAddress> rowAddresses = new ArrayList<>();
-        idSet.forEach(id -> rowIdManager.process(id, rowAddresses::add));
         final List<Row> rows = new ArrayList<>();
+        final AtomicReference<String> fileName = new AtomicReference<>();
         final AtomicBoolean stopChecker = new AtomicBoolean(false);
         final AtomicInteger skipped = new AtomicInteger();
-        fileHelper.read(rowAddresses, bytes -> {
-            final Row row = objectConverter.fromBytes(Row.class, bytes);
-            if (conditionService.check(row, iCondition)) {
-                if (skipped.get() == from && rows.size() != size) {
-                    rows.add(row);
-                } else {
-                    skipped.getAndIncrement();
+        final AtomicLong lastPosition = new AtomicLong(0);
+        final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream();
+        rowIdManager.process(indexService.search(iCondition), rowAddress -> {
+            try {
+                if (fileName.get() == null) {
+                    fileName.set(rowAddress.getFilePath());
+                    chainInputStream.read(rowAddress.getFilePath());
+                } else if (!fileName.get().equals(rowAddress.getFilePath())) {
+                    lastPosition.set(0);
+                    fileName.set(rowAddress.getFilePath());
+                    chainInputStream.read(rowAddress.getFilePath());
                 }
-            }
-            if (rows.size() == size) {
-                stopChecker.set(true);
+                if (lastPosition.get() == 0 && rowAddress.getSize() != 0) {
+                    chainInputStream.getInputStream().skip(rowAddress.getPosition());
+                    lastPosition.set(rowAddress.getPosition() + rowAddress.getSize());
+                } else {
+                    chainInputStream.getInputStream().skip(rowAddress.getPosition() - lastPosition.get());
+                }
+                final byte[] bytes = new byte[rowAddress.getSize()];
+                chainInputStream.getInputStream().read(bytes);
+                final Row row = objectConverter.fromBytes(Row.class, bytes);
+                if (conditionService.check(row, iCondition)) {
+                    if (skipped.get() == from && rows.size() != size) {
+                        rows.add(row);
+                    } else {
+                        skipped.getAndIncrement();
+                    }
+                }
+                if (rows.size() == size) {
+                    stopChecker.set(true);
+                }
+            } catch (IOException e) {
+                chainInputStream.close();
+                throw new RuntimeException(e);
             }
         }, stopChecker);
         return rows;

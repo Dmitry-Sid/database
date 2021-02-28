@@ -6,8 +6,6 @@ import sample.model.pojo.Pair;
 import sample.model.pojo.RowAddress;
 
 import java.io.*;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 public class FileHelperImpl implements FileHelper {
@@ -47,40 +45,9 @@ public class FileHelperImpl implements FileHelper {
     }
 
     @Override
-    public void read(List<RowAddress> rowAddresses, Consumer<byte[]> consumer, AtomicBoolean stopChecker) {
-        for (RowIdManager.RowAddressGroup rowAddressGroup : rowIdManager.groupAndSort(rowAddresses)) {
-            if (stopChecker.get()) {
-                return;
-            }
-            LockService.doInFileLock(rowAddressGroup.fileName, () -> {
-                final Long[] lastPosition = {null};
-                try (FileInputStream fis = new FileInputStream(rowAddressGroup.fileName)) {
-                    for (RowAddress rowAddress : rowAddressGroup.rowAddresses) {
-                        try {
-                            if (lastPosition[0] == null) {
-                                fis.skip(rowAddress.getPosition());
-                                lastPosition[0] = rowAddress.getPosition() + rowAddress.getSize();
-                            } else {
-                                fis.skip(rowAddress.getPosition() - lastPosition[0]);
-                            }
-                            final byte[] bytes = new byte[rowAddress.getSize()];
-                            fis.read(bytes);
-                            consumer.accept(bytes);
-                            if (stopChecker.get()) {
-                                return null;
-                            }
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                return null;
-            });
-        }
+    public ChainInputStream getChainInputStream() {
+        return new ChainLockInputStream();
     }
-
 
     @Override
     public void collect(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer) {
@@ -145,5 +112,45 @@ public class FileHelperImpl implements FileHelper {
             return false;
         }
         return true;
+    }
+
+    public class ChainLockInputStream implements ChainInputStream {
+        private String currentFileName;
+        private InputStream currentInputStream;
+
+        public void read(String fileName) {
+            close();
+            LockService.getFileLock().lock(fileName);
+            try {
+                currentFileName = fileName;
+                currentInputStream = new FileInputStream(fileName);
+            } catch (FileNotFoundException e) {
+                close();
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
+        public String getFileName() {
+            return currentFileName;
+        }
+
+        @Override
+        public InputStream getInputStream() {
+            return currentInputStream;
+        }
+
+        public void close() {
+            if (currentFileName != null) {
+                LockService.getFileLock().unlock(currentFileName);
+            }
+            if (currentInputStream != null) {
+                try {
+                    currentInputStream.close();
+                } catch (IOException e) {
+                    log.warn(e.toString());
+                }
+            }
+        }
     }
 }
