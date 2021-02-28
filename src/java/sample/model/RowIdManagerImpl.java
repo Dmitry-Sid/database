@@ -5,8 +5,7 @@ import com.sun.org.slf4j.internal.LoggerFactory;
 import sample.model.pojo.RowAddress;
 
 import java.io.Serializable;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -215,6 +214,26 @@ public class RowIdManagerImpl implements RowIdManager {
             });
             return null;
         });
+    }
+
+    @Override
+    public List<RowAddressGroup> groupAndSort(List<RowAddress> rowAddresses) {
+        rowAddresses.sort(Comparator.comparingInt(RowAddress::getId));
+        final List<RowAddressGroup> groupedRowAddresses = new ArrayList<>();
+        int index = 0;
+        String fileName = null;
+        for (RowAddress rowAddress : rowAddresses) {
+            if (fileName == null) {
+                fileName = rowAddress.getFilePath();
+                groupedRowAddresses.add(new RowAddressGroup(fileName, new ArrayList<>()));
+            } else if (!fileName.equals(rowAddress.getFilePath())) {
+                index++;
+                fileName = rowAddress.getFilePath();
+                groupedRowAddresses.add(new RowAddressGroup(fileName, new ArrayList<>()));
+            }
+            groupedRowAddresses.get(index).rowAddresses.add(rowAddress);
+        }
+        return groupedRowAddresses;
     }
 
     private RowAddress cacheAndGetRowAddress(int id, String fileName) {

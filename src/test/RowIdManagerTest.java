@@ -5,6 +5,8 @@ import sample.model.RowIdManager;
 import sample.model.pojo.RowAddress;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
@@ -372,6 +374,34 @@ public class RowIdManagerTest {
                 counter.incrementAndGet();
             });
             assertEquals(lastId, counter.get());
+        } finally {
+            for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
+                new File(filesIdPath + value).delete();
+            }
+        }
+    }
+
+    @Test
+    public void groupAddressesTest() {
+        final int lastId = 750;
+        createFiles(lastId);
+        rowIdManager = prepareRowIdManager();
+
+        try {
+            final List<RowAddress> rowAddresses = new ArrayList<>();
+            rowIdManager.stream(rowAddresses::add);
+            final List<RowIdManager.RowAddressGroup> groups = rowIdManager.groupAndSort(rowAddresses);
+            assertEquals(3, groups.size());
+            int fileIndex = 1;
+            int rowId = 1;
+            for (RowIdManager.RowAddressGroup rowAddressGroup : groups) {
+                assertEquals(filesRowPath + fileIndex, rowAddressGroup.fileName);
+                for (RowAddress rowAddress : rowAddressGroup.rowAddresses) {
+                    assertEquals(rowId, rowAddress.getId());
+                    rowId++;
+                }
+                fileIndex++;
+            }
         } finally {
             for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
                 new File(filesIdPath + value).delete();

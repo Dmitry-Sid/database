@@ -2,18 +2,28 @@ package sample.model;
 
 import sample.model.pojo.ICondition;
 import sample.model.pojo.Row;
+import sample.model.pojo.RowAddress;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class RepositoryImpl implements Repository {
     private final ObjectConverter objectConverter;
     private final RowIdManager rowIdManager;
     private final FileHelper fileHelper;
+    private final IndexService indexService;
+    private final ConditionService conditionService;
 
-    public RepositoryImpl(ObjectConverter objectConverter, RowIdManager rowIdManager, FileHelper fileHelper) {
+    public RepositoryImpl(ObjectConverter objectConverter, RowIdManager rowIdManager, FileHelper fileHelper, IndexService indexService, ConditionService conditionService) {
         this.objectConverter = objectConverter;
         this.rowIdManager = rowIdManager;
         this.fileHelper = fileHelper;
+        this.indexService = indexService;
+        this.conditionService = conditionService;
     }
 
     @Override
@@ -69,6 +79,34 @@ public class RepositoryImpl implements Repository {
 
     @Override
     public List<Row> getList(ICondition iCondition, int from, int size) {
-        return null;
+        if (from < 0) {
+            throw new RuntimeException("from cannot be negative");
+        }
+        if (size < 0) {
+            throw new RuntimeException("size cannot be negative");
+        }
+        if (size == 0) {
+            return Collections.emptyList();
+        }
+        final Set<Integer> idSet = indexService.search(iCondition);
+        final List<RowAddress> rowAddresses = new ArrayList<>();
+        idSet.forEach(id -> rowIdManager.process(id, rowAddresses::add));
+        final List<Row> rows = new ArrayList<>();
+        final AtomicBoolean stopChecker = new AtomicBoolean(false);
+        final AtomicInteger skipped = new AtomicInteger();
+        fileHelper.read(rowAddresses, bytes -> {
+            final Row row = objectConverter.fromBytes(Row.class, bytes);
+            if (conditionService.check(row, iCondition)) {
+                if (skipped.get() == from && rows.size() != size) {
+                    rows.add(row);
+                } else {
+                    skipped.getAndIncrement();
+                }
+            }
+            if (rows.size() == size) {
+                stopChecker.set(true);
+            }
+        }, stopChecker);
+        return rows;
     }
 }

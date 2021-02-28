@@ -7,6 +7,7 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.mockito.Mockito.mock;
 
 public class RepositoryTest {
     private static final String fileVariablesName = "rowIdVariables.test";
@@ -122,9 +123,18 @@ public class RepositoryTest {
     }
 
     private Repository prepareRepository() {
-        return new RepositoryImpl(new ObjectConverterImpl(),
-                TestUtils.prepareRowIdManager(maxIdSize, compressSize, fileVariablesName, filesIdPath, filesRowPath), new FileHelperImpl());
+        final RowIdManager rowIdManager = TestUtils.prepareRowIdManager(maxIdSize, compressSize, fileVariablesName, filesIdPath, filesRowPath);
+        return new RepositoryImpl(new ObjectConverterImpl(), rowIdManager, new FileHelperImpl(rowIdManager), mockIndexService(), new ConditionServiceImpl(mockModelService()));
     }
+
+    private IndexService mockIndexService() {
+        return mock(IndexService.class);
+    }
+
+    private ModelService mockModelService() {
+        return new ModelServiceImpl();
+    }
+
 
     private void createFiles(int lastId) {
         final Map<Integer, byte[]> map = TestUtils.createRowMap(lastId);

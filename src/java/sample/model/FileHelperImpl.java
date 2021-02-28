@@ -6,10 +6,18 @@ import sample.model.pojo.Pair;
 import sample.model.pojo.RowAddress;
 
 import java.io.*;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 public class FileHelperImpl implements FileHelper {
     private static final Logger log = LoggerFactory.getLogger(FileHelperImpl.class);
+
+    private final RowIdManager rowIdManager;
+
+    public FileHelperImpl(RowIdManager rowIdManager) {
+        this.rowIdManager = rowIdManager;
+    }
 
     @Override
     public void write(String fileName, byte[] bytes, boolean append) {
@@ -37,6 +45,42 @@ public class FileHelperImpl implements FileHelper {
             }
         });
     }
+
+    @Override
+    public void read(List<RowAddress> rowAddresses, Consumer<byte[]> consumer, AtomicBoolean stopChecker) {
+        for (RowIdManager.RowAddressGroup rowAddressGroup : rowIdManager.groupAndSort(rowAddresses)) {
+            if (stopChecker.get()) {
+                return;
+            }
+            LockService.doInFileLock(rowAddressGroup.fileName, () -> {
+                final Long[] lastPosition = {null};
+                try (FileInputStream fis = new FileInputStream(rowAddressGroup.fileName)) {
+                    for (RowAddress rowAddress : rowAddressGroup.rowAddresses) {
+                        try {
+                            if (lastPosition[0] == null) {
+                                fis.skip(rowAddress.getPosition());
+                                lastPosition[0] = rowAddress.getPosition() + rowAddress.getSize();
+                            } else {
+                                fis.skip(rowAddress.getPosition() - lastPosition[0]);
+                            }
+                            final byte[] bytes = new byte[rowAddress.getSize()];
+                            fis.read(bytes);
+                            consumer.accept(bytes);
+                            if (stopChecker.get()) {
+                                return null;
+                            }
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                return null;
+            });
+        }
+    }
+
 
     @Override
     public void collect(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer) {
