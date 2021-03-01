@@ -124,7 +124,7 @@ public class RepositoryTest {
 
     private Repository prepareRepository() {
         final RowIdManager rowIdManager = TestUtils.prepareRowIdManager(maxIdSize, compressSize, fileVariablesName, filesIdPath, filesRowPath);
-        return new RepositoryImpl(new ObjectConverterImpl(), rowIdManager, new FileHelperImpl(rowIdManager), mockIndexService(), new ConditionServiceImpl(mockModelService()));
+        return new RepositoryImpl(new ObjectConverterImpl(), rowIdManager, new FileHelperImpl(), mockIndexService(), new ConditionServiceImpl(mockModelService()));
     }
 
     private IndexService mockIndexService() {

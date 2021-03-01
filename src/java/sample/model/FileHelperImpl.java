@@ -11,12 +11,6 @@ import java.util.function.Consumer;
 public class FileHelperImpl implements FileHelper {
     private static final Logger log = LoggerFactory.getLogger(FileHelperImpl.class);
 
-    private final RowIdManager rowIdManager;
-
-    public FileHelperImpl(RowIdManager rowIdManager) {
-        this.rowIdManager = rowIdManager;
-    }
-
     @Override
     public void write(String fileName, byte[] bytes, boolean append) {
         LockService.doInFileLock(fileName, () -> {
@@ -52,16 +46,19 @@ public class FileHelperImpl implements FileHelper {
     @Override
     public void collect(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer) {
         actionWithRollBack(rowAddress.getFilePath(), (pair) -> {
-            try (FileInputStream input = new FileInputStream(pair.getFirst());
+            try (BufferedInputStream input = new BufferedInputStream(new FileInputStream(pair.getFirst()));
                  BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(pair.getSecond()), 10000)) {
                 long position = 0;
                 int bit;
+                input.mark(1);
                 while ((bit = input.read()) != -1) {
                     if (position == rowAddress.getPosition()) {
+                        input.reset();
                         inputOutputConsumer.accept(input, output);
                     } else {
                         output.write(bit);
                     }
+                    input.mark(1);
                     position++;
                 }
                 output.flush();
@@ -117,6 +114,7 @@ public class FileHelperImpl implements FileHelper {
     public class ChainLockInputStream implements ChainInputStream {
         private String currentFileName;
         private InputStream currentInputStream;
+        private boolean closed = true;
 
         public void read(String fileName) {
             close();
@@ -124,6 +122,7 @@ public class FileHelperImpl implements FileHelper {
             try {
                 currentFileName = fileName;
                 currentInputStream = new FileInputStream(fileName);
+                closed = false;
             } catch (FileNotFoundException e) {
                 close();
                 throw new RuntimeException(e);
@@ -147,10 +146,16 @@ public class FileHelperImpl implements FileHelper {
             if (currentInputStream != null) {
                 try {
                     currentInputStream.close();
+                    closed = true;
                 } catch (IOException e) {
                     log.warn(e.toString());
                 }
             }
+        }
+
+        @Override
+        public boolean isClosed() {
+            return closed;
         }
     }
 }

@@ -2,6 +2,7 @@ package sample.model;
 
 import sample.model.pojo.RowAddress;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -20,13 +21,13 @@ public interface FileHelper {
         void accept(InputStream inputStream, OutputStream outputStream) throws IOException;
     }
 
-    public interface ChainInputStream {
+    public interface ChainInputStream extends Closeable {
         public void read(String fileName);
 
         public String getFileName();
 
         public InputStream getInputStream();
 
-        public void close();
+        public boolean isClosed();
     }
 }

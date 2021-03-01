@@ -35,7 +35,7 @@ public class RepositoryImpl implements Repository {
                 processed = LockService.doInRowIdLock(row.getId(), () -> rowIdManager.process(row.getId(),
                         rowAddress -> fileHelper.collect(rowAddress, (inputStream, outputStream) -> {
                             final byte[] rowBytes = objectConverter.toBytes(row);
-                            inputStream.skip(rowAddress.getSize() - 1);
+                            inputStream.skip(rowAddress.getSize());
                             outputStream.write(rowBytes);
                             rowIdManager.transform(rowAddress.getId(), rowBytes.length);
                         })));
@@ -58,7 +58,7 @@ public class RepositoryImpl implements Repository {
         LockService.doInRowIdLock(id, () -> {
             final boolean processed = rowIdManager.process(id, rowAddress ->
                     fileHelper.collect(rowAddress, (inputStream, outputStream) -> {
-                        inputStream.skip(rowAddress.getSize() - 1);
+                        inputStream.skip(rowAddress.getSize());
                         rowIdManager.delete(id);
                         // transformIndexes(row, processed);
                     }));
@@ -125,8 +125,14 @@ public class RepositoryImpl implements Repository {
                     stopChecker.set(true);
                 }
             } catch (IOException e) {
-                chainInputStream.close();
                 throw new RuntimeException(e);
+            } catch (Throwable e) {
+                try {
+                    chainInputStream.close();
+                } catch (IOException ex) {
+                    e.addSuppressed(ex);
+                }
+                throw e;
             }
         }, stopChecker);
         return rows;
