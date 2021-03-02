@@ -95,46 +95,47 @@ public class RepositoryImpl implements Repository {
         final AtomicInteger skipped = new AtomicInteger();
         final AtomicLong lastPosition = new AtomicLong(0);
         final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream();
-        rowIdManager.process(indexService.search(iCondition), rowAddress -> {
-            try {
-                if (fileName.get() == null) {
-                    fileName.set(rowAddress.getFilePath());
-                    chainInputStream.read(rowAddress.getFilePath());
-                } else if (!fileName.get().equals(rowAddress.getFilePath())) {
-                    lastPosition.set(0);
-                    fileName.set(rowAddress.getFilePath());
-                    chainInputStream.read(rowAddress.getFilePath());
-                }
-                if (lastPosition.get() == 0 && rowAddress.getSize() != 0) {
-                    chainInputStream.getInputStream().skip(rowAddress.getPosition());
-                    lastPosition.set(rowAddress.getPosition() + rowAddress.getSize());
-                } else {
-                    chainInputStream.getInputStream().skip(rowAddress.getPosition() - lastPosition.get());
-                }
-                final byte[] bytes = new byte[rowAddress.getSize()];
-                chainInputStream.getInputStream().read(bytes);
-                final Row row = objectConverter.fromBytes(Row.class, bytes);
-                if (conditionService.check(row, iCondition)) {
-                    if (skipped.get() == from && rows.size() != size) {
-                        rows.add(row);
-                    } else {
-                        skipped.getAndIncrement();
+        try {
+            rowIdManager.process(indexService.search(iCondition), rowAddress -> {
+                try {
+                    if (fileName.get() == null) {
+                        fileName.set(rowAddress.getFilePath());
+                        chainInputStream.read(rowAddress.getFilePath());
+                    } else if (!fileName.get().equals(rowAddress.getFilePath())) {
+                        lastPosition.set(0);
+                        fileName.set(rowAddress.getFilePath());
+                        chainInputStream.read(rowAddress.getFilePath());
                     }
+                    if (lastPosition.get() == 0 && rowAddress.getSize() != 0) {
+                        chainInputStream.getInputStream().skip(rowAddress.getPosition());
+                    } else {
+                        chainInputStream.getInputStream().skip(rowAddress.getPosition() - lastPosition.get());
+                    }
+                    lastPosition.set(rowAddress.getPosition() + rowAddress.getSize());
+                    final byte[] bytes = new byte[rowAddress.getSize()];
+                    chainInputStream.getInputStream().read(bytes);
+                    final Row row = objectConverter.fromBytes(Row.class, bytes);
+                    if (conditionService.check(row, iCondition)) {
+                        if (skipped.get() == from && rows.size() != size) {
+                            rows.add(row);
+                        } else {
+                            skipped.getAndIncrement();
+                        }
+                    }
+                    if (rows.size() == size) {
+                        stopChecker.set(true);
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
-                if (rows.size() == size) {
-                    stopChecker.set(true);
-                }
+            }, stopChecker);
+        } finally {
+            try {
+                chainInputStream.close();
             } catch (IOException e) {
                 throw new RuntimeException(e);
-            } catch (Throwable e) {
-                try {
-                    chainInputStream.close();
-                } catch (IOException ex) {
-                    e.addSuppressed(ex);
-                }
-                throw e;
             }
-        }, stopChecker);
+        }
         return rows;
     }
 }

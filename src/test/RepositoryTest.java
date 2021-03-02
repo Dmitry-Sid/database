@@ -1,13 +1,18 @@
 import org.junit.After;
 import org.junit.Test;
 import sample.model.*;
+import sample.model.pojo.ICondition;
+import sample.model.pojo.Row;
+import sample.model.pojo.SimpleCondition;
 
 import java.io.File;
-import java.util.Map;
+import java.util.*;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class RepositoryTest {
     private static final String fileVariablesName = "rowIdVariables.test";
@@ -122,13 +127,133 @@ public class RepositoryTest {
         }
     }
 
+    @Test
+    public void getListTest() {
+        int lastId = 750;
+        try {
+            createFiles(lastId);
+            final Repository repository = prepareRepository();
+            for (int i = 10; i <= 60; i++) {
+                final Map<String, Comparable> map = new HashMap<>();
+                map.put("int", i - 20);
+                repository.add(new Row(i, map));
+            }
+            assertEquals(40, repository.get(60).getFields().get("int"));
+            for (int i = 230; i <= 330; i++) {
+                final Map<String, Comparable> map = new HashMap<>();
+                map.put("String", "ess");
+                repository.add(new Row(i, map));
+            }
+            assertEquals("ess", repository.get(330).getFields().get("String"));
+            {
+                final ICondition condition = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
+                List<Row> rows = repository.getList(condition, 0, 60);
+                assertEquals(20, rows.size());
+                for (int i = 0; i < 20; i++) {
+                    final Map<String, Comparable> map = new HashMap<>();
+                    map.put("int", i + 21);
+                    assertEquals(new Row(i + 41, map), rows.get(i));
+                    assertEquals(repository.get(i + 41), rows.get(i));
+                }
+                rows = repository.getList(condition, 0, 15);
+                assertEquals(15, rows.size());
+                for (int i = 0; i < 15; i++) {
+                    final Map<String, Comparable> map = new HashMap<>();
+                    map.put("int", i + 21);
+                    assertEquals(new Row(i + 41, map), rows.get(i));
+                    assertEquals(repository.get(i + 41), rows.get(i));
+                }
+                rows = repository.getList(condition, 0, 10);
+                assertEquals(10, rows.size());
+                for (int i = 0; i < 10; i++) {
+                    final Map<String, Comparable> map = new HashMap<>();
+                    map.put("int", i + 21);
+                    assertEquals(new Row(i + 41, map), rows.get(i));
+                    assertEquals(repository.get(i + 41), rows.get(i));
+                }
+                rows = repository.getList(condition, 10, 10);
+                assertEquals(10, rows.size());
+                for (int i = 0; i < 10; i++) {
+                    final Map<String, Comparable> map = new HashMap<>();
+                    map.put("int", i + 31);
+                    assertEquals(new Row(i + 51, map), rows.get(i));
+                    assertEquals(repository.get(i + 51), rows.get(i));
+                }
+            }
+            {
+                final ICondition condition = new SimpleCondition(ICondition.SimpleType.LIKE, "String", "es");
+                List<Row> rows = repository.getList(condition, 0, 60);
+                assertEquals(51, rows.size());
+                for (int i = 0; i < 51; i++) {
+                    final Map<String, Comparable> map = new HashMap<>();
+                    map.put("String", "ess");
+                    assertEquals(new Row(i + 230, map), rows.get(i));
+                    assertEquals(repository.get(i + 230), rows.get(i));
+                }
+                rows = repository.getList(condition, 0, 15);
+                assertEquals(15, rows.size());
+                for (int i = 0; i < 15; i++) {
+                    final Map<String, Comparable> map = new HashMap<>();
+                    map.put("String", "ess");
+                    assertEquals(new Row(i + 230, map), rows.get(i));
+                    assertEquals(repository.get(i + 230), rows.get(i));
+                }
+                rows = repository.getList(condition, 0, 10);
+                assertEquals(10, rows.size());
+                for (int i = 0; i < 10; i++) {
+                    final Map<String, Comparable> map = new HashMap<>();
+                    map.put("String", "ess");
+                    assertEquals(new Row(i + 230, map), rows.get(i));
+                    assertEquals(repository.get(i + 230), rows.get(i));
+                }
+                rows = repository.getList(condition, 10, 10);
+                assertEquals(10, rows.size());
+                for (int i = 0; i < 10; i++) {
+                    final Map<String, Comparable> map = new HashMap<>();
+                    map.put("String", "ess");
+                    assertEquals(new Row(i + 240, map), rows.get(i));
+                    assertEquals(repository.get(i + 240), rows.get(i));
+                }
+            }
+        } finally {
+            for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
+                new File(filesIdPath + value).delete();
+            }
+            String lastFileName = null;
+            for (Map.Entry<Integer, byte[]> entry : TestUtils.createRowMap(lastId).entrySet()) {
+                final String fileName = filesRowPath + TestUtils.getRowFileNumber(entry.getKey(), maxIdSize / compressSize);
+                if (!fileName.equals(lastFileName)) {
+                    lastFileName = fileName;
+                    new File(fileName).delete();
+                }
+            }
+        }
+    }
+
     private Repository prepareRepository() {
         final RowIdManager rowIdManager = TestUtils.prepareRowIdManager(maxIdSize, compressSize, fileVariablesName, filesIdPath, filesRowPath);
         return new RepositoryImpl(new ObjectConverterImpl(), rowIdManager, new FileHelperImpl(), mockIndexService(), new ConditionServiceImpl(mockModelService()));
     }
 
     private IndexService mockIndexService() {
-        return mock(IndexService.class);
+        final IndexService indexService = mock(IndexService.class);
+        final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
+        final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LIKE, "String", "es");
+        when(indexService.search(any(ICondition.class))).thenAnswer(invocation -> {
+            final ICondition condition = (ICondition) invocation.getArguments()[0];
+            final Set<Integer> set = new HashSet<>();
+            if (condition1.equals(condition)) {
+                for (int i = 10; i <= 60; i++) {
+                    set.add(i);
+                }
+            } else if (condition2.equals(condition)) {
+                for (int i = 230; i <= 280; i++) {
+                    set.add(i);
+                }
+            }
+            return set;
+        });
+        return indexService;
     }
 
     private ModelService mockModelService() {
