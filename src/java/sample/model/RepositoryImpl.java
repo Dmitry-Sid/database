@@ -94,8 +94,7 @@ public class RepositoryImpl implements Repository {
         final AtomicBoolean stopChecker = new AtomicBoolean(false);
         final AtomicInteger skipped = new AtomicInteger();
         final AtomicLong lastPosition = new AtomicLong(0);
-        final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream();
-        try {
+        try (final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream()) {
             rowIdManager.process(indexService.search(iCondition), rowAddress -> {
                 try {
                     if (fileName.get() == null) {
@@ -129,12 +128,8 @@ public class RepositoryImpl implements Repository {
                     throw new RuntimeException(e);
                 }
             }, stopChecker);
-        } finally {
-            try {
-                chainInputStream.close();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
         return rows;
     }
