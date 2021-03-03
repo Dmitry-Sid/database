@@ -4,7 +4,9 @@ import org.apache.commons.lang3.StringUtils;
 import sample.model.pojo.*;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ConditionServiceImpl implements ConditionService {
     private static final ICondition empty = new EmptyCondition();
@@ -145,6 +147,55 @@ public class ConditionServiceImpl implements ConditionService {
         }
         throw new ConditionException("Unknown condition class : " + condition.getClass());
     }
+
+    @Override
+    public ICondition getFieldCondition(ICondition condition, String field) {
+        if (StringUtils.isBlank(field)) {
+            throw new RuntimeException("empty field");
+        }
+        if (condition instanceof SimpleCondition) {
+            if (field.equals(((SimpleCondition) condition).getField())) {
+                return condition;
+            }
+        } else if (condition instanceof ComplexCondition) {
+            final ComplexCondition complexCondition = (ComplexCondition) condition;
+            final Set<ICondition> conditions = new HashSet<>();
+            for (ICondition iCondition : complexCondition.getConditions()) {
+                final ICondition fieldCondition = getFieldCondition(iCondition, field);
+                if (fieldCondition != null) {
+                    conditions.add(fieldCondition);
+                }
+            }
+            if (conditions.isEmpty()) {
+                return null;
+            }
+            if (conditions.size() == 1) {
+                return conditions.stream().findAny().get();
+            }
+            return new ComplexCondition(complexCondition.getType(), conditions);
+        } else if (!(condition instanceof EmptyCondition)) {
+            throw new ConditionException("Unknown condition class : " + condition.getClass());
+        }
+        return null;
+    }
+/*
+    @Override
+    public List<ICondition> getFieldConditions(ICondition condition, String field) {
+        if (StringUtils.isBlank(field)) {
+            throw new RuntimeException("empty field");
+        }
+        final List<ICondition> conditions = new ArrayList<>();
+        if (condition instanceof SimpleCondition && field.equals(((SimpleCondition) condition).getField())) {
+            conditions.add(condition);
+        } else if (condition instanceof ComplexCondition) {
+            for (ICondition iCondition : ((ComplexCondition) condition).getConditions()) {
+                conditions.addAll(getFieldConditions(iCondition, field));
+            }
+        } else if (!(condition instanceof EmptyCondition)) {
+            throw new ConditionException("Unknown condition class : " + condition.getClass());
+        }
+        return conditions;
+    }*/
 
     private boolean check(Row row, ComplexCondition condition) {
         Boolean result = null;

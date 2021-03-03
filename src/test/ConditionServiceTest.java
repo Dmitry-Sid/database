@@ -236,4 +236,80 @@ public class ConditionServiceTest {
         }
     }
 
+    @Test
+    public void getFieldCondition() {
+        {
+            final ICondition condition = new SimpleCondition(ICondition.SimpleType.EQ, "int", 50);
+            assertEquals(condition, conditionService.getFieldCondition(condition, "int"));
+            assertNull(conditionService.getFieldCondition(condition, "String"));
+        }
+        {
+            final ICondition condition = new SimpleCondition(ICondition.SimpleType.LIKE, "String", "es");
+            assertEquals(condition, conditionService.getFieldCondition(condition, "String"));
+            assertNull(conditionService.getFieldCondition(condition, "int"));
+        }
+        {
+            final ICondition condition = new ComplexCondition(ICondition.ComplexType.AND,
+                    new SimpleCondition(ICondition.SimpleType.EQ, "int", 50),
+                    new SimpleCondition(ICondition.SimpleType.EQ, "double", 25.15));
+            assertEquals(new SimpleCondition(ICondition.SimpleType.EQ, "int", 50),
+                    conditionService.getFieldCondition(condition, "int"));
+            assertEquals(new SimpleCondition(ICondition.SimpleType.EQ, "double", 25.15),
+                    conditionService.getFieldCondition(condition, "double"));
+            assertNull(conditionService.getFieldCondition(condition, "String"));
+        }
+        {
+            final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
+                    new ComplexCondition(ICondition.ComplexType.AND,
+                            new SimpleCondition(ICondition.SimpleType.EQ, "int", 50),
+                            new SimpleCondition(ICondition.SimpleType.EQ, "double", 30.0)),
+                    new ComplexCondition(ICondition.ComplexType.AND,
+                            new SimpleCondition(ICondition.SimpleType.LTE, "int", 51),
+                            new SimpleCondition(ICondition.SimpleType.EQ, "String", "test")));
+            assertEquals(new ComplexCondition(ICondition.ComplexType.OR,
+                            new SimpleCondition(ICondition.SimpleType.EQ, "int", 50),
+                            new SimpleCondition(ICondition.SimpleType.LTE, "int", 51)),
+                    conditionService.getFieldCondition(condition, "int"));
+            assertEquals(new SimpleCondition(ICondition.SimpleType.EQ, "double", 30.0),
+                    conditionService.getFieldCondition(condition, "double"));
+            assertEquals(new SimpleCondition(ICondition.SimpleType.EQ, "String", "test"),
+                    conditionService.getFieldCondition(condition, "String"));
+        }
+        {
+            final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
+                    new ComplexCondition(ICondition.ComplexType.AND,
+                            new ComplexCondition(ICondition.ComplexType.OR,
+                                    new SimpleCondition(ICondition.SimpleType.GTE, "int", 15),
+                                    new SimpleCondition(ICondition.SimpleType.NOT, "int", 51)),
+                            new SimpleCondition(ICondition.SimpleType.EQ, "int", 50),
+                            new SimpleCondition(ICondition.SimpleType.EQ, "double", 30.0)),
+                    new SimpleCondition(ICondition.SimpleType.EQ, "String", "test"),
+                    new ComplexCondition(ICondition.ComplexType.AND,
+                            new SimpleCondition(ICondition.SimpleType.LTE, "int", 50),
+                            new SimpleCondition(ICondition.SimpleType.GT, "double", 30.0),
+                            new ComplexCondition(ICondition.ComplexType.AND,
+                                    new SimpleCondition(ICondition.SimpleType.GT, "String", "st"),
+                                    new SimpleCondition(ICondition.SimpleType.GTE, "double", 20.0))));
+
+            assertEquals(new ComplexCondition(ICondition.ComplexType.OR,
+                            new ComplexCondition(ICondition.ComplexType.AND,
+                                    new ComplexCondition(ICondition.ComplexType.OR,
+                                            new SimpleCondition(ICondition.SimpleType.GTE, "int", 15),
+                                            new SimpleCondition(ICondition.SimpleType.NOT, "int", 51)),
+                                    new SimpleCondition(ICondition.SimpleType.EQ, "int", 50)),
+                            new SimpleCondition(ICondition.SimpleType.LTE, "int", 50)),
+                    conditionService.getFieldCondition(condition, "int"));
+            assertEquals(new ComplexCondition(ICondition.ComplexType.OR,
+                            new SimpleCondition(ICondition.SimpleType.EQ, "double", 30.0),
+                            new ComplexCondition(ICondition.ComplexType.AND,
+                                    new SimpleCondition(ICondition.SimpleType.GT, "double", 30.0),
+                                    new SimpleCondition(ICondition.SimpleType.GTE, "double", 20.0))),
+                    conditionService.getFieldCondition(condition, "double"));
+            assertEquals(new ComplexCondition(ICondition.ComplexType.OR,
+                            new SimpleCondition(ICondition.SimpleType.EQ, "String", "test"),
+                            new SimpleCondition(ICondition.SimpleType.GT, "String", "st")),
+                    conditionService.getFieldCondition(condition, "String"));
+        }
+    }
+
 }

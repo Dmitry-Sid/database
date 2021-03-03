@@ -9,4 +9,5 @@ public interface ConditionService {
 
     public boolean check(Row row, ICondition condition);
 
+    public ICondition getFieldCondition(ICondition condition, String field);
 }

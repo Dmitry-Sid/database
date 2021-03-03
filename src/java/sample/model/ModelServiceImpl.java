@@ -1,6 +1,13 @@
 package sample.model;
 
+import java.util.Set;
+
 public class ModelServiceImpl implements ModelService {
+    @Override
+    public Set<String> getIndexedFields() {
+        return null;
+    }
+
     @Override
     public boolean containsField(String field) {
         return "String".equalsIgnoreCase(field) || "int".equalsIgnoreCase(field) || "double".equalsIgnoreCase(field);

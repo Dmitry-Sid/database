@@ -36,10 +36,13 @@ public class RepositoryImpl implements Repository {
             if (row.getId() != 0) {
                 processed = LockService.doInRowIdLock(row.getId(), () -> rowIdManager.process(row.getId(),
                         rowAddress -> fileHelper.collect(rowAddress, (inputStream, outputStream) -> {
+                            final byte[] oldRowBytes = new byte[rowAddress.getSize()];
+                            inputStream.read(oldRowBytes);
+                            final Row oldRow = objectConverter.fromBytes(Row.class, oldRowBytes);
                             final byte[] rowBytes = objectConverter.toBytes(row);
-                            inputStream.skip(rowAddress.getSize());
                             outputStream.write(rowBytes);
                             rowIdManager.transform(rowAddress.getId(), rowBytes.length);
+                            indexService.transform(oldRow, row);
                         })));
             }
             if (!processed) {
@@ -50,25 +53,24 @@ public class RepositoryImpl implements Repository {
                     fileHelper.write(rowAddress.getFilePath(), rowBytes, true);
                     return true;
                 });
+                indexService.insert(row);
             }
-            // transformIndexes(row, processed);
         }
     }
 
     @Override
     public void delete(int id) {
-        LockService.doInRowIdLock(id, () -> {
-            final boolean processed = rowIdManager.process(id, rowAddress ->
-                    fileHelper.collect(rowAddress, (inputStream, outputStream) -> {
-                        inputStream.skip(rowAddress.getSize());
-                        rowIdManager.delete(id);
-                        // transformIndexes(row, processed);
-                    }));
-            if (!processed) {
-                throw new RuntimeException("unknown id : " + id);
-            }
-            return null;
-        });
+        final boolean processed = LockService.doInRowIdLock(id, () -> rowIdManager.process(id, rowAddress ->
+                fileHelper.collect(rowAddress, (inputStream, outputStream) -> {
+                    final byte[] oldRowBytes = new byte[rowAddress.getSize()];
+                    inputStream.read(oldRowBytes);
+                    final Row row = objectConverter.fromBytes(Row.class, oldRowBytes);
+                    rowIdManager.delete(id);
+                    indexService.delete(row);
+                })));
+        if (!processed) {
+            throw new RuntimeException("unknown id : " + id);
+        }
     }
 
     @Override
