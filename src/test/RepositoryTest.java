@@ -251,7 +251,7 @@ public class RepositoryTest {
                     set.add(i);
                 }
             }
-            return set;
+            return new IndexService.SearchResult(true, set);
         });
         return indexService;
     }

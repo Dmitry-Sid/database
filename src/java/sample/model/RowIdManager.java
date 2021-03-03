@@ -13,7 +13,7 @@ public interface RowIdManager {
 
     public void process(Set<Integer> inputSet, Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker);
 
-    public void stream(Consumer<RowAddress> rowAddressConsumer);
+    public void stream(Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker);
 
     public void transform(int id, int newSize);
 

@@ -7,6 +7,7 @@ import sample.model.pojo.RowAddress;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
@@ -372,7 +373,7 @@ public class RowIdManagerTest {
                     assertEquals(rowAddress, rowAddressProcessed);
                 }));
                 counter.incrementAndGet();
-            });
+            }, new AtomicBoolean(false));
             assertEquals(lastId, counter.get());
         } finally {
             for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {

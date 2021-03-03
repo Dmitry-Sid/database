@@ -2,6 +2,7 @@ package sample.model;
 
 import sample.model.pojo.ICondition;
 import sample.model.pojo.Row;
+import sample.model.pojo.RowAddress;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -11,6 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 public class RepositoryImpl implements Repository {
     private final ObjectConverter objectConverter;
@@ -95,7 +97,7 @@ public class RepositoryImpl implements Repository {
         final AtomicInteger skipped = new AtomicInteger();
         final AtomicLong lastPosition = new AtomicLong(0);
         try (final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream()) {
-            rowIdManager.process(indexService.search(iCondition), rowAddress -> {
+            final Consumer<RowAddress> rowAddressConsumer = rowAddress -> {
                 try {
                     if (fileName.get() == null) {
                         fileName.set(rowAddress.getFilePath());
@@ -127,7 +129,13 @@ public class RepositoryImpl implements Repository {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-            }, stopChecker);
+            };
+            final IndexService.SearchResult searchResult = indexService.search(iCondition);
+            if (searchResult.found) {
+                rowIdManager.process(searchResult.idSet, rowAddressConsumer, stopChecker);
+            } else {
+                rowIdManager.stream(rowAddressConsumer, stopChecker);
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

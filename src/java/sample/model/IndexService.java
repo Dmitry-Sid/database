@@ -6,6 +6,15 @@ import java.util.Set;
 
 public interface IndexService {
 
-    public Set<Integer> search(ICondition iCondition);
+    public SearchResult search(ICondition iCondition);
 
+    public class SearchResult {
+        public final boolean found;
+        public final Set<Integer> idSet;
+
+        public SearchResult(boolean found, Set<Integer> idSet) {
+            this.found = found;
+            this.idSet = idSet;
+        }
+    }
 }

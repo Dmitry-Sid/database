@@ -69,27 +69,35 @@ public class RowIdManagerImpl implements RowIdManager {
     }
 
     @Override
-    public void stream(Consumer<RowAddress> rowAddressConsumer) {
-        variables.idBatches.forEach(value -> {
+    public void stream(Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker) {
+        for (Integer value : variables.idBatches) {
+            if (stopChecker.get()) {
+                return;
+            }
             final String fileName = filesIdPath + value;
             LockService.doInFileLock(fileName, () -> {
                 synchronized (CACHED_LOCK) {
                     if (variables.cachedRowAddresses.fileName.equals(fileName)) {
-                        stream(variables.cachedRowAddresses.rowAddressMap, rowAddressConsumer);
+                        stream(variables.cachedRowAddresses.rowAddressMap, rowAddressConsumer, stopChecker);
                         return null;
                     }
                 }
-                stream(getRowAddressesFromFile(fileName), rowAddressConsumer);
+                stream(getRowAddressesFromFile(fileName), rowAddressConsumer, stopChecker);
                 return null;
             });
-        });
+        }
     }
 
-    private void stream(Map<Integer, RowAddress> rowAddressMap, Consumer<RowAddress> rowAddressConsumer) {
-        rowAddressMap.forEach((key, value) -> LockService.doInRowIdLock(key, () -> {
-            rowAddressConsumer.accept(value);
-            return null;
-        }));
+    private void stream(Map<Integer, RowAddress> rowAddressMap, Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker) {
+        for (Map.Entry<Integer, RowAddress> entry : rowAddressMap.entrySet()) {
+            if (stopChecker.get()) {
+                return;
+            }
+            LockService.doInRowIdLock(entry.getKey(), () -> {
+                rowAddressConsumer.accept(entry.getValue());
+                return null;
+            });
+        }
     }
 
     @Override
