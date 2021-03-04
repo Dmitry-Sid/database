@@ -5,6 +5,7 @@ import java.util.function.Supplier;
 public class LockService {
     private static final Lock<Integer> rowIdLock = new Lock<>();
     private static final Lock<String> fileLock = new Lock<>();
+    private static final Lock<Comparable> comparableLock = new Lock<>();
 
     public static Lock<Integer> getRowIdLock() {
         return rowIdLock;
@@ -14,6 +15,9 @@ public class LockService {
         return fileLock;
     }
 
+    public static Lock<Comparable> getComparableLock() {
+        return comparableLock;
+    }
 
     public static <T> T doInRowIdLock(int id, Supplier<T> supplier) {
         return doInLock(rowIdLock, id, supplier);
@@ -21,6 +25,10 @@ public class LockService {
 
     public static <T> T doInFileLock(String fileName, Supplier<T> supplier) {
         return doInLock(fileLock, fileName, supplier);
+    }
+
+    public static <T> T doInComparableLock(Comparable comparable, Supplier<T> supplier) {
+        return doInLock(comparableLock, comparable, supplier);
     }
 
     private static <U, T> T doInLock(Lock<U> lock, U value, Supplier<T> supplier) {

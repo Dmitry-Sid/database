@@ -1,13 +1,14 @@
 package sample.model;
 
+import sample.model.pojo.BinarySearchDirection;
 import sample.model.pojo.ICondition;
-import sample.model.pojo.Row;
+import sample.model.pojo.SimpleCondition;
 
 public interface ConditionService {
 
     public ICondition parse(String input);
 
-    public boolean check(Row row, ICondition condition);
+    public <T> boolean check(T value, ICondition condition);
 
-    public ICondition getFieldCondition(ICondition condition, String field);
+    public BinarySearchDirection determineDirection(Comparable value, SimpleCondition condition);
 }

@@ -7,7 +7,7 @@ import java.util.Set;
 
 public interface IndexService {
 
-    public SearchResult search(ICondition iCondition);
+    public SearchResult search(ICondition condition);
 
     public void transform(Row oldRow, Row row);
 

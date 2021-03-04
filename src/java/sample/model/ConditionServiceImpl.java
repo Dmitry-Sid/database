@@ -4,9 +4,7 @@ import org.apache.commons.lang3.StringUtils;
 import sample.model.pojo.*;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public class ConditionServiceImpl implements ConditionService {
     private static final ICondition empty = new EmptyCondition();
@@ -137,79 +135,30 @@ public class ConditionServiceImpl implements ConditionService {
     }
 
     @Override
-    public boolean check(Row row, ICondition condition) {
+    public <T> boolean check(T value, ICondition condition) {
         if (condition instanceof SimpleCondition) {
-            return check(row, (SimpleCondition) condition);
+            return check(value, (SimpleCondition) condition);
         } else if (condition instanceof ComplexCondition) {
-            return check(row, (ComplexCondition) condition);
+            return check(value, (ComplexCondition) condition);
         } else if (condition instanceof EmptyCondition) {
             return true;
         }
         throw new ConditionException("Unknown condition class : " + condition.getClass());
     }
 
-    @Override
-    public ICondition getFieldCondition(ICondition condition, String field) {
-        if (StringUtils.isBlank(field)) {
-            throw new RuntimeException("empty field");
-        }
-        if (condition instanceof SimpleCondition) {
-            if (field.equals(((SimpleCondition) condition).getField())) {
-                return condition;
-            }
-        } else if (condition instanceof ComplexCondition) {
-            final ComplexCondition complexCondition = (ComplexCondition) condition;
-            final Set<ICondition> conditions = new HashSet<>();
-            for (ICondition iCondition : complexCondition.getConditions()) {
-                final ICondition fieldCondition = getFieldCondition(iCondition, field);
-                if (fieldCondition != null) {
-                    conditions.add(fieldCondition);
-                }
-            }
-            if (conditions.isEmpty()) {
-                return null;
-            }
-            if (conditions.size() == 1) {
-                return conditions.stream().findAny().get();
-            }
-            return new ComplexCondition(complexCondition.getType(), conditions);
-        } else if (!(condition instanceof EmptyCondition)) {
-            throw new ConditionException("Unknown condition class : " + condition.getClass());
-        }
-        return null;
-    }
-/*
-    @Override
-    public List<ICondition> getFieldConditions(ICondition condition, String field) {
-        if (StringUtils.isBlank(field)) {
-            throw new RuntimeException("empty field");
-        }
-        final List<ICondition> conditions = new ArrayList<>();
-        if (condition instanceof SimpleCondition && field.equals(((SimpleCondition) condition).getField())) {
-            conditions.add(condition);
-        } else if (condition instanceof ComplexCondition) {
-            for (ICondition iCondition : ((ComplexCondition) condition).getConditions()) {
-                conditions.addAll(getFieldConditions(iCondition, field));
-            }
-        } else if (!(condition instanceof EmptyCondition)) {
-            throw new ConditionException("Unknown condition class : " + condition.getClass());
-        }
-        return conditions;
-    }*/
-
-    private boolean check(Row row, ComplexCondition condition) {
+    private <T> boolean check(T value, ComplexCondition condition) {
         Boolean result = null;
         for (ICondition innerCondition : condition.getConditions()) {
             if (result == null) {
-                result = check(row, innerCondition);
+                result = check(value, innerCondition);
                 continue;
             }
             switch (condition.getType()) {
                 case OR:
-                    result = result || check(row, innerCondition);
+                    result = result || check(value, innerCondition);
                     break;
                 case AND:
-                    result = result && check(row, innerCondition);
+                    result = result && check(value, innerCondition);
                     break;
                 default:
                     throw new ConditionException("Unknown complex type : " + condition.getType());
@@ -221,13 +170,21 @@ public class ConditionServiceImpl implements ConditionService {
         return result;
     }
 
-    private boolean check(Row row, SimpleCondition condition) {
-        if (!row.getFields().containsKey(condition.getField())) {
-            throw new ConditionException("unknown field " + condition.getField());
+    private <T> boolean check(T input, SimpleCondition condition) {
+        final Comparable value;
+        if (input instanceof Row) {
+            final Row row = (Row) input;
+            if (!row.getFields().containsKey(condition.getField())) {
+                throw new ConditionException("unknown field " + condition.getField());
+            }
+            value = row.getFields().get(condition.getField());
+        } else if (input instanceof Comparable) {
+            value = (Comparable) input;
+        } else {
+            throw new ConditionException("unknown type if input :" + input);
         }
-        final Comparable value = row.getFields().get(condition.getField());
         if (value == null) {
-            return condition.getValue() == null;
+            throw new ConditionException("unknown field " + condition.getField());
         }
         if (ICondition.SimpleType.LIKE.equals(condition.getType())) {
             if (condition.getValue() == null) {
@@ -249,6 +206,45 @@ public class ConditionServiceImpl implements ConditionService {
                 return compareResult >= 0;
             case LTE:
                 return compareResult <= 0;
+            default:
+                throw new ConditionException("Unknown simple type : " + condition.getType());
+        }
+    }
+
+    @Override
+    public BinarySearchDirection determineDirection(Comparable value, SimpleCondition condition) {
+        if (value == null) {
+            throw new ConditionException("unknown field " + condition.getField());
+        }
+        if (ICondition.SimpleType.LIKE.equals(condition.getType())) {
+            if (condition.getValue() == null) {
+                return BinarySearchDirection.NONE;
+            }
+            return BinarySearchDirection.BOTH;
+        }
+        final int compareResult = value.compareTo(condition.getValue());
+        switch (condition.getType()) {
+            case EQ:
+                if (compareResult == 0) {
+                    return BinarySearchDirection.NONE;
+                } else if (compareResult > 0) {
+                    return BinarySearchDirection.LEFT;
+                }
+                return BinarySearchDirection.RIGHT;
+            case NOT:
+                return BinarySearchDirection.BOTH;
+            case GT:
+            case GTE:
+                if (compareResult > 0) {
+                    return BinarySearchDirection.BOTH;
+                }
+                return BinarySearchDirection.RIGHT;
+            case LT:
+            case LTE:
+                if (compareResult < 0) {
+                    return BinarySearchDirection.BOTH;
+                }
+                return BinarySearchDirection.LEFT;
             default:
                 throw new ConditionException("Unknown simple type : " + condition.getType());
         }
