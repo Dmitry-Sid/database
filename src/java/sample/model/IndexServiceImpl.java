@@ -3,23 +3,20 @@ package sample.model;
 import sample.model.pojo.*;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 public class IndexServiceImpl implements IndexService {
     private static final SearchResult EMPTY = new SearchResult(false, Collections.emptySet());
-    private final ConditionService conditionService;
     private final Map<String, FieldKeeper<Integer>> fieldKeepers;
 
-    public IndexServiceImpl(ConditionService conditionService, Map<String, FieldKeeper<Integer>> fieldKeepers) {
-        this.conditionService = conditionService;
+    public IndexServiceImpl(Map<String, FieldKeeper<Integer>> fieldKeepers) {
         this.fieldKeepers = fieldKeepers;
     }
 
     @Override
     public SearchResult search(ICondition condition) {
-        if (condition instanceof EmptyCondition) {
+        if (condition == null || condition instanceof EmptyCondition) {
             return EMPTY;
         }
         return new SearchResult(true, searchIdSet(condition));
@@ -37,8 +34,12 @@ public class IndexServiceImpl implements IndexService {
     }
 
     private Set<Integer> searchIdSet(ComplexCondition condition) {
-        final Set<Integer> result = new HashSet<>();
+        Set<Integer> result = null;
         for (ICondition innerCondition : condition.getConditions()) {
+            if (result == null) {
+                result = searchIdSet(innerCondition);
+                continue;
+            }
             switch (condition.getType()) {
                 case OR:
                     result.addAll(searchIdSet(innerCondition));
