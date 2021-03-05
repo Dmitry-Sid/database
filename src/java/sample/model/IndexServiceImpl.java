@@ -8,9 +8,9 @@ import java.util.Set;
 
 public class IndexServiceImpl implements IndexService {
     private static final SearchResult EMPTY = new SearchResult(false, Collections.emptySet());
-    private final Map<String, FieldKeeper<Integer>> fieldKeepers;
+    private final Map<String, FieldKeeper> fieldKeepers;
 
-    public IndexServiceImpl(Map<String, FieldKeeper<Integer>> fieldKeepers) {
+    public IndexServiceImpl(Map<String, FieldKeeper> fieldKeepers) {
         this.fieldKeepers = fieldKeepers;
     }
 

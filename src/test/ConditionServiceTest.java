@@ -2,7 +2,10 @@ import org.junit.Test;
 import sample.model.ConditionService;
 import sample.model.ConditionServiceImpl;
 import sample.model.ModelServiceImpl;
-import sample.model.pojo.*;
+import sample.model.pojo.ComplexCondition;
+import sample.model.pojo.ICondition;
+import sample.model.pojo.Row;
+import sample.model.pojo.SimpleCondition;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -258,34 +261,6 @@ public class ConditionServiceTest {
                     "AND(OR(String like te;double not 30.0);int EQ 50;double EQ 30.0);" +
                     "String EQ test;" +
                     "AND(int LTE 50;double GT 30.0;AND(String GT st;double GTE 20.0)))"));
-        }
-    }
-
-    @Test
-    public void binaryDirectionTest() {
-        {
-            final SimpleCondition condition = new SimpleCondition(ICondition.SimpleType.EQ, "int", 50);
-            assertEquals(BinarySearchDirection.NONE, conditionService.determineDirection(50, condition));
-        }
-        {
-            final SimpleCondition condition = new SimpleCondition(ICondition.SimpleType.NOT, "int", 50);
-            assertEquals(BinarySearchDirection.BOTH, conditionService.determineDirection(50, condition));
-        }
-        {
-            final SimpleCondition condition = new SimpleCondition(ICondition.SimpleType.LT, "int", 50);
-            assertEquals(BinarySearchDirection.LEFT, conditionService.determineDirection(50, condition));
-        }
-        {
-            final SimpleCondition condition = new SimpleCondition(ICondition.SimpleType.LTE, "int", 50);
-            assertEquals(BinarySearchDirection.LEFT, conditionService.determineDirection(50, condition));
-        }
-        {
-            final SimpleCondition condition = new SimpleCondition(ICondition.SimpleType.GT, "int", 50);
-            assertEquals(BinarySearchDirection.RIGHT, conditionService.determineDirection(50, condition));
-        }
-        {
-            final SimpleCondition condition = new SimpleCondition(ICondition.SimpleType.GTE, "int", 50);
-            assertEquals(BinarySearchDirection.RIGHT, conditionService.determineDirection(50, condition));
         }
     }
 

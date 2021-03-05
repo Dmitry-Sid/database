@@ -190,6 +190,9 @@ public class ConditionServiceImpl implements ConditionService {
             if (condition.getValue() == null) {
                 return false;
             }
+            if (!(value instanceof String)) {
+                throw new ConditionException("wrong type from LIKE condition " + value.getClass());
+            }
             return ((String) value).contains((String) condition.getValue());
         }
         final int compareResult = value.compareTo(condition.getValue());
@@ -206,45 +209,6 @@ public class ConditionServiceImpl implements ConditionService {
                 return compareResult >= 0;
             case LTE:
                 return compareResult <= 0;
-            default:
-                throw new ConditionException("Unknown simple type : " + condition.getType());
-        }
-    }
-
-    @Override
-    public BinarySearchDirection determineDirection(Comparable value, SimpleCondition condition) {
-        if (value == null) {
-            throw new ConditionException("unknown field " + condition.getField());
-        }
-        if (ICondition.SimpleType.LIKE.equals(condition.getType())) {
-            if (condition.getValue() == null) {
-                return BinarySearchDirection.NONE;
-            }
-            return BinarySearchDirection.BOTH;
-        }
-        final int compareResult = value.compareTo(condition.getValue());
-        switch (condition.getType()) {
-            case EQ:
-                if (compareResult == 0) {
-                    return BinarySearchDirection.NONE;
-                } else if (compareResult > 0) {
-                    return BinarySearchDirection.LEFT;
-                }
-                return BinarySearchDirection.RIGHT;
-            case NOT:
-                return BinarySearchDirection.BOTH;
-            case GT:
-            case GTE:
-                if (compareResult > 0) {
-                    return BinarySearchDirection.BOTH;
-                }
-                return BinarySearchDirection.RIGHT;
-            case LT:
-            case LTE:
-                if (compareResult < 0) {
-                    return BinarySearchDirection.BOTH;
-                }
-                return BinarySearchDirection.LEFT;
             default:
                 throw new ConditionException("Unknown simple type : " + condition.getType());
         }

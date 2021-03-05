@@ -160,14 +160,14 @@ public class IndexServiceTest {
     }
 
     private IndexService prepareIndexService() {
-        final Map<String, FieldKeeper<Integer>> fieldKeepers = new HashMap<>();
+        final Map<String, FieldKeeper> fieldKeepers = new HashMap<>();
         fieldKeepers.put("int", mockIntFieldKeeper());
         fieldKeepers.put("String", mockStringFieldKeeper());
         return new IndexServiceImpl(fieldKeepers);
     }
 
-    private FieldKeeper<Integer> mockIntFieldKeeper() {
-        final FieldKeeper<Integer> fieldKeeper = (FieldKeeper<Integer>) mock(FieldKeeper.class);
+    private FieldKeeper<Integer, Integer> mockIntFieldKeeper() {
+        final FieldKeeper<Integer, Integer> fieldKeeper = (FieldKeeper<Integer, Integer>) mock(FieldKeeper.class);
         final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
         final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LT, "int", 20);
         when(fieldKeeper.search(any(SimpleCondition.class))).thenAnswer(invocation -> {
@@ -188,20 +188,20 @@ public class IndexServiceTest {
         doAnswer(invocation -> {
             transformed[0] = true;
             return null;
-        }).when(fieldKeeper).transform(any(Comparable.class), any(Comparable.class), any(Integer.class));
+        }).when(fieldKeeper).transform(any(Integer.class), any(Integer.class), any(Integer.class));
         doAnswer(invocation -> {
             inserted[0] = true;
             return null;
-        }).when(fieldKeeper).insert(any(Comparable.class), any(Integer.class));
+        }).when(fieldKeeper).insert(any(Integer.class), any(Integer.class));
         doAnswer(invocation -> {
             deleted[0] = true;
             return null;
-        }).when(fieldKeeper).delete(any(Comparable.class), any(Integer.class));
+        }).when(fieldKeeper).delete(any(Integer.class), any(Integer.class));
         return fieldKeeper;
     }
 
-    private FieldKeeper<Integer> mockStringFieldKeeper() {
-        final FieldKeeper<Integer> fieldKeeper = (FieldKeeper<Integer>) mock(FieldKeeper.class);
+    private FieldKeeper<String, Integer> mockStringFieldKeeper() {
+        final FieldKeeper<String, Integer> fieldKeeper = (FieldKeeper<String, Integer>) mock(FieldKeeper.class);
         final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "String", "se");
         final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LT, "String", "te");
         when(fieldKeeper.search(any(SimpleCondition.class))).thenAnswer(invocation -> {
@@ -221,15 +221,15 @@ public class IndexServiceTest {
         doAnswer(invocation -> {
             transformed[1] = true;
             return null;
-        }).when(fieldKeeper).transform(any(Comparable.class), any(Comparable.class), any(Integer.class));
+        }).when(fieldKeeper).transform(any(String.class), any(String.class), any(Integer.class));
         doAnswer(invocation -> {
             inserted[1] = true;
             return null;
-        }).when(fieldKeeper).insert(any(Comparable.class), any(Integer.class));
+        }).when(fieldKeeper).insert(any(String.class), any(Integer.class));
         doAnswer(invocation -> {
             deleted[1] = true;
             return null;
-        }).when(fieldKeeper).delete(any(Comparable.class), any(Integer.class));
+        }).when(fieldKeeper).delete(any(String.class), any(Integer.class));
         when(fieldKeeper.getField()).thenReturn("String");
         return fieldKeeper;
     }
