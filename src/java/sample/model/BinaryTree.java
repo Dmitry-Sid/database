@@ -9,25 +9,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-public class BinaryTree<U extends Comparable, V> implements FieldKeeper<U, V> {
+public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> {
     private final Object ROOT_LOCK = new Object();
-    private final ConditionService conditionService;
-    private final String field;
     private Node<V> root;
 
-    public BinaryTree(ConditionService conditionService, String field) {
-        this.conditionService = conditionService;
-        this.field = field;
-    }
-
-    @Override
-    public String getField() {
-        return field;
-    }
-
-    @Override
-    public void transform(U oldKey, U key, V value) {
-
+    public BinaryTree(String field, ConditionService conditionService) {
+        super(field, conditionService);
     }
 
     @Override
@@ -90,7 +77,7 @@ public class BinaryTree<U extends Comparable, V> implements FieldKeeper<U, V> {
     }
 
     @Override
-    public Set<V> search(U comparable) {
+    public Set<V> search(U key) {
         final ChainComparableLock chainComparableLock = new ChainComparableLock();
         synchronized (ROOT_LOCK) {
             if (root == null) {
@@ -99,7 +86,7 @@ public class BinaryTree<U extends Comparable, V> implements FieldKeeper<U, V> {
             chainComparableLock.lock(root.key);
         }
         try {
-            final Pair<Node<V>, Node<V>> pair = search(root, comparable, chainComparableLock);
+            final Pair<Node<V>, Node<V>> pair = search(root, key, chainComparableLock);
             if (pair == null || pair.getFirst() == null) {
                 return Collections.emptySet();
             }

@@ -184,7 +184,7 @@ public class IndexServiceTest {
             }
             return set;
         });
-        when(fieldKeeper.getField()).thenReturn("int");
+        when(fieldKeeper.getFieldName()).thenReturn("int");
         doAnswer(invocation -> {
             transformed[0] = true;
             return null;
@@ -230,7 +230,7 @@ public class IndexServiceTest {
             deleted[1] = true;
             return null;
         }).when(fieldKeeper).delete(any(String.class), any(Integer.class));
-        when(fieldKeeper.getField()).thenReturn("String");
+        when(fieldKeeper.getFieldName()).thenReturn("String");
         return fieldKeeper;
     }
 

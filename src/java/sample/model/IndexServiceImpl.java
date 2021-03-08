@@ -56,17 +56,17 @@ public class IndexServiceImpl implements IndexService {
 
     @Override
     public void transform(Row oldRow, Row row) {
-        fieldKeepers.forEach((key, value) -> value.transform(oldRow.getFields().get(value.getField()),
-                row.getFields().get(value.getField()), row.getId()));
+        fieldKeepers.forEach((key, value) -> value.transform(oldRow.getFields().get(value.getFieldName()),
+                row.getFields().get(value.getFieldName()), row.getId()));
     }
 
     @Override
     public void insert(Row row) {
-        fieldKeepers.forEach((key, value) -> value.insert(row.getFields().get(value.getField()), row.getId()));
+        fieldKeepers.forEach((key, value) -> value.insert(row.getFields().get(value.getFieldName()), row.getId()));
     }
 
     @Override
     public void delete(Row row) {
-        fieldKeepers.forEach((key, value) -> value.delete(row.getFields().get(value.getField()), row.getId()));
+        fieldKeepers.forEach((key, value) -> value.delete(row.getFields().get(value.getFieldName()), row.getId()));
     }
 }
