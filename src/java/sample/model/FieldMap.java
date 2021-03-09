@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class FieldMap<U extends Comparable, V> extends FieldKeeper<U, V> {
@@ -26,14 +27,21 @@ public class FieldMap<U extends Comparable, V> extends FieldKeeper<U, V> {
     }
 
     @Override
-    public void delete(U key, V value) {
+    public boolean delete(U key, V value) {
+        final AtomicBoolean deleted = new AtomicBoolean(false);
         valuesMap.computeIfPresent(key, (mapKey, set) -> {
+            if (!set.contains(value)) {
+                deleted.set(false);
+                return set;
+            }
             set.remove(value);
+            deleted.set(true);
             if (set.isEmpty()) {
                 return null;
             }
             return set;
         });
+        return deleted.get();
     }
 
     @Override

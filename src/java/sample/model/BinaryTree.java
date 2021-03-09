@@ -8,10 +8,12 @@ import sample.model.pojo.SimpleCondition;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Supplier;
 
 public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> {
+    private final Lock<Comparable> lock = LockService.createLock(Comparable.class);
     private final Object ROOT_LOCK = new Object();
-    private Node<V> root;
+    private Node<U, V> root;
 
     public BinaryTree(String field, ConditionService conditionService) {
         super(field, conditionService);
@@ -19,25 +21,23 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> {
 
     @Override
     public void insert(U key, V value) {
-        LockService.doInComparableLock(key, () -> {
+        LockService.doInLock(lock, key, () -> {
+            final Pair<Node<U, V>, Node<U, V>> pair;
             final ChainComparableLock chainComparableLock = new ChainComparableLock();
-            final Pair<Node<V>, Node<V>> pair;
             try {
                 pair = search(root, key, chainComparableLock);
             } finally {
                 chainComparableLock.close();
             }
             if (pair.getFirst() == null) {
-                final Set<V> set = new HashSet<>();
-                set.add(value);
-                final Node<V> createdNode = new Node<>(key, set);
+                final Node<U, V> createdNode = new Node<>(key, new HashSet<>(Collections.singletonList(value)));
                 synchronized (ROOT_LOCK) {
                     if (root == null) {
                         root = createdNode;
                         return null;
                     }
                 }
-                LockService.doInComparableLock(pair.getSecond().key, () -> {
+                LockService.doInLock(lock, pair.getSecond().key, () -> {
                     if (key.compareTo(pair.getSecond().key) > 0) {
                         pair.getSecond().right = createdNode;
                     } else {
@@ -54,8 +54,105 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> {
     }
 
     @Override
-    public void delete(U key, V value) {
+    public boolean delete(U key, V value) {
+        return LockService.doInLock(lock, key, () -> {
+            final ChainComparableLock chainComparableLock = new ChainComparableLock();
+            synchronized (ROOT_LOCK) {
+                if (root == null) {
+                    return false;
+                }
+                chainComparableLock.lock(root.key);
+            }
+            final Node<U, V> node;
+            try {
+                node = search(root, key, chainComparableLock).getFirst();
+            } finally {
+                chainComparableLock.close();
+            }
+            if (node == null) {
+                return false;
+            }
+            if (!node.value.contains(value)) {
+                return false;
+            }
+            node.value.remove(value);
+            if (!node.value.isEmpty()) {
+                return true;
+            }
+            if (node.left == null) {
+                rearrange(node, node.right);
+            } else if (node.right == null) {
+                rearrange(node, node.left);
+            } else {
+                try {
+                    final Node<U, V> minimum = findMinimum(node.right, chainComparableLock);
+                    if (minimum.parent != node) {
+                        rearrange(minimum, minimum.right);
+                        minimum.right = node.right;
+                        minimum.right.parent = minimum;
+                    }
+                    rearrange(node, minimum);
+                    minimum.left = node.left;
+                    minimum.left.parent = minimum;
+                } finally {
+                    chainComparableLock.close();
+                }
+            }
+            return true;
+        });
+    }
 
+    private void rearrange(Node<U, V> nodeFrom, Node<U, V> nodeTo) {
+        if (nodeFrom == null) {
+            return;
+        }
+        LockService.doInLock(lock, nodeFrom.key, () -> {
+            final Supplier<Object> supplier = () -> {
+                synchronized (ROOT_LOCK) {
+                    if (nodeFrom == root) {
+                        root = nodeTo;
+                        return null;
+                    }
+                }
+                final boolean changed = LockService.doInLock(lock, nodeFrom.parent.left.key, () -> {
+                    if (nodeFrom == nodeFrom.parent.left) {
+                        nodeFrom.parent.left = nodeTo;
+                        return true;
+                    }
+                    return false;
+                });
+                if (!changed) {
+                    LockService.doInLock(lock, nodeFrom.parent.right.key, () -> {
+                        nodeFrom.parent.right = nodeTo;
+                        return null;
+                    });
+                }
+                if (nodeTo != null) {
+                    LockService.doInLock(lock, nodeFrom.parent.key, () -> {
+                        nodeTo.parent = nodeFrom.parent;
+                        return null;
+                    });
+                }
+                return null;
+            };
+            if (nodeTo != null) {
+                LockService.doInLock(lock, nodeTo.key, supplier::get);
+            } else {
+                return supplier.get();
+            }
+            return null;
+        });
+    }
+
+    private Node<U, V> findMinimum(Node<U, V> parent, ChainComparableLock chainComparableLock) {
+        if (parent == null) {
+            return null;
+        }
+        chainComparableLock.lock(parent.key);
+        if (parent.left == null) {
+            return parent;
+        }
+        return findMinimum(parent.left, chainComparableLock);
     }
 
     @Override
@@ -86,7 +183,7 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> {
             chainComparableLock.lock(root.key);
         }
         try {
-            final Pair<Node<V>, Node<V>> pair = search(root, key, chainComparableLock);
+            final Pair<Node<U, V>, Node<U, V>> pair = search(root, key, chainComparableLock);
             if (pair == null || pair.getFirst() == null) {
                 return Collections.emptySet();
             }
@@ -106,7 +203,7 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> {
             this.chainComparableLock = chainComparableLock;
         }
 
-        private void search(Node<V> node) {
+        private void search(Node<U, V> node) {
             if (node == null) {
                 return;
             }
@@ -172,22 +269,22 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> {
     }
 
     private class ChainComparableLock {
-        private Comparable currentComparable;
+        private U currentComparable;
 
-        private void lock(Comparable comparable) {
+        private void lock(U comparable) {
             close();
             currentComparable = comparable;
-            LockService.getComparableLock().lock(comparable);
+            lock.lock(comparable);
         }
 
         private void close() {
             if (currentComparable != null) {
-                LockService.getComparableLock().unlock(currentComparable);
+                lock.unlock(currentComparable);
             }
         }
     }
 
-    private Pair<Node<V>, Node<V>> search(Node<V> node, Comparable key, ChainComparableLock chainComparableLock) {
+    private Pair<Node<U, V>, Node<U, V>> search(Node<U, V> node, U key, ChainComparableLock chainComparableLock) {
         if (key == null) {
             throw new RuntimeException("null key");
         }
@@ -210,14 +307,14 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> {
         return search(node.right, key, chainComparableLock);
     }
 
-    private static class Node<V> {
-        private final Comparable key;
+    private static class Node<U, V> {
+        private final U key;
         private final Set<V> value;
-        private Node<V> parent;
-        private Node<V> left;
-        private Node<V> right;
+        private Node<U, V> parent;
+        private Node<U, V> left;
+        private Node<U, V> right;
 
-        public Node(Comparable key, Set<V> value) {
+        public Node(U key, Set<V> value) {
             this.key = key;
             this.value = value;
         }

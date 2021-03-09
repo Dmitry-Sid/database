@@ -14,13 +14,14 @@ public abstract class FieldKeeper<U extends Comparable, V> {
     }
 
     public void transform(U oldKey, U key, V value) {
-        delete(oldKey, value);
-        insert(key, value);
+        if (delete(oldKey, value)) {
+            insert(key, value);
+        }
     }
 
     public abstract void insert(U key, V value);
 
-    public abstract void delete(U key, V value);
+    public abstract boolean delete(U key, V value);
 
     public abstract Set<V> search(SimpleCondition condition);
 
