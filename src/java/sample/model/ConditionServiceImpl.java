@@ -112,7 +112,7 @@ public class ConditionServiceImpl implements ConditionService {
     }
 
     private void checkFieldName(String field) {
-        if (!modelService.containsField(field)) {
+        if (!modelService.contains(field)) {
             throw new ConditionException("unknown field : " + field);
         }
     }

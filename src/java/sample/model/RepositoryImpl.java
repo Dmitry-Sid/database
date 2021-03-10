@@ -5,28 +5,33 @@ import sample.model.pojo.Row;
 import sample.model.pojo.RowAddress;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class RepositoryImpl implements Repository {
+    private final Set<String> fields = Collections.synchronizedSet(new HashSet<>());
     private final ObjectConverter objectConverter;
     private final RowIdManager rowIdManager;
     private final FileHelper fileHelper;
     private final IndexService indexService;
     private final ConditionService conditionService;
 
-    public RepositoryImpl(ObjectConverter objectConverter, RowIdManager rowIdManager, FileHelper fileHelper, IndexService indexService, ConditionService conditionService) {
+    public RepositoryImpl(ObjectConverter objectConverter, RowIdManager rowIdManager, FileHelper fileHelper, IndexService indexService, ConditionService conditionService, ModelService modelService) {
         this.objectConverter = objectConverter;
         this.rowIdManager = rowIdManager;
         this.fileHelper = fileHelper;
         this.indexService = indexService;
         this.conditionService = conditionService;
+        fields.addAll(modelService.getFields());
+        modelService.subscribeOnFieldsChanges(fields -> {
+            final Set<String> removedFields = RepositoryImpl.this.fields.stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet());
+
+        });
     }
 
     @Override

@@ -1,7 +1,6 @@
 import org.junit.Test;
 import sample.model.ConditionService;
 import sample.model.ConditionServiceImpl;
-import sample.model.ModelServiceImpl;
 import sample.model.pojo.ComplexCondition;
 import sample.model.pojo.ICondition;
 import sample.model.pojo.Row;
@@ -14,7 +13,7 @@ import static junit.framework.TestCase.*;
 import static org.junit.Assert.assertNotEquals;
 
 public class ConditionServiceTest {
-    private static final ConditionService conditionService = new ConditionServiceImpl(new ModelServiceImpl());
+    private static final ConditionService conditionService = new ConditionServiceImpl(TestUtils.mockModelService());
 
     @Test
     public void checkSimpleTest() {

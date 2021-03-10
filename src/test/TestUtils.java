@@ -1,7 +1,4 @@
-import sample.model.ObjectConverter;
-import sample.model.ObjectConverterImpl;
-import sample.model.RowIdManager;
-import sample.model.RowIdManagerImpl;
+import sample.model.*;
 import sample.model.pojo.Row;
 import sample.model.pojo.RowAddress;
 
@@ -12,6 +9,8 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.mockito.Mockito.*;
+
 public class TestUtils {
     public static Row generateRow(int id, int intValue) {
         return new Row(id, new HashMap<String, Comparable>() {{
@@ -21,6 +20,27 @@ public class TestUtils {
 
     public static RowIdManager prepareRowIdManager(int maxIdSize, int compressSize, String fileName, String filesIdPath, String filesRowPath) {
         return new RowIdManagerImpl(new ObjectConverterImpl(), maxIdSize, compressSize, fileName, filesIdPath, filesRowPath);
+    }
+
+    public static ModelService mockModelService() {
+        final ModelService modelService = mock(ModelService.class);
+        when(modelService.contains(anyString())).thenAnswer(invocation -> {
+            final String field = (String) invocation.getArguments()[0];
+            return "String".equalsIgnoreCase(field) || "int".equalsIgnoreCase(field) || "double".equalsIgnoreCase(field);
+        });
+        when(modelService.getValue(anyString(), anyString())).thenAnswer(invocation -> {
+            final String field = (String) invocation.getArguments()[0];
+            final String value = (String) invocation.getArguments()[1];
+            if ("String".equalsIgnoreCase(field)) {
+                return value;
+            } else if ("int".equalsIgnoreCase(field)) {
+                return Integer.parseInt(value);
+            } else if ("double".equalsIgnoreCase(field)) {
+                return Double.parseDouble(value);
+            }
+            throw new RuntimeException("unknown field " + field);
+        });
+        return modelService;
     }
 
     public static void createIdFiles(int lastId, int maxIdSize, int compressSize, String fileName, String filesIdPath, String filesRowPath, int rowAddressSize, Map<Integer, byte[]> rowMap) {

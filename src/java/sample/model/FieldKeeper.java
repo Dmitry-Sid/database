@@ -14,6 +14,9 @@ public abstract class FieldKeeper<U extends Comparable, V> {
     }
 
     public void transform(U oldKey, U key, V value) {
+        if (oldKey == null || key == null || oldKey.equals(key)) {
+            return;
+        }
         if (delete(oldKey, value)) {
             insert(key, value);
         }

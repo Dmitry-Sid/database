@@ -232,7 +232,7 @@ public class RepositoryTest {
 
     private Repository prepareRepository() {
         final RowIdManager rowIdManager = TestUtils.prepareRowIdManager(maxIdSize, compressSize, fileVariablesName, filesIdPath, filesRowPath);
-        return new RepositoryImpl(new ObjectConverterImpl(), rowIdManager, new FileHelperImpl(), mockIndexService(), new ConditionServiceImpl(mockModelService()));
+        return new RepositoryImpl(new ObjectConverterImpl(), rowIdManager, new FileHelperImpl(), mockIndexService(), new ConditionServiceImpl(TestUtils.mockModelService()), TestUtils.mockModelService());
     }
 
     private IndexService mockIndexService() {
@@ -254,10 +254,6 @@ public class RepositoryTest {
             return new IndexService.SearchResult(true, set);
         });
         return indexService;
-    }
-
-    private ModelService mockModelService() {
-        return new ModelServiceImpl();
     }
 
 
