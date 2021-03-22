@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ConditionServiceImpl implements ConditionService {
-    private static final ICondition empty = new EmptyCondition();
 
     private final ModelService modelService;
 
@@ -18,7 +17,7 @@ public class ConditionServiceImpl implements ConditionService {
     @Override
     public ICondition parse(String input) {
         if (StringUtils.isBlank(input)) {
-            return empty;
+            return ICondition.empty;
         }
         final String formatted = input.trim().toLowerCase()
                 .replace("\r", "").replace("\n", "");

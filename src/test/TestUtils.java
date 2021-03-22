@@ -4,7 +4,6 @@ import sample.model.pojo.RowAddress;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -18,8 +17,8 @@ public class TestUtils {
         }});
     }
 
-    public static RowIdManager prepareRowIdManager(int maxIdSize, int compressSize, String fileName, String filesIdPath, String filesRowPath) {
-        return new RowIdManagerImpl(new ObjectConverterImpl(), maxIdSize, compressSize, fileName, filesIdPath, filesRowPath);
+    public static RowIdRepository prepareRowIdManager(String fileName, String filesIdPath, String filesRowPath, int maxIdSize, int compressSize) {
+        return new RowIdRepositoryImpl(new ObjectConverterImpl(), fileName, filesIdPath, filesRowPath, maxIdSize, compressSize);
     }
 
     public static ModelService mockModelService() {
@@ -47,13 +46,13 @@ public class TestUtils {
         final int maxRowSize = maxIdSize / compressSize;
         final Set<Integer> boundsBatch = prepareBoundsBatch(lastId, maxIdSize);
         final ObjectConverter objectConverter = new ObjectConverterImpl();
-        RowIdManagerImpl.CachedRowAddresses cachedRowAddresses = null;
+        RowIdRepositoryImpl.CachedRowAddresses cachedRowAddresses = null;
         int id = 1;
         int lastRowFileNumber = 1;
         for (Integer value : boundsBatch) {
             final Map<Integer, RowAddress> rowAddressMap = new ConcurrentHashMap<>();
             int lastEndPosition = 0;
-            RowAddress rowAddress;
+            RowAddress rowAddress = null;
             RowAddress rowAddressPrevious = null;
             final int max = Math.min(value * maxIdSize, lastId);
             for (int i = (value - 1) * maxIdSize + 1; i <= max; i++) {
@@ -73,10 +72,10 @@ public class TestUtils {
                 rowAddressMap.put(id, rowAddress);
                 id++;
             }
-            objectConverter.toFile((Serializable) rowAddressMap, filesIdPath + value);
-            cachedRowAddresses = new RowIdManagerImpl.CachedRowAddresses(filesIdPath + value, rowAddressMap);
+            cachedRowAddresses = new RowIdRepositoryImpl.CachedRowAddresses(filesIdPath + value, rowAddressMap, rowAddress);
+            objectConverter.toFile(cachedRowAddresses, filesIdPath + value);
         }
-        final RowIdManagerImpl.Variables variables = new RowIdManagerImpl.Variables(new AtomicInteger(lastId), boundsBatch, cachedRowAddresses);
+        final RowIdRepositoryImpl.Variables variables = new RowIdRepositoryImpl.Variables(new AtomicInteger(lastId), boundsBatch, cachedRowAddresses);
         objectConverter.toFile(variables, fileName);
     }
 

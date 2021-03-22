@@ -1,13 +1,11 @@
 package sample.model.pojo;
 
-import java.io.Serializable;
 import java.util.Map;
 import java.util.Objects;
 
-public class Row implements Serializable {
+public class Row extends TableType {
     private static final long serialVersionUID = -172808855119652235L;
 
-    private int id;
     private final Map<String, Comparable> fields;
 
     public Row(Map<String, Comparable> fields) {
@@ -17,14 +15,6 @@ public class Row implements Serializable {
     public Row(int id, Map<String, Comparable> fields) {
         this.id = id;
         this.fields = fields;
-    }
-
-    public synchronized void setId(int id) {
-        this.id = id;
-    }
-
-    public synchronized int getId() {
-        return id;
     }
 
     public Map<String, Comparable> getFields() {

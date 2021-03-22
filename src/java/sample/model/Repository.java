@@ -1,17 +1,13 @@
 package sample.model;
 
-import sample.model.pojo.ICondition;
-import sample.model.pojo.Row;
+import sample.model.pojo.TableType;
 
-import java.util.List;
+import java.util.function.Consumer;
 
-public interface Repository {
-
-    public void add(Row row);
+public interface Repository<T extends TableType> {
 
     public void delete(int id);
 
-    public Row get(int id);
+    public boolean process(int id, Consumer<T> consumer);
 
-    public List<Row> getList(ICondition iCondition, int from, int size);
 }

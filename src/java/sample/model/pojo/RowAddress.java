@@ -1,9 +1,8 @@
 package sample.model.pojo;
 
-import java.io.Serializable;
 import java.util.Objects;
 
-public class RowAddress implements Serializable {
+public class RowAddress extends TableType {
     private static final long serialVersionUID = 8553571533963610104L;
     private final String filePath;
     private final int id;
@@ -23,35 +22,35 @@ public class RowAddress implements Serializable {
         return filePath;
     }
 
-    public synchronized long getPosition() {
+    public long getPosition() {
         return position;
     }
 
-    public synchronized void setPosition(long position) {
+    public void setPosition(long position) {
         this.position = position;
     }
 
-    public synchronized int getSize() {
+    public int getSize() {
         return size;
     }
 
-    public synchronized void setSize(int size) {
+    public void setSize(int size) {
         this.size = size;
     }
 
-    public synchronized RowAddress getPrevious() {
+    public RowAddress getPrevious() {
         return previous;
     }
 
-    public synchronized void setPrevious(RowAddress previous) {
+    public void setPrevious(RowAddress previous) {
         this.previous = previous;
     }
 
-    public synchronized RowAddress getNext() {
+    public RowAddress getNext() {
         return next;
     }
 
-    public synchronized void setNext(RowAddress next) {
+    public void setNext(RowAddress next) {
         this.next = next;
     }
 

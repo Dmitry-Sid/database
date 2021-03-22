@@ -1,5 +1,5 @@
 import org.junit.Test;
-import sample.model.Lock;
+import sample.model.lock.Lock;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;

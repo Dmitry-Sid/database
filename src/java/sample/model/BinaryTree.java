@@ -1,5 +1,7 @@
 package sample.model;
 
+import sample.model.lock.Lock;
+import sample.model.lock.LockService;
 import sample.model.pojo.BinarySearchDirection;
 import sample.model.pojo.ICondition;
 import sample.model.pojo.Pair;
