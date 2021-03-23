@@ -3,7 +3,6 @@ package sample.model;
 import sample.model.lock.LockService;
 import sample.model.lock.ReadWriteLock;
 import sample.model.pojo.ICondition;
-import sample.model.pojo.Pair;
 import sample.model.pojo.Row;
 import sample.model.pojo.RowAddress;
 
@@ -179,7 +178,7 @@ public class RowRepositoryImpl implements RowRepository {
 
     private Consumer<List<Buffer.Element<Row>>> bufferConsumer() {
         return list -> {
-            final List<Pair<RowAddress, FileHelper.InputOutputConsumer>> fileHelperList = new ArrayList<>();
+            final List<FileHelper.CollectBean> fileHelperList = new ArrayList<>();
             list.forEach(element -> {
                 final Row row = element.getValue();
                 switch (element.getState()) {
@@ -189,29 +188,20 @@ public class RowRepositoryImpl implements RowRepository {
                     case UPDATED:
                         boolean processed = rowIdRepository.process(row.getId(), rowAddress -> {
                             final byte[] rowBytes = objectConverter.toBytes(row);
-                            fileHelperList.add(new Pair<>(rowAddress, (inputStream, outputStream) -> {
-                                LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, row.getId(), () -> {
-                                    try {
-                                        fileHelper.skip(inputStream, rowAddress.getSize());
-                                        outputStream.write(rowBytes);
-                                        rowIdRepository.add(row.getId(), rowAddressToSave -> rowAddressToSave.setSize(rowBytes.length));
-                                    } catch (IOException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                });
-                            }));
+                            fileHelperList.add(new FileHelper.CollectBean(rowAddress, (inputStream, outputStream) -> {
+                                fileHelper.skip(inputStream, rowAddress.getSize());
+                                outputStream.write(rowBytes);
+                            }, () -> rowIdRepository.add(row.getId(), rowAddressToSave -> rowAddressToSave.setSize(rowBytes.length))));
                         });
                         if (!processed) {
                             processAdded(row, fileHelperList);
                         }
                         break;
                     case DELETED:
-                        rowIdRepository.process(row.getId(), rowAddress -> fileHelperList.add(new Pair<>(rowAddress, (inputStream, outputStream) -> {
-                            LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, row.getId(), () -> {
-                                fileHelper.skip(inputStream, rowAddress.getSize());
-                                rowIdRepository.delete(row.getId());
-                            });
-                        })));
+                        rowIdRepository.process(row.getId(), rowAddress ->
+                                fileHelperList.add(new FileHelper.CollectBean(rowAddress,
+                                        (inputStream, outputStream) -> fileHelper.skip(inputStream, rowAddress.getSize()),
+                                        () -> rowIdRepository.delete(row.getId()))));
                         break;
                 }
             });
@@ -219,12 +209,12 @@ public class RowRepositoryImpl implements RowRepository {
         };
     }
 
-    private void processAdded(Row row, List<Pair<RowAddress, FileHelper.InputOutputConsumer>> fileHelperList) {
+    private void processAdded(Row row, List<FileHelper.CollectBean> fileHelperList) {
         rowIdRepository.add(row.getId(), rowAddress -> {
             LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, row.getId(), () -> {
                 final byte[] rowBytes = objectConverter.toBytes(row);
                 rowAddress.setSize(rowBytes.length);
-                fileHelperList.add(new Pair<>(rowAddress, (inputStream, outputStream) -> outputStream.write(rowBytes)));
+                fileHelperList.add(new FileHelper.CollectBean(rowAddress, (inputStream, outputStream) -> outputStream.write(rowBytes), null));
             });
         });
     }

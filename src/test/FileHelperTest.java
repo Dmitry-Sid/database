@@ -224,13 +224,14 @@ public class FileHelperTest {
     }
 
     @Test
-    public void collectListTest() throws IOException {
+    public void collectListTest() {
         try {
 
             final boolean[] processed = new boolean[4];
+            final boolean[] processedRunnableList = new boolean[4];
             final List<byte[]> byteList = new ArrayList<>();
             final List<RowAddress> rowAddresses = new ArrayList<>();
-            final List<Pair<RowAddress, FileHelper.InputOutputConsumer>> list = new ArrayList<>();
+            final List<FileHelper.CollectBean> list = new ArrayList<>();
             {
                 final String fileName = "temp1";
                 final int size = 5;
@@ -253,7 +254,7 @@ public class FileHelperTest {
                     outputStream.write(bytes);
                     rowAddresses.add(new RowAddress(fileName, 0, 0, rowAddress.getSize() + 2));
                 };
-                list.add(new Pair<>(rowAddress, inputOutputConsumer));
+                list.add(new FileHelper.CollectBean(rowAddress, inputOutputConsumer, () -> processedRunnableList[0] = true));
             }
             {
                 final String fileName = "temp1";
@@ -277,7 +278,7 @@ public class FileHelperTest {
                     outputStream.write(bytes);
                     rowAddresses.add(new RowAddress(fileName, 1, 7, rowAddress.getSize() - 1));
                 };
-                list.add(new Pair<>(rowAddress, inputOutputConsumer));
+                list.add(new FileHelper.CollectBean(rowAddress, inputOutputConsumer, () -> processedRunnableList[1] = true));
             }
             {
                 final String fileName = "temp1";
@@ -312,7 +313,7 @@ public class FileHelperTest {
                     outputStream.write(bytes);
                     rowAddresses.add(new RowAddress(fileName, 3, 0, rowAddress.getSize() + 3));
                 };
-                list.add(new Pair<>(rowAddress, inputOutputConsumer));
+                list.add(new FileHelper.CollectBean(rowAddress, inputOutputConsumer, () -> processedRunnableList[2] = true));
             }
             {
                 final String fileName = "temp2";
@@ -327,11 +328,14 @@ public class FileHelperTest {
                     outputStream.write(bytes);
                     rowAddresses.add(new RowAddress(fileName, 3, 10, rowAddress.getSize()));
                 };
-                list.add(new Pair<>(rowAddress, inputOutputConsumer));
+                list.add(new FileHelper.CollectBean(rowAddress, inputOutputConsumer, () -> processedRunnableList[3] = true));
             }
             fileHelper.collect(list);
             for (boolean processedSingle : processed) {
                 assertTrue(processedSingle);
+            }
+            for (boolean processedRunnable : processedRunnableList) {
+                assertTrue(processedRunnable);
             }
             assertEquals(5, rowAddresses.size());
             int i = 0;

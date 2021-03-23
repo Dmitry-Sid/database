@@ -8,6 +8,7 @@ import sample.model.pojo.Pair;
 import sample.model.pojo.RowAddress;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -101,15 +102,16 @@ public class FileHelperImpl implements FileHelper {
     }
 
     @Override
-    public void collect(List<Pair<RowAddress, InputOutputConsumer>> list) {
+    public void collect(List<CollectBean> list) {
         String inputFileName = null;
         String tempFileName = null;
         long inputLastPosition = 0;
         int bit;
+        final List<Runnable> runnableList = new ArrayList<>();
         try (ChainInputStream chainInputStream = getChainInputStream();
              ChainOutputStream chainOutputStream = getChainOutputStream()) {
-            for (Pair<RowAddress, InputOutputConsumer> pair : list) {
-                final RowAddress rowAddress = pair.getFirst();
+            for (CollectBean collectBean : list) {
+                final RowAddress rowAddress = collectBean.rowAddress;
                 if (inputFileName == null) {
                     inputFileName = rowAddress.getFilePath();
                     tempFileName = getTempFile(inputFileName);
@@ -120,7 +122,7 @@ public class FileHelperImpl implements FileHelper {
                     inputLastPosition = 0;
                     chainInputStream.read(rowAddress.getFilePath());
                     chainOutputStream.init(getTempFile(rowAddress.getFilePath()));
-                    deleteAndRename(new File(tempFileName), new File(inputFileName));
+                    saveTempFile(tempFileName, inputFileName, runnableList);
                     inputFileName = rowAddress.getFilePath();
                     tempFileName = getTempFile(inputFileName);
                 }
@@ -130,7 +132,7 @@ public class FileHelperImpl implements FileHelper {
                     while ((bit = chainInputStream.getInputStream().read()) != -1) {
                         if (inputLastPosition == rowAddress.getPosition()) {
                             chainInputStream.getInputStream().reset();
-                            pair.getSecond().accept(chainInputStream.getInputStream(), chainOutputStream.getOutputStream());
+                            collectBean.inputOutputConsumer.accept(chainInputStream.getInputStream(), chainOutputStream.getOutputStream());
                             inputLastPosition = rowAddress.getPosition() + rowAddress.getSize();
                             found = true;
                             break;
@@ -145,8 +147,9 @@ public class FileHelperImpl implements FileHelper {
                     if (chainInputStream.getInputStream() != null) {
                         chainInputStream.getInputStream().reset();
                     }
-                    pair.getSecond().accept(chainInputStream.getInputStream(), chainOutputStream.getOutputStream());
+                    collectBean.inputOutputConsumer.accept(chainInputStream.getInputStream(), chainOutputStream.getOutputStream());
                 }
+                runnableList.add(collectBean.runnable);
             }
             writeToEnd(chainInputStream, chainOutputStream);
         } catch (IOException e) {
@@ -154,8 +157,20 @@ public class FileHelperImpl implements FileHelper {
             throw new RuntimeException(e);
         }
         if (inputFileName != null) {
-            deleteAndRename(new File(tempFileName), new File(inputFileName));
+            saveTempFile(tempFileName, inputFileName, runnableList);
         }
+    }
+
+    private void saveTempFile(String tempFileName, String inputFileName, List<Runnable> runnableList) {
+        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, inputFileName, () -> {
+            for (Runnable runnable : runnableList) {
+                if (runnable != null) {
+                    runnable.run();
+                }
+            }
+            runnableList.clear();
+            deleteAndRename(new File(tempFileName), new File(inputFileName));
+        });
     }
 
     private void writeToEnd(ChainInputStream chainInputStream, ChainOutputStream chainOutputStream) throws IOException {

@@ -23,7 +23,7 @@ public interface FileHelper {
 
     public void collect(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer);
 
-    public void collect(List<Pair<RowAddress, InputOutputConsumer>> list);
+    public void collect(List<CollectBean> list);
 
     public interface InputOutputConsumer {
         void accept(InputStream inputStream, OutputStream outputStream) throws IOException;
@@ -47,5 +47,17 @@ public interface FileHelper {
         public OutputStream getOutputStream();
 
         public boolean isClosed();
+    }
+
+    public static class CollectBean {
+        public final RowAddress rowAddress;
+        public final InputOutputConsumer inputOutputConsumer;
+        public final Runnable runnable;
+
+        public CollectBean(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer, Runnable runnable) {
+            this.rowAddress = rowAddress;
+            this.inputOutputConsumer = inputOutputConsumer;
+            this.runnable = runnable;
+        }
     }
 }
