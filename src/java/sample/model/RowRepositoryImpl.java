@@ -178,8 +178,7 @@ public class RowRepositoryImpl implements RowRepository {
     }
 
     private Consumer<List<Buffer.Element<Row>>> bufferConsumer() {
-        final List<Runnable> actionsAfter = new ArrayList<>();
-        final Consumer<List<Buffer.Element<Row>>> consumer = list -> {
+        return list -> {
             final List<Pair<RowAddress, FileHelper.InputOutputConsumer>> fileHelperList = new ArrayList<>();
             list.forEach(element -> {
                 final Row row = element.getValue();
@@ -191,9 +190,15 @@ public class RowRepositoryImpl implements RowRepository {
                         boolean processed = rowIdRepository.process(row.getId(), rowAddress -> {
                             final byte[] rowBytes = objectConverter.toBytes(row);
                             fileHelperList.add(new Pair<>(rowAddress, (inputStream, outputStream) -> {
-                                inputStream.skip(rowAddress.getSize());
-                                outputStream.write(rowBytes);
-                                actionsAfter.add(() -> rowIdRepository.add(row.getId(), rowAddressToSave -> rowAddressToSave.setSize(rowBytes.length)));
+                                LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, row.getId(), () -> {
+                                    try {
+                                        fileHelper.skip(inputStream, rowAddress.getSize());
+                                        outputStream.write(rowBytes);
+                                        rowIdRepository.add(row.getId(), rowAddressToSave -> rowAddressToSave.setSize(rowBytes.length));
+                                    } catch (IOException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                });
                             }));
                         });
                         if (!processed) {
@@ -202,23 +207,25 @@ public class RowRepositoryImpl implements RowRepository {
                         break;
                     case DELETED:
                         rowIdRepository.process(row.getId(), rowAddress -> fileHelperList.add(new Pair<>(rowAddress, (inputStream, outputStream) -> {
-                            inputStream.skip(rowAddress.getSize());
-                            actionsAfter.add(() -> rowIdRepository.delete(row.getId()));
+                            LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, row.getId(), () -> {
+                                fileHelper.skip(inputStream, rowAddress.getSize());
+                                rowIdRepository.delete(row.getId());
+                            });
                         })));
                         break;
                 }
             });
             fileHelper.collect(fileHelperList);
-            actionsAfter.forEach(Runnable::run);
         };
-        return consumer;
     }
 
     private void processAdded(Row row, List<Pair<RowAddress, FileHelper.InputOutputConsumer>> fileHelperList) {
         rowIdRepository.add(row.getId(), rowAddress -> {
-            final byte[] rowBytes = objectConverter.toBytes(row);
-            rowAddress.setSize(rowBytes.length);
-            fileHelperList.add(new Pair<>(rowAddress, (inputStream, outputStream) -> outputStream.write(rowBytes)));
+            LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, row.getId(), () -> {
+                final byte[] rowBytes = objectConverter.toBytes(row);
+                rowAddress.setSize(rowBytes.length);
+                fileHelperList.add(new Pair<>(rowAddress, (inputStream, outputStream) -> outputStream.write(rowBytes)));
+            });
         });
     }
 }

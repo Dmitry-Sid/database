@@ -135,7 +135,7 @@ public class RowIdRepositoryImpl implements RowIdRepository {
             if (stopChecker.get()) {
                 return;
             }
-            rowAddressConsumer.accept(entry.getValue());
+            rowAddressConsumer.accept(objectConverter.clone(entry.getValue()));
         }
     }
 
@@ -170,7 +170,7 @@ public class RowIdRepositoryImpl implements RowIdRepository {
             if (rowAddress == null) {
                 return false;
             }
-            consumer.accept(rowAddress);
+            consumer.accept(objectConverter.clone(rowAddress));
             return true;
         });
     }

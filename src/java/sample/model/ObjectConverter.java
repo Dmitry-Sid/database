@@ -10,4 +10,6 @@ public interface ObjectConverter {
     public byte[] toBytes(Serializable serializable);
 
     public void toFile(Serializable serializable, String file);
+
+    public <T extends Serializable> T clone(T object);
 }

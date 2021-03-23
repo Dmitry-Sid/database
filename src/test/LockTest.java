@@ -19,12 +19,10 @@ public class LockTest {
             lock.lock(1);
             final Future<Long> future1 = createFuture(executorService, lock, 1, null);
             final Future<Long> future2 = createFuture(executorService, lock, 2, null);
-            final Future<Long> future3 = createFuture(executorService, lock, 1, null);
             Thread.sleep(1000);
             lock.unlock(1);
-            assertTrue(((future1.get() > 2000 && future1.get() < 3000) && (future3.get() > 3000 && future3.get() < 4000) ||
-                    ((future1.get() > 3000 && future1.get() < 4000) && (future3.get() > 2000 && future3.get() < 3000))));
-            assertTrue(future2.get() < future1.get() && future2.get() < future3.get());
+            assertTrue(future1.get() > 2000 && future1.get() < 3000);
+            assertTrue(future2.get() < 2000);
 
             lock.lock(3);
             final Future<Long> future4 = createFuture(executorService, lock, 3, new RuntimeException("test exception"));
@@ -45,12 +43,10 @@ public class LockTest {
             lock.lock("test1");
             final Future<Long> future1 = createFuture(executorService, lock, "test1", null);
             final Future<Long> future2 = createFuture(executorService, lock, "test2", null);
-            final Future<Long> future3 = createFuture(executorService, lock, "test1", null);
             Thread.sleep(1000);
             lock.unlock("test1");
-            assertTrue(((future1.get() > 2000 && future1.get() < 3000) && (future3.get() > 3000 && future3.get() < 4000) ||
-                    ((future1.get() > 3000 && future1.get() < 4000) && (future3.get() > 2000 && future3.get() < 3000))));
-            assertTrue(future2.get() < future1.get() && future2.get() < future3.get());
+            assertTrue(future1.get() > 2000 && future1.get() < 3000);
+            assertTrue(future2.get() < 2000);
         }
     }
 

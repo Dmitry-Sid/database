@@ -30,8 +30,8 @@ public class FileHelperImpl implements FileHelper {
     @Override
     public byte[] read(RowAddress rowAddress) {
         return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, rowAddress.getFilePath(), () -> {
-            try (InputStream inputStream = new FileInputStream(rowAddress.getFilePath())) {
-                inputStream.skip(rowAddress.getPosition());
+            try (InputStream inputStream = new BufferedInputStream(new FileInputStream(rowAddress.getFilePath()))) {
+                skip(inputStream, rowAddress.getPosition());
                 final byte[] bytes = new byte[rowAddress.getSize()];
                 inputStream.read(bytes);
                 return bytes;
@@ -39,6 +39,27 @@ public class FileHelperImpl implements FileHelper {
                 throw new RuntimeException(e);
             }
         });
+    }
+
+    @Override
+    public void skip(InputStream inputStream, long size) {
+        try {
+            long skipped = inputStream.skip(size);
+            if (skipped < size) {
+                for (int i = 0; i < size - skipped; i++) {
+                    if (inputStream.available() <= 0) {
+                        break;
+                    }
+                    if (inputStream.available() >= size - skipped - i) {
+                        inputStream.skip(size - skipped - i);
+                        break;
+                    }
+                    inputStream.read();
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -54,20 +75,24 @@ public class FileHelperImpl implements FileHelper {
     @Override
     public void collect(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer) {
         actionWithRollBack(rowAddress.getFilePath(), (pair) -> {
-            try (InputStream input = new BufferedInputStream(new FileInputStream(pair.getFirst()));
+            try (InputStream input = new FileInputStream(pair.getFirst());
                  OutputStream output = new BufferedOutputStream(new FileOutputStream(pair.getSecond()), 10000)) {
-                long position = 0;
                 int bit;
-                input.mark(1);
-                while ((bit = input.read()) != -1) {
-                    if (position == rowAddress.getPosition()) {
-                        input.reset();
-                        inputOutputConsumer.accept(input, output);
-                    } else {
+                if (rowAddress.getPosition() == 0) {
+                    inputOutputConsumer.accept(input, output);
+                    while ((bit = input.read()) != -1) {
                         output.write(bit);
                     }
-                    input.mark(1);
-                    position++;
+                } else {
+                    long position = 0;
+                    while ((bit = input.read()) != -1) {
+                        if (position == rowAddress.getPosition() - 1) {
+                            inputOutputConsumer.accept(input, output);
+                        } else {
+                            output.write(bit);
+                        }
+                        position++;
+                    }
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);

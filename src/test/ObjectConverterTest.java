@@ -8,8 +8,7 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class ObjectConverterTest {
     private final ObjectConverter objectConverter = new ObjectConverterImpl();
@@ -38,6 +37,14 @@ public class ObjectConverterTest {
             assertEquals(map, objectConverter.fromFile(Map.class, fileName));
             assertTrue(new File(fileName).delete());
         }
+    }
+
+    @Test
+    public void cloneTest() {
+        final Row row = TestUtils.generateRow(1, 1);
+        final Row clone = objectConverter.clone(row);
+        assertNotSame(row, clone);
+        assertEquals(row, clone);
     }
 
 }

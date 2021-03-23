@@ -1,39 +1,28 @@
 package sample.model;
 
+import org.apache.commons.lang3.SerializationUtils;
+
 import java.io.*;
 
 public class ObjectConverterImpl implements ObjectConverter {
 
     @Override
     public <T> T fromFile(Class<T> clazz, String file) {
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
-            return (T) fromObjectInputStream(ois);
-        } catch (IOException | ClassNotFoundException e) {
+        try (InputStream inputStream = new FileInputStream(file)) {
+            return SerializationUtils.deserialize(inputStream);
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
     public <T> T fromBytes(Class<T> clazz, byte[] bytes) {
-        try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(bytes))) {
-            return (T) fromObjectInputStream(ois);
-        } catch (IOException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private Object fromObjectInputStream(ObjectInputStream ois) throws IOException, ClassNotFoundException {
-        return ois.readObject();
+        return SerializationUtils.deserialize(bytes);
     }
 
     @Override
     public byte[] toBytes(Serializable serializable) {
-        try (ByteArrayOutputStream baous = new ByteArrayOutputStream(); ObjectOutputStream ous = new ObjectOutputStream(baous)) {
-            ous.writeObject(serializable);
-            return baous.toByteArray();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return SerializationUtils.serialize(serializable);
     }
 
     @Override
@@ -43,5 +32,10 @@ public class ObjectConverterImpl implements ObjectConverter {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public <T extends Serializable> T clone(T object) {
+        return SerializationUtils.clone(object);
     }
 }

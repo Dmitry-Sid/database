@@ -169,10 +169,17 @@ public class RowRepositoryTest {
 
     @Test
     public void getListTest() {
+        getListTest(1);
+        getListTest(10);
+        getListTest(40);
+        getListTest(1000);
+    }
+
+    public void getListTest(int bufferSize) {
         int lastId = 750;
         try {
             createFiles(lastId);
-            final RowRepository rowRepository = prepareRepository(1000);
+            final RowRepository rowRepository = prepareRepository(bufferSize);
             for (int i = 10; i <= 60; i++) {
                 final Map<String, Comparable> map = new HashMap<>();
                 map.put("int", i - 20);
@@ -272,6 +279,13 @@ public class RowRepositoryTest {
 
     @Test
     public void fieldsChangedTest() {
+        fieldsChangedTest(1);
+        fieldsChangedTest(10);
+        fieldsChangedTest(40);
+        fieldsChangedTest(1000);
+    }
+
+    public void fieldsChangedTest(int bufferSize) {
         int lastId = 750;
         try {
             createFiles(lastId);
@@ -279,7 +293,7 @@ public class RowRepositoryTest {
             modelService.add("field1", String.class);
             modelService.add("field2", String.class);
             modelService.add("field3", String.class);
-            final RowRepository rowRepository = prepareRepository(modelService, 1000);
+            final RowRepository rowRepository = prepareRepository(modelService, bufferSize);
             for (int i = 1; i <= 750; i++) {
                 final Map<String, Comparable> map = new LinkedHashMap<>();
                 map.put("field1", "1f" + i);

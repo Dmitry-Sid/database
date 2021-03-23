@@ -16,8 +16,8 @@ public class ReadWriteLockTest {
     @Test
     public void fullTest() throws InterruptedException, ExecutionException {
         {
-            final ReadWriteLock<Integer> lock = new ReadWriteLock<>();
             {
+                final ReadWriteLock<Integer> lock = new ReadWriteLock<>();
                 lock.readLock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
                 final Future<Long> future1 = createFuture(executorService, lock::readLock, lock::readUnlock, 1, null);
@@ -31,6 +31,7 @@ public class ReadWriteLockTest {
             }
             System.out.println();
             {
+                final ReadWriteLock<Integer> lock = new ReadWriteLock<>();
                 lock.readLock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
                 final Future<Long> future1 = createFuture(executorService, lock::writeLock, lock::writeUnlock, 1, null);
@@ -45,6 +46,7 @@ public class ReadWriteLockTest {
             }
             System.out.println();
             {
+                final ReadWriteLock<Integer> lock = new ReadWriteLock<>();
                 lock.writeLock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
                 final Future<Long> future1 = createFuture(executorService, lock::readLock, lock::readUnlock, 1, null);
@@ -58,6 +60,7 @@ public class ReadWriteLockTest {
             }
             System.out.println();
             {
+                final ReadWriteLock<Integer> lock = new ReadWriteLock<>();
                 lock.writeLock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
                 final Future<Long> future1 = createFuture(executorService, lock::writeLock, lock::writeUnlock, 1, null);
@@ -74,8 +77,8 @@ public class ReadWriteLockTest {
 
     @Test
     public void doubleLockTest() throws InterruptedException, ExecutionException {
-        final ReadWriteLock<Integer> lock = new ReadWriteLock<>();
         {
+            final ReadWriteLock<Integer> lock = new ReadWriteLock<>();
             final long beginMain = System.currentTimeMillis();
             lock.readLock(1);
             lock.readLock(1);
@@ -85,10 +88,12 @@ public class ReadWriteLockTest {
             lock.readUnlock(1);
             final long time = System.currentTimeMillis() - beginMain;
             assertTrue(time > 1000 && time < 2000);
+            future.get();
             assertTrue(future.get() > 1000 && future.get() < 2000);
         }
         System.out.println();
         {
+            final ReadWriteLock<Integer> lock = new ReadWriteLock<>();
             final long beginMain = System.currentTimeMillis();
             lock.readLock(1);
             lock.writeLock(1);
@@ -98,7 +103,8 @@ public class ReadWriteLockTest {
             lock.readUnlock(1);
             final long time = System.currentTimeMillis() - beginMain;
             assertTrue(time > 1000 && time < 2000);
-            assertTrue(future.get() > 1000 && future.get() < 2000);
+            future.get();
+            assertTrue(future.get() >= time + 1000);
         }
     }
 

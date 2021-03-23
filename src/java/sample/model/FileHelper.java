@@ -15,6 +15,8 @@ public interface FileHelper {
 
     public byte[] read(RowAddress rowAddress);
 
+    public void skip(InputStream inputStream, long size);
+
     public ChainInputStream getChainInputStream();
 
     public ChainOutputStream getChainOutputStream();
