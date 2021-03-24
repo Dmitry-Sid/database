@@ -1,7 +1,9 @@
-package server.model;
+package server.model.impl;
 
 import com.sun.org.slf4j.internal.Logger;
 import com.sun.org.slf4j.internal.LoggerFactory;
+import server.model.ObjectConverter;
+import server.model.RowIdRepository;
 import server.model.lock.LockService;
 import server.model.lock.ReadWriteLock;
 import server.model.pojo.RowAddress;
@@ -21,6 +23,7 @@ public class RowIdRepositoryImpl implements RowIdRepository {
 
     private final ObjectConverter objectConverter;
     private final Variables variables;
+    private final String variablesFileName;
     private final String filesIdPath;
     private final String filesRowPath;
     private final int maxIdSize;
@@ -30,6 +33,7 @@ public class RowIdRepositoryImpl implements RowIdRepository {
         this.objectConverter = objectConverter;
         this.filesRowPath = filesRowPath;
         this.compressSize = compressSize;
+        this.variablesFileName = variablesFileName;
         if (new File(variablesFileName).exists()) {
             this.variables = objectConverter.fromFile(Variables.class, variablesFileName);
         } else {
@@ -228,6 +232,10 @@ public class RowIdRepositoryImpl implements RowIdRepository {
 
     private Map<Integer, RowAddress> emptyRowAddressMap() {
         return new ConcurrentHashMap<>();
+    }
+
+    private void destroy() {
+        objectConverter.toFile(variables, variablesFileName);
     }
 
     public static class Variables implements Serializable {

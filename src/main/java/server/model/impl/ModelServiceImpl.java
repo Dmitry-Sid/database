@@ -1,7 +1,11 @@
-package server.model;
+package server.model.impl;
 
 import org.apache.commons.lang3.StringUtils;
+import server.model.ModelService;
+import server.model.ObjectConverter;
 
+import java.io.File;
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,9 +19,18 @@ public class ModelServiceImpl implements ModelService {
     private final List<Consumer<Set<String>>> fieldsChangesSubscribers = new CopyOnWriteArrayList<>();
     private final List<Consumer<Set<String>>> indexesChangesSubscribers = new CopyOnWriteArrayList<>();
     private final Map<String, FieldInfo> fields;
+    private final String fileName;
+    private final ObjectConverter objectConverter;
 
-    public ModelServiceImpl() {
-        fields = new ConcurrentHashMap<>();
+    public ModelServiceImpl(String fileName, ObjectConverter objectConverter) {
+        this.fileName = fileName;
+        this.objectConverter = objectConverter;
+        if (new File(fileName).exists()) {
+            this.fields = objectConverter.fromFile(Map.class, fileName);
+            checkFields(this.fields);
+            return;
+        }
+        this.fields = new ConcurrentHashMap<>();
     }
 
     private void checkFields(Map<String, FieldInfo> fields) {
@@ -111,6 +124,10 @@ public class ModelServiceImpl implements ModelService {
     @Override
     public void subscribeOnIndexesChanges(Consumer<Set<String>> fieldsConsumer) {
         indexesChangesSubscribers.add(fieldsConsumer);
+    }
+
+    private void destroy() {
+        objectConverter.toFile((Serializable) fields, fileName);
     }
 
     private static class FieldInfo {

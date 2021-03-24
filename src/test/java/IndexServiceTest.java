@@ -1,7 +1,7 @@
 import org.junit.Test;
 import server.model.FieldKeeper;
 import server.model.IndexService;
-import server.model.IndexServiceImpl;
+import server.model.impl.IndexServiceImpl;
 import server.model.pojo.ComplexCondition;
 import server.model.pojo.EmptyCondition;
 import server.model.pojo.ICondition;

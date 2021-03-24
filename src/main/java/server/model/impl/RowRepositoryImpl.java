@@ -1,5 +1,6 @@
-package server.model;
+package server.model.impl;
 
+import server.model.*;
 import server.model.lock.LockService;
 import server.model.lock.ReadWriteLock;
 import server.model.pojo.ICondition;
@@ -217,5 +218,9 @@ public class RowRepositoryImpl implements RowRepository {
                 fileHelperList.add(new FileHelper.CollectBean(rowAddress, (inputStream, outputStream) -> outputStream.write(rowBytes), null));
             });
         });
+    }
+
+    private void destroy() {
+        buffer.flush();
     }
 }

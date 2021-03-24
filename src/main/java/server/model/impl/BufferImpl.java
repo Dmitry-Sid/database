@@ -1,5 +1,6 @@
-package server.model;
+package server.model.impl;
 
+import server.model.Buffer;
 import server.model.lock.LockService;
 import server.model.lock.ReadWriteLock;
 import server.model.pojo.TableType;

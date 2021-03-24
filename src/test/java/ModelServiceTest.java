@@ -1,6 +1,7 @@
 import org.junit.Test;
 import server.model.ModelService;
-import server.model.ModelServiceImpl;
+import server.model.impl.ModelServiceImpl;
+import server.model.impl.ObjectConverterImpl;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -14,7 +15,7 @@ public class ModelServiceTest {
 
     @Test
     public void addAndContainsTest() {
-        final ModelService modelService = new ModelServiceImpl();
+        final ModelService modelService = new ModelServiceImpl("test", new ObjectConverterImpl());
         modelService.add("test1", Integer.class);
         modelService.add("test2", String.class);
         assertEquals(new HashSet<>(Arrays.asList("test1", "test2")), modelService.getFields());
@@ -25,7 +26,7 @@ public class ModelServiceTest {
 
     @Test
     public void getValueTest() {
-        final ModelService modelService = new ModelServiceImpl();
+        final ModelService modelService =  new ModelServiceImpl("test", new ObjectConverterImpl());
         modelService.add("test1", Byte.class);
         modelService.add("test2", Character.class);
         modelService.add("test3", Short.class);
@@ -46,7 +47,7 @@ public class ModelServiceTest {
 
     @Test
     public void deleteTest() {
-        final ModelService modelService = new ModelServiceImpl();
+        final ModelService modelService =  new ModelServiceImpl("test", new ObjectConverterImpl());
         modelService.add("test1", Byte.class);
         modelService.add("test2", Character.class);
         modelService.add("test3", Short.class);
@@ -73,7 +74,7 @@ public class ModelServiceTest {
 
     @Test
     public void addIndexTest() {
-        final ModelService modelService = new ModelServiceImpl();
+        final ModelService modelService =  new ModelServiceImpl("test", new ObjectConverterImpl());
         modelService.add("test1", Byte.class);
         modelService.add("test2", Character.class);
         modelService.add("test3", Short.class);
@@ -88,7 +89,7 @@ public class ModelServiceTest {
 
     @Test
     public void deleteIndexTest() {
-        final ModelService modelService = new ModelServiceImpl();
+        final ModelService modelService =  new ModelServiceImpl("test", new ObjectConverterImpl());
         modelService.add("test1", Byte.class);
         modelService.add("test2", Character.class);
         modelService.add("test3", Short.class);
@@ -111,7 +112,7 @@ public class ModelServiceTest {
 
     @Test
     public void subscribeOnFieldsChangesTest() {
-        final ModelService modelService = new ModelServiceImpl();
+        final ModelService modelService =  new ModelServiceImpl("test", new ObjectConverterImpl());
         final AtomicReference<Set<String>> atomicReference = new AtomicReference<>();
         modelService.subscribeOnFieldsChanges(atomicReference::set);
         modelService.add("test1", Byte.class);
@@ -130,7 +131,7 @@ public class ModelServiceTest {
 
     @Test
     public void subscribeOnIndexesChangesTest() {
-        final ModelService modelService = new ModelServiceImpl();
+        final ModelService modelService =  new ModelServiceImpl("test", new ObjectConverterImpl());
         final AtomicReference<Set<String>> atomicReference = new AtomicReference<>();
         modelService.subscribeOnIndexesChanges(atomicReference::set);
         modelService.add("test1", Byte.class);

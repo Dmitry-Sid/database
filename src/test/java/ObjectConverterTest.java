@@ -1,6 +1,6 @@
 import org.junit.Test;
 import server.model.ObjectConverter;
-import server.model.ObjectConverterImpl;
+import server.model.impl.ObjectConverterImpl;
 import server.model.pojo.Row;
 
 import java.io.File;

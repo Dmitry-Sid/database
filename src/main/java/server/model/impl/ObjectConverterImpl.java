@@ -1,6 +1,7 @@
-package server.model;
+package server.model.impl;
 
 import org.apache.commons.lang3.SerializationUtils;
+import server.model.ObjectConverter;
 
 import java.io.*;
 

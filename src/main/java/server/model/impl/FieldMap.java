@@ -1,5 +1,7 @@
-package server.model;
+package server.model.impl;
 
+import server.model.ConditionService;
+import server.model.FieldKeeper;
 import server.model.pojo.SimpleCondition;
 
 import java.util.Collections;

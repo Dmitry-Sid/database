@@ -1,8 +1,8 @@
 import org.junit.Test;
 import server.model.FileHelper;
-import server.model.FileHelperImpl;
+import server.model.impl.FileHelperImpl;
 import server.model.ObjectConverter;
-import server.model.ObjectConverterImpl;
+import server.model.impl.ObjectConverterImpl;
 import server.model.pojo.Row;
 import server.model.pojo.RowAddress;
 

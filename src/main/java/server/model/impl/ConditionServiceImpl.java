@@ -1,6 +1,9 @@
-package server.model;
+package server.model.impl;
 
 import org.apache.commons.lang3.StringUtils;
+import server.model.ConditionException;
+import server.model.ConditionService;
+import server.model.ModelService;
 import server.model.pojo.*;
 
 import java.util.ArrayList;

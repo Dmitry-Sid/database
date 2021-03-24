@@ -6,7 +6,7 @@ import java.util.Set;
 
 public abstract class FieldKeeper<U extends Comparable, V> {
     private final String fieldName;
-    final ConditionService conditionService;
+    protected final ConditionService conditionService;
 
     protected FieldKeeper(String fieldName, ConditionService conditionService) {
         this.fieldName = fieldName;

@@ -1,6 +1,6 @@
 import org.junit.Test;
 import server.model.Buffer;
-import server.model.BufferImpl;
+import server.model.impl.BufferImpl;
 import server.model.pojo.Row;
 
 import java.util.HashMap;

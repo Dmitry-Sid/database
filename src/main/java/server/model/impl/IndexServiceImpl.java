@@ -1,17 +1,38 @@
-package server.model;
+package server.model.impl;
 
+import server.model.ConditionException;
+import server.model.FieldKeeper;
+import server.model.IndexService;
+import server.model.ObjectConverter;
 import server.model.pojo.*;
 
+import java.io.File;
+import java.io.Serializable;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
 public class IndexServiceImpl implements IndexService {
     private static final SearchResult EMPTY = new SearchResult(false, Collections.emptySet());
     private final Map<String, FieldKeeper> fieldKeepers;
+    private final String fileName;
+    private final ObjectConverter objectConverter;
 
     public IndexServiceImpl(Map<String, FieldKeeper> fieldKeepers) {
         this.fieldKeepers = fieldKeepers;
+        this.fileName = null;
+        this.objectConverter = null;
+    }
+
+    public IndexServiceImpl(String fileName, ObjectConverter objectConverter) {
+        this.fileName = fileName;
+        this.objectConverter = objectConverter;
+        if (new File(fileName).exists()) {
+            this.fieldKeepers = objectConverter.fromFile(Map.class, fileName);
+            return;
+        }
+        this.fieldKeepers = new HashMap<>();
     }
 
     @Override
@@ -68,5 +89,9 @@ public class IndexServiceImpl implements IndexService {
     @Override
     public void delete(Row row) {
         fieldKeepers.forEach((key, value) -> value.delete(row.getFields().get(value.getFieldName()), row.getId()));
+    }
+
+    private void destroy() {
+        objectConverter.toFile((Serializable) fieldKeepers, fileName);
     }
 }

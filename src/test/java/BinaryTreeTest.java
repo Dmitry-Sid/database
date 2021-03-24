@@ -1,5 +1,5 @@
-import server.model.BinaryTree;
-import server.model.ConditionServiceImpl;
+import server.model.impl.BinaryTree;
+import server.model.impl.ConditionServiceImpl;
 import server.model.FieldKeeper;
 
 public class BinaryTreeTest extends FieldKeeperTest {

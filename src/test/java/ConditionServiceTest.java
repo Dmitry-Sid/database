@@ -1,6 +1,6 @@
 import org.junit.Test;
 import server.model.ConditionService;
-import server.model.ConditionServiceImpl;
+import server.model.impl.ConditionServiceImpl;
 import server.model.pojo.ComplexCondition;
 import server.model.pojo.ICondition;
 import server.model.pojo.Row;
