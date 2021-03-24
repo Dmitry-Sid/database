@@ -29,7 +29,7 @@ public class IndexServiceImpl implements IndexService {
         this.fileName = fileName;
         this.objectConverter = objectConverter;
         if (new File(fileName).exists()) {
-            this.fieldKeepers = objectConverter.fromFile(Map.class, fileName);
+            this.fieldKeepers = objectConverter.fromFile(HashMap.class, fileName);
             return;
         }
         this.fieldKeepers = new HashMap<>();

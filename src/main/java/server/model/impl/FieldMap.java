@@ -4,6 +4,7 @@ import server.model.ConditionService;
 import server.model.FieldKeeper;
 import server.model.pojo.SimpleCondition;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -11,7 +12,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-public class FieldMap<U extends Comparable, V> extends FieldKeeper<U, V> {
+public class FieldMap<U extends Comparable, V> extends FieldKeeper<U, V> implements Serializable {
+    private static final long serialVersionUID = 460578047585681920L;
     private final Map<U, Set<V>> valuesMap;
 
     public FieldMap(String fieldName, ConditionService conditionService, Map<U, Set<V>> valuesMap) {

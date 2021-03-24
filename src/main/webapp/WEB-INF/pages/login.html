@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru" layout:decorate="~{layout}" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <title>Войти</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:if="${error} != null" th:text="${error}"></div>
+    <th:block th:switch="${action}">
+        <th:block th:case="'login'">
+            <form method="POST" th:action="@{/userlogin}" th:object="${user}">
+                <h2>Вход в систему</h2>
+                <div>
+                    <input name="username" type="text" placeholder="Username"
+                           autofocus="true" th:field="*{email}"/>
+                    <input name="password" type="password" placeholder="Password" th:field="*{password}"/>
+                    <button type="submit">Log In</button>
+                    <h4><a th:href="@{/login/(action='resetPassword')}">Забыли пароль?</a></h4>
+                    <h4><a th:href="@{/registration/}">Зарегистрироваться</a></h4>
+                </div>
+            </form>
+        </th:block>
+        <th:block th:case="'resetPassword'">
+            <form method="POST" th:action="@{/resetPassword}" th:object="${user}">
+                <h2>Введите ваш email и письмо с инструкцией придет к вам на почту</h2>
+                <div>
+                    <input name="username" type="text" placeholder="Username" autofocus="true" th:field="*{email}"/>
+                    <button type="submit">Отправить</button>
+                </div>
+            </form>
+        </th:block>
+    </th:block>
+</div>
+</body>
+</html>

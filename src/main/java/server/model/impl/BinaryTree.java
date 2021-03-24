@@ -10,12 +10,14 @@ import server.model.pojo.ICondition;
 import server.model.pojo.Pair;
 import server.model.pojo.SimpleCondition;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Supplier;
 
-public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> {
+public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> implements Serializable {
+    private static final long serialVersionUID = -5669920028647488186L;
     private final Lock<Comparable> lock = LockService.createLock(Comparable.class);
     private final Object ROOT_LOCK = new Object();
     private Node<U, V> root;

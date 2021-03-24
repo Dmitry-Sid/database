@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="utf-8"/>
+    <title layout:title-pattern="$LAYOUT_TITLE - $CONTENT_TITLE">bestPlaces</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
+    <!--    <meta name="description" content="${namedPage.getPageDescription()}"/>-->
+    <meta name="theme-color" content="#354052"/>
+    <!--    <link rel="shortcut icon" href="${asset:context:/favicon.png}"/>-->
+    <link rel="stylesheet" th:href="@{/resources/css/main.css}">
+    <link rel="stylesheet" th:href="@{/resources/css/main.min.css}">
+    <script type="text/javascript" th:src="@{/resources/js/jQuery_3.5.1.js}"></script>
+    <script type="text/javascript" th:src="@{/resources/js/main.js}"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script data-ad-client="ca-pub-8729109398847724" async=""
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+</head>
+<body class="layout-cell layout-scrollbar">
+<div class="wrapper">
+    <nav class="sidebar sidebar-sticky">
+        <div class="sidebar-content layout-cell layout-scrollbar">
+            <a class="sidebar-brand" href="index">
+                <img/>
+            </a>
+            <ul class="sidebar-nav">
+                <li class="sidebar-item" th:classappend="${#request.requestURI.endsWith('/')} ? 'active' : ''">
+                    <a th:href="@{/}" class="sidebar-link"><i class="align-middle" data-feather="home"></i> Поиск</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    <div class="main">
+        <div id="black_sheet" class="black" style="display: none"></div>
+        <nav class="navbar navbar-expand navbar-light bg-white">
+            <a id="sidebar" class="sidebar-toggle d-flex mr-2">
+                <i class="hamburger align-self-center"></i>
+            </a>
+            <div class="navbar-collapse collapse">
+                <ul class="navbar-nav ml-auto">
+                    <li class="nav-item dropdown">
+                        <a sec:authorize="isAnonymous()" th:href="@{/login}" class="nav-link dropdown-toggle" data-toggle="dropdown">
+                            <i class="align-middle mr-2 fas fa-fw fa-sign-in-alt"></i> Вход
+                        </a>
+                        <a sec:authorize="isAuthenticated()" th:href="@{/logout}" class="nav-link dropdown-toggle" data-toggle="dropdown">
+                            <i class="align-middle mr-2 fas fa-fw fa-sign-out-alt"></i> Выход
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+        <main class="content">
+            <div class="container-fluid p-0">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card" layout:fragment="content"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

@@ -130,7 +130,8 @@ public class ModelServiceImpl implements ModelService {
         objectConverter.toFile((Serializable) fields, fileName);
     }
 
-    private static class FieldInfo {
+    private static class FieldInfo implements Serializable {
+        private static final long serialVersionUID = 3990344518009191295L;
         private final Class<?> type;
         private final AtomicBoolean isIndex;
 

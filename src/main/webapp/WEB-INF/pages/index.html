@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru" layout:decorate="~{layout}" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <title>Список мест</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <form th:action="@{/}" method="post">
+        <input type="text" th:value="${searchRequest}" name="searchRequest"/>
+        <input type="submit" value="Поиск"/>
+    </form>
+    <!--/*@thymesVar id="rows" type="java.util.List<server.model.pojo.Row>"*/-->
+    <!--/*@thymesVar id="fields" type="java.util.List<java.lang.String>"*/-->
+    <table th:if="${rows != null}" border="1" style="margin-top: 15px">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th:block th:each="field : ${fields}">
+                <th th:text="${field}"></th>
+            </th:block>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="row : ${rows}">
+            <td th:text="${row.getId()}"></td>
+            <th:block th:each="field : ${fields}">
+                <td th:text="${row.getFields().get(field)}"></td>
+            </th:block>
+        </tr>
+        </tbody>
+    </table>
+    <link rel="stylesheet" th:href="@{/resources/css/jquery.rateyo.css}">
+</div>
+</body>
+</html>
