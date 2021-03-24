@@ -1,6 +1,6 @@
-import sample.model.*;
-import sample.model.pojo.Row;
-import sample.model.pojo.RowAddress;
+import server.model.*;
+import server.model.pojo.Row;
+import server.model.pojo.RowAddress;
 
 import java.io.FileOutputStream;
 import java.io.IOException;

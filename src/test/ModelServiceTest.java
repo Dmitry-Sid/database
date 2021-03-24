@@ -1,6 +1,6 @@
 import org.junit.Test;
-import sample.model.ModelService;
-import sample.model.ModelServiceImpl;
+import server.model.ModelService;
+import server.model.ModelServiceImpl;
 
 import java.util.Arrays;
 import java.util.Collections;

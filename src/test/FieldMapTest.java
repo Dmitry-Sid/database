@@ -1,6 +1,6 @@
-import sample.model.ConditionServiceImpl;
-import sample.model.FieldKeeper;
-import sample.model.FieldMap;
+import server.model.ConditionServiceImpl;
+import server.model.FieldKeeper;
+import server.model.FieldMap;
 
 import java.util.concurrent.ConcurrentHashMap;
 

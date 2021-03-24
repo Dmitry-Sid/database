@@ -1,8 +1,8 @@
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import sample.model.RowIdRepository;
-import sample.model.pojo.RowAddress;
+import server.model.RowIdRepository;
+import server.model.pojo.RowAddress;
 
 import java.io.File;
 import java.util.Arrays;

@@ -1,7 +1,7 @@
 import org.junit.Test;
-import sample.model.ObjectConverter;
-import sample.model.ObjectConverterImpl;
-import sample.model.pojo.Row;
+import server.model.ObjectConverter;
+import server.model.ObjectConverterImpl;
+import server.model.pojo.Row;
 
 import java.io.File;
 import java.io.Serializable;

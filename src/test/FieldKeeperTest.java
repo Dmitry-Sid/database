@@ -1,7 +1,7 @@
 import org.junit.Test;
-import sample.model.FieldKeeper;
-import sample.model.pojo.ICondition;
-import sample.model.pojo.SimpleCondition;
+import server.model.FieldKeeper;
+import server.model.pojo.ICondition;
+import server.model.pojo.SimpleCondition;
 
 import java.util.ArrayList;
 import java.util.Arrays;

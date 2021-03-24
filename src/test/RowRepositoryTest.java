@@ -1,11 +1,11 @@
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
-import sample.model.*;
-import sample.model.pojo.EmptyCondition;
-import sample.model.pojo.ICondition;
-import sample.model.pojo.Row;
-import sample.model.pojo.SimpleCondition;
+import server.model.*;
+import server.model.pojo.EmptyCondition;
+import server.model.pojo.ICondition;
+import server.model.pojo.Row;
+import server.model.pojo.SimpleCondition;
 
 import java.io.File;
 import java.util.*;

@@ -1,10 +1,10 @@
 import org.junit.Test;
-import sample.model.ConditionService;
-import sample.model.ConditionServiceImpl;
-import sample.model.pojo.ComplexCondition;
-import sample.model.pojo.ICondition;
-import sample.model.pojo.Row;
-import sample.model.pojo.SimpleCondition;
+import server.model.ConditionService;
+import server.model.ConditionServiceImpl;
+import server.model.pojo.ComplexCondition;
+import server.model.pojo.ICondition;
+import server.model.pojo.Row;
+import server.model.pojo.SimpleCondition;
 
 import java.util.HashMap;
 import java.util.Map;

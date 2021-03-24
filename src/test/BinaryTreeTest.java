@@ -1,6 +1,6 @@
-import sample.model.BinaryTree;
-import sample.model.ConditionServiceImpl;
-import sample.model.FieldKeeper;
+import server.model.BinaryTree;
+import server.model.ConditionServiceImpl;
+import server.model.FieldKeeper;
 
 public class BinaryTreeTest extends FieldKeeperTest {
 

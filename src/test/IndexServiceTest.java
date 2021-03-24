@@ -1,11 +1,11 @@
 import org.junit.Test;
-import sample.model.FieldKeeper;
-import sample.model.IndexService;
-import sample.model.IndexServiceImpl;
-import sample.model.pojo.ComplexCondition;
-import sample.model.pojo.EmptyCondition;
-import sample.model.pojo.ICondition;
-import sample.model.pojo.SimpleCondition;
+import server.model.FieldKeeper;
+import server.model.IndexService;
+import server.model.IndexServiceImpl;
+import server.model.pojo.ComplexCondition;
+import server.model.pojo.EmptyCondition;
+import server.model.pojo.ICondition;
+import server.model.pojo.SimpleCondition;
 
 import java.util.HashMap;
 import java.util.LinkedHashSet;
