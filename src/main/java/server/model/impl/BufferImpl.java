@@ -1,8 +1,6 @@
 package server.model.impl;
 
 import server.model.Buffer;
-import server.model.lock.LockService;
-import server.model.lock.ReadWriteLock;
 import server.model.pojo.TableType;
 
 import java.util.Comparator;
@@ -14,26 +12,25 @@ import java.util.stream.Collectors;
 
 public class BufferImpl<V extends TableType> implements Buffer<V> {
     private final Map<Integer, Element<V>> map = new ConcurrentHashMap<>();
-    private final ReadWriteLock<Object> readWriteLock = LockService.createReadWriteLock(Object.class);
     private final int maxSize;
+    private final Consumer<Runnable> runnableConsumer;
     private final Consumer<List<Element<V>>> flushConsumer;
 
-    public BufferImpl(int maxSize, Consumer<List<Element<V>>> flushConsumer) {
+    public BufferImpl(int maxSize, Consumer<Runnable> runnableConsumer, Consumer<List<Element<V>>> flushConsumer) {
         this.maxSize = maxSize;
+        this.runnableConsumer = runnableConsumer;
         this.flushConsumer = flushConsumer;
     }
 
     @Override
     public void add(V value, State state) {
-        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, ReadWriteLock.DEFAULT, () -> {
-            if (value == null) {
-                return;
-            }
-            if (map.size() == maxSize) {
-                flush();
-            }
-            map.put(value.getId(), new Element<>(value, state));
-        });
+        if (value == null) {
+            return;
+        }
+        if (map.size() >= maxSize) {
+            flush();
+        }
+        map.put(value.getId(), new Element<>(value, state));
     }
 
     @Override
@@ -53,10 +50,12 @@ public class BufferImpl<V extends TableType> implements Buffer<V> {
 
     @Override
     public void flush() {
-        if (flushConsumer != null) {
-            flushConsumer.accept(sortedList());
-        }
-        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, ReadWriteLock.DEFAULT, map::clear);
+        runnableConsumer.accept(() -> {
+            if (flushConsumer != null) {
+                flushConsumer.accept(sortedList());
+            }
+            map.clear();
+        });
     }
 
     private List<Element<V>> sortedList() {

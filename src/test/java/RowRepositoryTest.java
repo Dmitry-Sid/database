@@ -1,7 +1,10 @@
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
-import server.model.*;
+import server.model.IndexService;
+import server.model.ModelService;
+import server.model.RowIdRepository;
+import server.model.RowRepository;
 import server.model.impl.*;
 import server.model.pojo.EmptyCondition;
 import server.model.pojo.ICondition;
@@ -10,6 +13,7 @@ import server.model.pojo.SimpleCondition;
 
 import java.io.File;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
@@ -346,6 +350,73 @@ public class RowRepositoryTest {
                 assertEquals(new Row(i, map), rows.get(i - 1));
             }
         } finally {
+            for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
+                new File(filesIdPath + value).delete();
+            }
+            String lastFileName = null;
+            for (Map.Entry<Integer, byte[]> entry : TestUtils.createRowMap(lastId).entrySet()) {
+                final String fileName = filesRowPath + TestUtils.getRowFileNumber(entry.getKey(), maxIdSize / compressSize);
+                if (!fileName.equals(lastFileName)) {
+                    lastFileName = fileName;
+                    new File(fileName).delete();
+                }
+            }
+        }
+    }
+
+    @Test
+    public void concurrentTest() throws InterruptedException {
+        concurrentTest(1);
+        concurrentTest(10);
+        concurrentTest(40);
+        concurrentTest(1000);
+    }
+
+    private void concurrentTest(int bufferSize) throws InterruptedException {
+        int lastId = 250;
+        final int max = 100;
+        try {
+            createFiles(lastId);
+            final RowRepository rowRepository = prepareRepository(bufferSize);
+            final AtomicInteger count = new AtomicInteger();
+            final Thread thread1 = new Thread(() -> {
+                for (int i = 0; i < max; i++) {
+                    rowRepository.add(TestUtils.generateRow(0, i));
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
+            final Thread thread2 = new Thread(() -> {
+                for (int i = 0; i < max; i++) {
+                    rowRepository.delete(i + 100);
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
+            final Thread thread3 = new Thread(() -> {
+                for (int i = 0; i < max; i++) {
+                    rowRepository.add(TestUtils.generateRow(i, i));
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
+            thread1.start();
+            thread2.start();
+            thread3.start();
+            for (int i = 0; i < max; i++) {
+                rowRepository.process(i, row -> count.incrementAndGet());
+            }
+            System.out.println("count " + count.get());
+            System.out.println();
+            count.set(0);
+            thread1.join();
+            thread2.join();
+            thread3.join();
+            for (int i = 0; i < 1000; i++) {
+                rowRepository.process(i, row -> count.incrementAndGet());
+            }
+            System.out.println("count " + count.get());
+            System.out.println();
+            System.out.println("main thread finished");
+        } finally {
+            lastId = 500;
             for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
                 new File(filesIdPath + value).delete();
             }

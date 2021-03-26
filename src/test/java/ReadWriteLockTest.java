@@ -22,12 +22,14 @@ public class ReadWriteLockTest {
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
                 final Future<Long> future1 = createFuture(executorService, lock::readLock, lock::readUnlock, 1, null);
                 final Future<Long> future2 = createFuture(executorService, lock::readLock, lock::readUnlock, 2, null);
+                final Future<Long> future3 = createFuture(executorService, lock::readLock, lock::readUnlock, 1, null);
                 sleep(1);
                 lock.readUnlock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " released lock");
                 future1.get();
                 future2.get();
-                assertTrue(future1.get() < 2000 && future2.get() < 2000);
+                future3.get();
+                assertTrue(future1.get() < 2000 && future2.get() < 2000 && future3.get() < 2000);
             }
             System.out.println();
             {
@@ -36,12 +38,14 @@ public class ReadWriteLockTest {
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
                 final Future<Long> future1 = createFuture(executorService, lock::writeLock, lock::writeUnlock, 1, null);
                 final Future<Long> future2 = createFuture(executorService, lock::writeLock, lock::writeUnlock, 2, null);
+                final Future<Long> future3 = createFuture(executorService, lock::writeLock, lock::writeUnlock, 1, null);
                 sleep(1);
                 lock.readUnlock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " released lock");
                 future1.get();
                 future2.get();
-                assertTrue(future1.get() > 2000 && future1.get() < 3000);
+                future3.get();
+                assertTrue(future1.get() + future3.get() > 5000);
                 assertTrue(future2.get() < 2000);
             }
             System.out.println();
@@ -51,12 +55,15 @@ public class ReadWriteLockTest {
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
                 final Future<Long> future1 = createFuture(executorService, lock::readLock, lock::readUnlock, 1, null);
                 final Future<Long> future2 = createFuture(executorService, lock::readLock, lock::readUnlock, 2, null);
+                final Future<Long> future3 = createFuture(executorService, lock::readLock, lock::readUnlock, 1, null);
                 sleep(1);
                 lock.writeUnlock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " released lock");
                 future1.get();
                 future2.get();
-                assertTrue((future1.get() > 2000 && future1.get() < 3000) && (future2.get() > 1000 && future2.get() < 2000));
+                future3.get();
+                assertTrue(future1.get() + future3.get() > 4000);
+                assertTrue(future2.get() < 2000);
             }
             System.out.println();
             {
@@ -65,12 +72,15 @@ public class ReadWriteLockTest {
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
                 final Future<Long> future1 = createFuture(executorService, lock::writeLock, lock::writeUnlock, 1, null);
                 final Future<Long> future2 = createFuture(executorService, lock::writeLock, lock::writeUnlock, 2, null);
+                final Future<Long> future3 = createFuture(executorService, lock::writeLock, lock::writeUnlock, 1, null);
                 sleep(1);
                 lock.writeUnlock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " released lock");
                 future1.get();
                 future2.get();
-                assertTrue((future1.get() > 2000 && future1.get() < 3000) && (future2.get() > 1000 && future2.get() < 2000));
+                future3.get();
+                assertTrue(future1.get() + future3.get() > 5000);
+                assertTrue(future2.get() < 2000);
             }
         }
     }

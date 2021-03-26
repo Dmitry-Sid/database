@@ -402,6 +402,59 @@ public class RowIdRepositoryTest {
         }
     }
 
+    /*@Test
+    public void concurrentTest() throws InterruptedException {
+        final int lastId = 750;
+        final int max = 5000;
+        createFiles(lastId);
+        rowIdRepository = prepareRowIdManager();
+        try {
+            final AtomicInteger count = new AtomicInteger();
+            final Thread thread1 = new Thread(() -> {
+                for (int i = 0; i < max; i++) {
+                    int finalI = i;
+                    rowIdRepository.add(800 + i, rowAddress -> rowAddress.setSize(rowAddressSize + finalI));
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
+            final Thread thread2 = new Thread(() -> {
+                for (int i = 0; i < max; i++) {
+                    rowIdRepository.delete(i + 100);
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
+            final Thread thread3 = new Thread(() -> {
+                for (int i = 0; i < max; i++) {
+                    int finalI = i;
+                    rowIdRepository.add(i, rowAddress -> rowAddress.setSize(rowAddressSize + finalI));
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
+            thread1.start();
+            thread2.start();
+            thread3.start();
+            for (int i = 0; i < max; i++) {
+                rowIdRepository.process(i, rowAddress -> count.incrementAndGet());
+            }
+            System.out.println("count " + count.get());
+            System.out.println();
+            count.set(0);
+            thread1.join();
+            thread2.join();
+            thread3.join();
+            for (int i = 0; i < 1000; i++) {
+                rowIdRepository.process(i, rowAddress -> count.incrementAndGet());
+            }
+            System.out.println("count " + count.get());
+            System.out.println();
+            System.out.println("main thread finished");
+        } finally {
+            for (Integer value : TestUtils.prepareBoundsBatch(10000, maxIdSize)) {
+                new File(filesIdPath + value).delete();
+            }
+        }
+    }*/
+
     private void createFiles(int lastId) {
         TestUtils.createIdFiles(lastId, maxIdSize, compressSize, fileName, filesIdPath, filesRowPath, rowAddressSize, null);
     }

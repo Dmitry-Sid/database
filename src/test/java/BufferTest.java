@@ -6,6 +6,8 @@ import server.model.pojo.Row;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -20,7 +22,9 @@ public class BufferTest {
     }
 
     private void fullTest(int maxSize) {
-        final Buffer<Row> buffer = new BufferImpl<>(maxSize, list -> {
+        final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+        readWriteLock.readLock().lock();
+        final Buffer<Row> buffer = new BufferImpl<>( maxSize, Runnable::run, list -> {
             list.forEach(value -> {
                 if (value.getValue().getId() % maxSize == 0) {
                     System.out.println(value.getValue().getId());
@@ -122,5 +126,6 @@ public class BufferTest {
         });
         assertEquals(0, counter.get());
         assertEquals(0, buffer.size());
+        readWriteLock.readLock().unlock();
     }
 }

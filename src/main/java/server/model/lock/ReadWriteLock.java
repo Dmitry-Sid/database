@@ -40,7 +40,7 @@ public class ReadWriteLock<T> {
         while (true) {
             commonCounter = lockedObjects.get(value);
             counter = threadLocal.get().get(value);
-            if (commonCounter != null && waitFunction.apply(commonCounter) && counter == null) {
+            if (commonCounter != null && waitFunction.apply(commonCounter) && isNullCounter(counter)) {
                 try {
                     wait(100);
                 } catch (InterruptedException e) {
@@ -69,20 +69,26 @@ public class ReadWriteLock<T> {
         final Counter counter = threadLocal.get().get(value);
         if (counter == null || function.apply(counter).get() <= 0) {
             log.warn("try to unlock not acquired value : " + value + ", thread : " + Thread.currentThread());
-            return;
+            threadLocal.get().remove(value);
         }
-        function.apply(counter).decrementAndGet();
+        if (counter != null) {
+            function.apply(counter).decrementAndGet();
+        }
+        if (isNullCounter(counter)) {
+            threadLocal.get().remove(value);
+        }
         final Counter commonCounter = lockedObjects.get(value);
         if (commonCounter != null) {
             function.apply(commonCounter).decrementAndGet();
         }
-        if (commonCounter == null || (commonCounter.readCount.get() == 0 && commonCounter.writeCount.get() == 0)) {
-            threadLocal.get().remove(value);
+        if (isNullCounter(commonCounter)) {
             lockedObjects.remove(value);
-            notifyAll();
-        } else {
-            threadLocal.get().put(value, counter);
         }
+        notifyAll();
+    }
+
+    private boolean isNullCounter(Counter counter) {
+        return counter == null || (counter.readCount.get() <= 0 && counter.writeCount.get() <= 0);
     }
 
     private static class Counter {

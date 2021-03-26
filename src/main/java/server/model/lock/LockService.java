@@ -47,6 +47,24 @@ public class LockService {
         }
     }
 
+    public static void doInReadWriteLock(java.util.concurrent.locks.ReadWriteLock lock, LockType lockType, Runnable runnable) {
+        lock(lock, lockType);
+        try {
+            runnable.run();
+        } finally {
+            unlock(lock, lockType);
+        }
+    }
+
+    public static <T> T doInReadWriteLock(java.util.concurrent.locks.ReadWriteLock lock, LockType lockType, Supplier<T> supplier) {
+        lock(lock, lockType);
+        try {
+            return supplier.get();
+        } finally {
+            unlock(lock, lockType);
+        }
+    }
+
     private static <U> void lock(ReadWriteLock<U> lock, LockType lockType, U value) {
         switch (lockType) {
             case Read:
@@ -69,8 +87,29 @@ public class LockService {
         }
     }
 
+    private static void lock(java.util.concurrent.locks.ReadWriteLock lock, LockType lockType) {
+        switch (lockType) {
+            case Read:
+                lock.readLock().lock();
+                break;
+            case Write:
+                lock.writeLock().lock();
+                break;
+        }
+    }
+
+    private static void unlock(java.util.concurrent.locks.ReadWriteLock lock, LockType lockType) {
+        switch (lockType) {
+            case Read:
+                lock.readLock().unlock();
+                break;
+            case Write:
+                lock.writeLock().unlock();
+                break;
+        }
+    }
+
     public enum LockType {
         Read, Write
     }
-
 }
