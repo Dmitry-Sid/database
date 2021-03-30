@@ -102,6 +102,7 @@ public class RowRepositoryImpl implements RowRepository {
                 return Collections.emptyList();
             }
             final List<Row> rows = new ArrayList<>();
+            final Set<Integer> processedIdSet = new HashSet<>();
             final AtomicBoolean stopChecker = new AtomicBoolean(false);
             final AtomicInteger skipped = new AtomicInteger();
             try (final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream()) {
@@ -109,19 +110,32 @@ public class RowRepositoryImpl implements RowRepository {
                     if (conditionService.check(row, iCondition)) {
                         if (skipped.get() == from && rows.size() != size) {
                             rows.add(row);
+                            processedIdSet.add(row.getId());
                         } else {
                             skipped.getAndIncrement();
                         }
                     }
-                    if (rows.size() == size) {
+                    if (rows.size() >= size) {
                         stopChecker.set(true);
                     }
                 }, null);
                 final IndexService.SearchResult searchResult = indexService.search(iCondition);
                 if (searchResult.found) {
-                    rowIdRepository.stream(rowAddressConsumer, stopChecker, searchResult.idSet);
+                    if (searchResult.idSet != null && searchResult.idSet.size() > 0) {
+                        rowIdRepository.stream(rowAddressConsumer, stopChecker, searchResult.idSet);
+                    }
                 } else {
                     rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
+                }
+                if (rows.size() < size) {
+                    buffer.stream(rowElement -> {
+                        final Row row = rowElement.getValue();
+                        final boolean inSet = !searchResult.found || (searchResult.idSet != null && searchResult.idSet.contains(row.getId()));
+                        if (Buffer.State.ADDED.equals(rowElement.getState()) && !processedIdSet.contains(row.getId()) &&
+                                rows.size() < size && inSet && (conditionService.check(row, iCondition))) {
+                            rows.add(row);
+                        }
+                    });
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);

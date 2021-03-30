@@ -1,22 +1,22 @@
 <!DOCTYPE html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="ru" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="utf-8"/>
     <title layout:title-pattern="$LAYOUT_TITLE - $CONTENT_TITLE">bestPlaces</title>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
+    <meta content="IE=edge" http-equiv="X-UA-Compatible"/>
+    <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport"/>
     <!--    <meta name="description" content="${namedPage.getPageDescription()}"/>-->
-    <meta name="theme-color" content="#354052"/>
+    <meta content="#354052" name="theme-color"/>
     <!--    <link rel="shortcut icon" href="${asset:context:/favicon.png}"/>-->
     <link rel="stylesheet" th:href="@{/resources/css/main.css}">
     <link rel="stylesheet" th:href="@{/resources/css/main.min.css}">
-    <script type="text/javascript" th:src="@{/resources/js/jQuery_3.5.1.js}"></script>
-    <script type="text/javascript" th:src="@{/resources/js/main.js}"></script>
+    <script th:src="@{/resources/js/jQuery_3.5.1.js}" type="text/javascript"></script>
+    <script th:src="@{/resources/js/main.js}" type="text/javascript"></script>
     <script src="https://unpkg.com/feather-icons"></script>
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-    <script data-ad-client="ca-pub-8729109398847724" async=""
+    <script async="" data-ad-client="ca-pub-8729109398847724"
             src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
 </head>
 <body class="layout-cell layout-scrollbar">
@@ -28,27 +28,33 @@
             </a>
             <ul class="sidebar-nav">
                 <li class="sidebar-item" th:classappend="${#request.requestURI.endsWith('/')} ? 'active' : ''">
-                    <a th:href="@{/}" class="sidebar-link"><i class="align-middle" data-feather="home"></i> Поиск</a>
+                    <a class="sidebar-link" th:href="@{/}"><i class="align-middle" data-feather="home"></i> Поиск</a>
                 </li>
                 <li class="sidebar-item" th:classappend="${#request.requestURI.endsWith('/model/')} ? 'active' : ''">
-                    <a th:href="@{/model/}" class="sidebar-link"><i class="align-middle" data-feather="home"></i> Модель</a>
+                    <a class="sidebar-link" th:href="@{/model/}"><i class="align-middle" data-feather="home"></i> Модель</a>
+                </li>
+                <li class="sidebar-item" th:classappend="${#request.requestURI.endsWith('/model/')} ? 'active' : ''">
+                    <a class="sidebar-link" th:href="@{/row/(id=0)}"><i class="align-middle" data-feather="home"></i>
+                        Добавить строку</a>
                 </li>
             </ul>
         </div>
     </nav>
     <div class="main">
-        <div id="black_sheet" class="black" style="display: none"></div>
+        <div class="black" id="black_sheet" style="display: none"></div>
         <nav class="navbar navbar-expand navbar-light bg-white">
-            <a id="sidebar" class="sidebar-toggle d-flex mr-2">
+            <a class="sidebar-toggle d-flex mr-2" id="sidebar">
                 <i class="hamburger align-self-center"></i>
             </a>
             <div class="navbar-collapse collapse">
                 <ul class="navbar-nav ml-auto">
                     <li class="nav-item dropdown">
-                        <a sec:authorize="isAnonymous()" th:href="@{/login}" class="nav-link dropdown-toggle" data-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" data-toggle="dropdown" sec:authorize="isAnonymous()"
+                           th:href="@{/login}">
                             <i class="align-middle mr-2 fas fa-fw fa-sign-in-alt"></i> Вход
                         </a>
-                        <a sec:authorize="isAuthenticated()" th:href="@{/logout}" class="nav-link dropdown-toggle" data-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" data-toggle="dropdown" sec:authorize="isAuthenticated()"
+                           th:href="@{/logout}">
                             <i class="align-middle mr-2 fas fa-fw fa-sign-out-alt"></i> Выход
                         </a>
                     </li>

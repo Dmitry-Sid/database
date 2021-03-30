@@ -1,5 +1,6 @@
 package server.model.pojo;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -7,6 +8,10 @@ public class Row extends TableType {
     private static final long serialVersionUID = -172808855119652235L;
 
     private final Map<String, Comparable> fields;
+
+    public Row() {
+        this.fields = new HashMap<>();
+    }
 
     public Row(Map<String, Comparable> fields) {
         this.fields = fields;

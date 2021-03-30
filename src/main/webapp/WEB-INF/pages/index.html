@@ -1,24 +1,26 @@
 <!DOCTYPE html>
-<html lang="ru" layout:decorate="~{layout}" xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<html lang="ru" layout:decorate="~{layout}" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:th="http://www.thymeleaf.org">
 <head>
     <title>Поиск</title>
 </head>
 <body>
 <div layout:fragment="content">
-    <form th:action="@{/}" method="post">
-        <input type="text" th:value="${searchRequest}" name="searchRequest"/>
+    <form method="post" th:action="@{/}">
+        <input name="searchRequest" style="width: 50%" th:value="${searchRequest}" type="text"/>
         <input type="submit" value="Поиск"/>
     </form>
     <!--/*@thymesVar id="rows" type="java.util.List<server.model.pojo.Row>"*/-->
     <!--/*@thymesVar id="fields" type="java.util.List<server.model.ModelService.FieldInfo>"*/-->
-    <table th:if="${rows != null}" border="1" style="margin-top: 15px">
+    <table class="table" style="margin-top: 15px" th:if="${rows != null}">
         <thead>
         <tr>
             <th>ID</th>
             <th:block th:each="field : ${fields}">
                 <th th:text="${field.name}"></th>
             </th:block>
+            <th>Изменить</th>
+            <th>Удалить</th>
         </tr>
         </thead>
         <tbody>

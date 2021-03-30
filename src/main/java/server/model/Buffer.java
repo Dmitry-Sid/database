@@ -7,17 +7,21 @@ import java.util.function.Consumer;
 
 public interface Buffer<V extends TableType> {
 
-    public void add(V value, State state);
+    void add(V value, State state);
 
-    public Element<V> get(int id);
+    Element<V> get(int id);
 
-    public int size();
+    int size();
 
-    public void stream(Consumer<Element<V>> consumer);
+    void stream(Consumer<Element<V>> consumer);
 
-    public void flush();
+    void flush();
 
-    public class Element<V> {
+    enum State {
+        ADDED, UPDATED, DELETED
+    }
+
+    class Element<V> {
         private final V value;
         private final State state;
 
@@ -51,10 +55,6 @@ public interface Buffer<V extends TableType> {
         public int hashCode() {
             return Objects.hash(getValue(), getState());
         }
-    }
-
-    public enum State {
-        ADDED, UPDATED, DELETED
     }
 
 }

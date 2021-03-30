@@ -8,10 +8,10 @@ import java.util.function.Consumer;
 
 public interface RowIdRepository extends Repository<RowAddress> {
 
-    public int newId();
+    int newId();
 
-    public void add(int id, Consumer<RowAddress> rowAddressConsumer);
+    void add(int id, Consumer<RowAddress> rowAddressConsumer);
 
-    public void stream(Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker, Set<Integer> idSet);
+    void stream(Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker, Set<Integer> idSet);
 
 }

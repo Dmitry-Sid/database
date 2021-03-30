@@ -1,13 +1,13 @@
 package server.model.pojo;
 
 public interface ICondition {
-    public static final EmptyCondition empty = new EmptyCondition();
+    EmptyCondition empty = new EmptyCondition();
 
-    public enum SimpleType {
+    enum SimpleType {
         EQ, LT, LTE, GT, GTE, LIKE, NOT
     }
 
-    public enum ComplexType {
+    enum ComplexType {
         AND, OR
     }
 }

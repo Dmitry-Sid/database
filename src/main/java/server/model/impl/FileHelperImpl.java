@@ -223,42 +223,9 @@ public class FileHelperImpl implements FileHelper {
         return true;
     }
 
-    public class ChainLockInputStream extends ChainLockStream<InputStream> implements ChainInputStream {
-
-        public void read(String fileName) {
-            init(fileName);
-        }
-
-        @Override
-        public InputStream getInputStream() {
-            return currentStream;
-        }
-
-        @Override
-        protected InputStream createStream(String fileName) throws Exception {
-            if (!new File(fileName).exists()) {
-                return null;
-            }
-            return new BufferedInputStream(new FileInputStream(fileName));
-        }
-    }
-
-    public class ChainLockOutputStream extends ChainLockStream<OutputStream> implements ChainOutputStream {
-
-        @Override
-        public OutputStream getOutputStream() {
-            return currentStream;
-        }
-
-        @Override
-        protected OutputStream createStream(String fileName) throws Exception {
-            return new BufferedOutputStream(new FileOutputStream(fileName), 10000);
-        }
-    }
-
     private abstract static class ChainLockStream<T extends Closeable> {
-        private String currentFileName;
         T currentStream;
+        private String currentFileName;
         private boolean closed = true;
 
         public void init(String fileName) {
@@ -297,6 +264,39 @@ public class FileHelperImpl implements FileHelper {
 
         public boolean isClosed() {
             return closed;
+        }
+    }
+
+    public class ChainLockInputStream extends ChainLockStream<InputStream> implements ChainInputStream {
+
+        public void read(String fileName) {
+            init(fileName);
+        }
+
+        @Override
+        public InputStream getInputStream() {
+            return currentStream;
+        }
+
+        @Override
+        protected InputStream createStream(String fileName) throws Exception {
+            if (!new File(fileName).exists()) {
+                return null;
+            }
+            return new BufferedInputStream(new FileInputStream(fileName));
+        }
+    }
+
+    public class ChainLockOutputStream extends ChainLockStream<OutputStream> implements ChainOutputStream {
+
+        @Override
+        public OutputStream getOutputStream() {
+            return currentStream;
+        }
+
+        @Override
+        protected OutputStream createStream(String fileName) throws Exception {
+            return new BufferedOutputStream(new FileOutputStream(fileName), 10000);
         }
     }
 }

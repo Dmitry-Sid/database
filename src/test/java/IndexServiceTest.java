@@ -1,9 +1,9 @@
 import org.junit.Test;
-import server.model.*;
+import server.model.ConditionService;
+import server.model.FieldKeeper;
+import server.model.IndexService;
 import server.model.impl.ConditionServiceImpl;
 import server.model.impl.IndexServiceImpl;
-import server.model.impl.ModelServiceImpl;
-import server.model.impl.ObjectConverterImpl;
 import server.model.pojo.ComplexCondition;
 import server.model.pojo.EmptyCondition;
 import server.model.pojo.ICondition;
@@ -21,10 +21,10 @@ import static org.mockito.Mockito.*;
 
 public class IndexServiceTest {
 
-    private final IndexService indexService = prepareIndexService();
     private final Boolean[] transformed = new Boolean[]{false, false};
     private final Boolean[] inserted = new Boolean[]{false, false};
     private final Boolean[] deleted = new Boolean[]{false, false};
+    private final IndexService indexService = prepareIndexService();
 
     @Test
     public void searchTest() {

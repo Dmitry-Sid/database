@@ -13,7 +13,6 @@ import server.model.RowRepository;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.util.List;
 
 @Controller
 @RequestMapping(value = "/", produces = "text/plain;charset=UTF-8")

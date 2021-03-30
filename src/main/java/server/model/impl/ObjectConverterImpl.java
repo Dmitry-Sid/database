@@ -8,7 +8,7 @@ import java.io.*;
 public class ObjectConverterImpl implements ObjectConverter {
 
     @Override
-    public <T> T fromFile(Class<T> clazz, String file) {
+    public <T extends Serializable> T fromFile(Class<T> clazz, String file) {
         try (InputStream inputStream = new FileInputStream(file)) {
             return SerializationUtils.deserialize(inputStream);
         } catch (IOException e) {
@@ -17,7 +17,7 @@ public class ObjectConverterImpl implements ObjectConverter {
     }
 
     @Override
-    public <T> T fromBytes(Class<T> clazz, byte[] bytes) {
+    public <T extends Serializable> T fromBytes(Class<T> clazz, byte[] bytes) {
         return SerializationUtils.deserialize(bytes);
     }
 

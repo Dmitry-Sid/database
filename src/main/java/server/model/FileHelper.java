@@ -10,45 +10,45 @@ import java.util.List;
 
 public interface FileHelper {
 
-    public void write(String fileName, byte[] bytes, boolean append);
+    void write(String fileName, byte[] bytes, boolean append);
 
-    public byte[] read(RowAddress rowAddress);
+    byte[] read(RowAddress rowAddress);
 
-    public void skip(InputStream inputStream, long size);
+    void skip(InputStream inputStream, long size);
 
-    public ChainInputStream getChainInputStream();
+    ChainInputStream getChainInputStream();
 
-    public ChainOutputStream getChainOutputStream();
+    ChainOutputStream getChainOutputStream();
 
-    public void collect(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer);
+    void collect(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer);
 
-    public void collect(List<CollectBean> list);
+    void collect(List<CollectBean> list);
 
-    public interface InputOutputConsumer {
+    interface InputOutputConsumer {
         void accept(InputStream inputStream, OutputStream outputStream) throws IOException;
     }
 
-    public interface ChainInputStream extends Closeable {
-        public void read(String fileName);
+    interface ChainInputStream extends Closeable {
+        void read(String fileName);
 
-        public String getFileName();
+        String getFileName();
 
-        public InputStream getInputStream();
+        InputStream getInputStream();
 
-        public boolean isClosed();
+        boolean isClosed();
     }
 
-    public interface ChainOutputStream extends Closeable {
-        public void init(String fileName);
+    interface ChainOutputStream extends Closeable {
+        void init(String fileName);
 
-        public String getFileName();
+        String getFileName();
 
-        public OutputStream getOutputStream();
+        OutputStream getOutputStream();
 
-        public boolean isClosed();
+        boolean isClosed();
     }
 
-    public static class CollectBean {
+    class CollectBean {
         public final RowAddress rowAddress;
         public final InputOutputConsumer inputOutputConsumer;
         public final Runnable runnable;

@@ -3,6 +3,7 @@ package server.model.impl;
 import server.model.ConditionException;
 import server.model.ConditionService;
 import server.model.FieldKeeper;
+import server.model.ObjectConverter;
 import server.model.lock.Lock;
 import server.model.lock.LockService;
 import server.model.pojo.BinarySearchDirection;
@@ -10,6 +11,7 @@ import server.model.pojo.ICondition;
 import server.model.pojo.Pair;
 import server.model.pojo.SimpleCondition;
 
+import java.io.File;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
@@ -17,17 +19,26 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> implements Serializable {
-    private static final long serialVersionUID = -5669920028647488186L;
     private final Lock<Comparable> lock = LockService.createLock(Comparable.class);
     private final Object ROOT_LOCK = new Object();
+    private final String fileName;
+    private final ObjectConverter objectConverter;
     private Node<U, V> root;
 
-    public BinaryTree(String field) {
+    public BinaryTree(String field, String fileName, ObjectConverter objectConverter) {
         super(field);
+        this.fileName = fileName;
+        this.objectConverter = objectConverter;
+        if (new File(fileName).exists()) {
+            this.root = objectConverter.fromFile(Node.class, fileName);
+        }
     }
 
     @Override
     public void insert(U key, V value) {
+        if (key == null) {
+            return;
+        }
         LockService.doInLock(lock, key, () -> {
             final Pair<Node<U, V>, Node<U, V>> pair;
             final ChainComparableLock chainComparableLock = new ChainComparableLock();
@@ -62,6 +73,9 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
 
     @Override
     public boolean delete(U key, V value) {
+        if (key == null) {
+            return true;
+        }
         return LockService.doInLock(lock, key, () -> {
             final ChainComparableLock chainComparableLock = new ChainComparableLock();
             synchronized (ROOT_LOCK) {
@@ -182,6 +196,9 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
 
     @Override
     public Set<V> search(U key) {
+        if (key == null) {
+            return Collections.emptySet();
+        }
         final ChainComparableLock chainComparableLock = new ChainComparableLock();
         synchronized (ROOT_LOCK) {
             if (root == null) {
@@ -198,6 +215,49 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
         } finally {
             chainComparableLock.close();
         }
+    }
+
+    @Override
+    public void destroy() {
+        objectConverter.toFile(root, fileName);
+    }
+
+    private Pair<Node<U, V>, Node<U, V>> search(Node<U, V> node, U key, ChainComparableLock chainComparableLock) {
+        if (key == null) {
+            throw new RuntimeException("null key");
+        }
+        if (node == null) {
+            return new Pair<>(null, null);
+        }
+        chainComparableLock.lock(key);
+        final int compareResult = key.compareTo(node.key);
+        if (compareResult == 0) {
+            return new Pair<>(node, null);
+        } else if (compareResult < 0) {
+            if (node.left == null) {
+                return new Pair<>(null, node);
+            }
+            return search(node.left, key, chainComparableLock);
+        }
+        if (node.right == null) {
+            return new Pair<>(null, node);
+        }
+        return search(node.right, key, chainComparableLock);
+    }
+
+    private static class Node<U, V> implements Serializable {
+        private static final long serialVersionUID = 1580600256004817186L;
+        private final U key;
+        private final Set<V> value;
+        private Node<U, V> parent;
+        private Node<U, V> left;
+        private Node<U, V> right;
+
+        public Node(U key, Set<V> value) {
+            this.key = key;
+            this.value = value;
+        }
+
     }
 
     private class ConditionSearcher<V> {
@@ -291,42 +351,5 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
                 lock.unlock(currentComparable);
             }
         }
-    }
-
-    private Pair<Node<U, V>, Node<U, V>> search(Node<U, V> node, U key, ChainComparableLock chainComparableLock) {
-        if (key == null) {
-            throw new RuntimeException("null key");
-        }
-        if (node == null) {
-            return new Pair<>(null, null);
-        }
-        chainComparableLock.lock(key);
-        final int compareResult = key.compareTo(node.key);
-        if (compareResult == 0) {
-            return new Pair<>(node, null);
-        } else if (compareResult < 0) {
-            if (node.left == null) {
-                return new Pair<>(null, node);
-            }
-            return search(node.left, key, chainComparableLock);
-        }
-        if (node.right == null) {
-            return new Pair<>(null, node);
-        }
-        return search(node.right, key, chainComparableLock);
-    }
-
-    private static class Node<U, V> {
-        private final U key;
-        private final Set<V> value;
-        private Node<U, V> parent;
-        private Node<U, V> left;
-        private Node<U, V> right;
-
-        public Node(U key, Set<V> value) {
-            this.key = key;
-            this.value = value;
-        }
-
     }
 }

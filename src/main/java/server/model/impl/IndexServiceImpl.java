@@ -4,7 +4,6 @@ import server.model.*;
 import server.model.pojo.*;
 
 import java.io.File;
-import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -30,21 +29,24 @@ public class IndexServiceImpl implements IndexService {
         this.fileName = fileName;
         this.objectConverter = objectConverter;
         this.conditionService = conditionService;
+        this.fieldKeepers = new ConcurrentHashMap<>();
         if (new File(fileName).exists()) {
-            this.fieldKeepers = objectConverter.fromFile(HashMap.class, fileName);
-        } else {
-            this.fieldKeepers = new HashMap<>();
+            final Set<String> fields = objectConverter.fromFile(HashSet.class, fileName);
+            fields.forEach(field -> fieldKeepers.put(field, createFieldKeeper(field)));
         }
         modelService.subscribeOnIndexesChanges(fields -> {
             final AtomicBoolean added = new AtomicBoolean(false);
             fields.forEach(field -> {
                 if (!fieldKeepers.containsKey(field)) {
                     added.set(true);
-                    fieldKeepers.putIfAbsent(field, new FieldMap(field, new ConcurrentHashMap<>()));
+                    fieldKeepers.putIfAbsent(field, createFieldKeeper(field));
                 }
             });
             final Set<String> fieldSet = fieldKeepers.keySet().stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet());
-            fieldSet.forEach(fieldKeepers::remove);
+            fieldSet.forEach(field -> {
+                fieldKeepers.remove(field);
+                new File(getFieldKeeperFileName(field)).delete();
+            });
             if (added.get()) {
                 runnableList.forEach(Runnable::run);
             }
@@ -56,39 +58,59 @@ public class IndexServiceImpl implements IndexService {
         if (condition == null || condition instanceof EmptyCondition) {
             return EMPTY;
         }
-        return new SearchResult(true, searchIdSet(condition));
+        return searchResult(condition);
     }
 
-    private Set<Integer> searchIdSet(ICondition condition) {
+    private SearchResult searchResult(ICondition condition) {
         if (condition instanceof SimpleCondition) {
-            return fieldKeepers.get(((SimpleCondition) condition).getField()).search(conditionService, (SimpleCondition) condition);
+            final FieldKeeper fieldKeeper = fieldKeepers.get(((SimpleCondition) condition).getField());
+            if (fieldKeeper != null) {
+                return new SearchResult(true, fieldKeeper.search(conditionService, (SimpleCondition) condition));
+            } else {
+                return new SearchResult(false, null);
+            }
         } else if (condition instanceof ComplexCondition) {
-            return searchIdSet((ComplexCondition) condition);
+            return searchResult((ComplexCondition) condition);
         } else if (condition instanceof EmptyCondition) {
-            return Collections.emptySet();
+            return new SearchResult(true, Collections.emptySet());
         }
         throw new ConditionException("Unknown condition class : " + condition.getClass());
     }
 
-    private Set<Integer> searchIdSet(ComplexCondition condition) {
+    private SearchResult searchResult(ComplexCondition condition) {
+        boolean found = true;
         Set<Integer> result = null;
         for (ICondition innerCondition : condition.getConditions()) {
+            if (!found) {
+                break;
+            }
             if (result == null) {
-                result = searchIdSet(innerCondition);
+                final SearchResult searchResult = searchResult(innerCondition);
+                if (searchResult.found) {
+                    result = searchResult.idSet;
+                }
                 continue;
             }
+            final SearchResult searchResult = searchResult(innerCondition);
             switch (condition.getType()) {
                 case OR:
-                    result.addAll(searchIdSet(innerCondition));
+                    if (!searchResult.found) {
+                        found = false;
+                        result = null;
+                        break;
+                    }
+                    result.addAll(searchResult(innerCondition).idSet);
                     break;
                 case AND:
-                    result.retainAll(searchIdSet(innerCondition));
+                    if (searchResult.found) {
+                        result.retainAll(searchResult(innerCondition).idSet);
+                    }
                     break;
                 default:
                     throw new ConditionException("Unknown complex type : " + condition.getType());
             }
         }
-        return result;
+        return new SearchResult(found, result);
     }
 
     @Override
@@ -112,7 +134,16 @@ public class IndexServiceImpl implements IndexService {
         runnableList.add(runnable);
     }
 
+    private <U extends Comparable, V> FieldKeeper<U, V> createFieldKeeper(String fieldName) {
+        return new FieldMap<>(fieldName, getFieldKeeperFileName(fieldName), objectConverter);
+    }
+
+    private String getFieldKeeperFileName(String fieldName) {
+        return fileName + "." + fieldName;
+    }
+
     private void destroy() {
-        objectConverter.toFile((Serializable) fieldKeepers, fileName);
+        objectConverter.toFile(new HashSet<>(fieldKeepers.keySet()), fileName);
+        fieldKeepers.values().forEach(FieldKeeper::destroy);
     }
 }

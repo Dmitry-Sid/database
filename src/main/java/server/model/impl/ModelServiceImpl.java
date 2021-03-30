@@ -26,7 +26,7 @@ public class ModelServiceImpl implements ModelService {
         this.fileName = fileName;
         this.objectConverter = objectConverter;
         if (new File(fileName).exists()) {
-            this.fields = objectConverter.fromFile(Map.class, fileName);
+            this.fields = objectConverter.fromFile(ConcurrentHashMap.class, fileName);
             checkFields(this.fields);
             return;
         }
@@ -43,7 +43,7 @@ public class ModelServiceImpl implements ModelService {
 
     @Override
     public boolean contains(String field) {
-        return fields.containsKey(field);
+        return fields.keySet().stream().anyMatch(key -> key.equalsIgnoreCase(field));
     }
 
     @Override

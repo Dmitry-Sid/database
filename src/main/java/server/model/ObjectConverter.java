@@ -3,13 +3,13 @@ package server.model;
 import java.io.Serializable;
 
 public interface ObjectConverter {
-    public <T> T fromFile(Class<T> clazz, String file);
+    <T extends Serializable> T fromFile(Class<T> clazz, String file);
 
-    public <T> T fromBytes(Class<T> clazz, byte[] bytes);
+    <T extends Serializable> T fromBytes(Class<T> clazz, byte[] bytes);
 
-    public byte[] toBytes(Serializable serializable);
+    byte[] toBytes(Serializable serializable);
 
-    public void toFile(Serializable serializable, String file);
+    void toFile(Serializable serializable, String file);
 
-    public <T extends Serializable> T clone(T object);
+    <T extends Serializable> T clone(T object);
 }

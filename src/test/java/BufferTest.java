@@ -24,7 +24,7 @@ public class BufferTest {
     private void fullTest(int maxSize) {
         final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
         readWriteLock.readLock().lock();
-        final Buffer<Row> buffer = new BufferImpl<>( maxSize, Runnable::run, list -> {
+        final Buffer<Row> buffer = new BufferImpl<>(maxSize, Runnable::run, list -> {
             list.forEach(value -> {
                 if (value.getValue().getId() % maxSize == 0) {
                     System.out.println(value.getValue().getId());

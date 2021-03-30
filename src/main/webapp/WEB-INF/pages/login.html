@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html lang="ru" layout:decorate="~{layout}" xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<html lang="ru" layout:decorate="~{layout}" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:th="http://www.thymeleaf.org">
 <head>
     <title>Войти</title>
 </head>
@@ -12,9 +12,9 @@
             <form method="POST" th:action="@{/userlogin}" th:object="${user}">
                 <h2>Вход в систему</h2>
                 <div>
-                    <input name="username" type="text" placeholder="Username"
-                           autofocus="true" th:field="*{email}"/>
-                    <input name="password" type="password" placeholder="Password" th:field="*{password}"/>
+                    <input autofocus="true" name="username" placeholder="Username"
+                           th:field="*{email}" type="text"/>
+                    <input name="password" placeholder="Password" th:field="*{password}" type="password"/>
                     <button type="submit">Log In</button>
                     <h4><a th:href="@{/login/(action='resetPassword')}">Забыли пароль?</a></h4>
                     <h4><a th:href="@{/registration/}">Зарегистрироваться</a></h4>
@@ -25,7 +25,7 @@
             <form method="POST" th:action="@{/resetPassword}" th:object="${user}">
                 <h2>Введите ваш email и письмо с инструкцией придет к вам на почту</h2>
                 <div>
-                    <input name="username" type="text" placeholder="Username" autofocus="true" th:field="*{email}"/>
+                    <input autofocus="true" name="username" placeholder="Username" th:field="*{email}" type="text"/>
                     <button type="submit">Отправить</button>
                 </div>
             </form>

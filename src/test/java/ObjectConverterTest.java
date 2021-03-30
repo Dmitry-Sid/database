@@ -34,7 +34,7 @@ public class ObjectConverterTest {
             map.put(2, "temp2");
             final String fileName = "map.temp";
             objectConverter.toFile((Serializable) map, fileName);
-            assertEquals(map, objectConverter.fromFile(Map.class, fileName));
+            assertEquals(map, objectConverter.fromFile(HashMap.class, fileName));
             assertTrue(new File(fileName).delete());
         }
     }

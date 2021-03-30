@@ -7,30 +7,30 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 public interface ModelService {
-    public static final List<Class<?>> types = Arrays.asList(Byte.class, Character.class, Short.class, Integer.class,
+    List<Class<?>> types = Arrays.asList(Byte.class, Character.class, Short.class, Integer.class,
             Long.class, Float.class, Double.class, String.class);
 
-    public boolean contains(String field);
+    boolean contains(String field);
 
-    public Comparable getValue(String field, String value);
+    Comparable getValue(String field, String value);
 
-    public void add(String field, Class<?> type);
+    void add(String field, Class<?> type);
 
-    public void delete(String field);
+    void delete(String field);
 
-    public void addIndex(String field);
+    void addIndex(String field);
 
-    public void deleteIndex(String field);
+    void deleteIndex(String field);
 
-    public List<FieldInfo> getFields();
+    List<FieldInfo> getFields();
 
-    public Set<String> getIndexedFields();
+    Set<String> getIndexedFields();
 
-    public void subscribeOnFieldsChanges(Consumer<Set<String>> fieldsConsumer);
+    void subscribeOnFieldsChanges(Consumer<Set<String>> fieldsConsumer);
 
-    public void subscribeOnIndexesChanges(Consumer<Set<String>> fieldsConsumer);
+    void subscribeOnIndexesChanges(Consumer<Set<String>> fieldsConsumer);
 
-    public static class FieldInfo implements Serializable {
+    class FieldInfo implements Serializable {
         private static final long serialVersionUID = 3990344518009191295L;
         private String name;
         private Class<?> type;
@@ -46,28 +46,28 @@ public interface ModelService {
             this.isIndex = isIndex;
         }
 
-        public void setName(String name) {
-            this.name = name;
-        }
-
         public String getName() {
             return name;
         }
 
-        public void setType(Class<?> type) {
-            this.type = type;
+        public void setName(String name) {
+            this.name = name;
         }
 
         public Class<?> getType() {
             return type;
         }
 
-        public void setIndex(boolean index) {
-            isIndex = index;
+        public void setType(Class<?> type) {
+            this.type = type;
         }
 
         public boolean isIndex() {
             return isIndex;
+        }
+
+        public void setIndex(boolean index) {
+            isIndex = index;
         }
     }
 }

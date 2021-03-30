@@ -14,13 +14,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.Assert.*;
 
 public class RowIdRepositoryTest {
-    private RowIdRepository rowIdRepository;
     private static final String fileName = "rowIdVariables.test";
     private static final String filesIdPath = "rowId";
     private static final String filesRowPath = "row";
     private static final int maxIdSize = 500;
     private static final int compressSize = 2;
     private static final int rowAddressSize = 5;
+    private RowIdRepository rowIdRepository;
 
     @Before
     public void before() {

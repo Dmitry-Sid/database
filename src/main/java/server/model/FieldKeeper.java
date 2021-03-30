@@ -2,10 +2,9 @@ package server.model;
 
 import server.model.pojo.SimpleCondition;
 
-import java.io.Serializable;
 import java.util.Set;
 
-public abstract class FieldKeeper<U extends Comparable, V> implements Serializable {
+public abstract class FieldKeeper<U extends Comparable, V> {
     private final String fieldName;
 
     protected FieldKeeper(String fieldName) {
@@ -13,7 +12,7 @@ public abstract class FieldKeeper<U extends Comparable, V> implements Serializab
     }
 
     public void transform(U oldKey, U key, V value) {
-        if (oldKey == null || key == null || oldKey.equals(key)) {
+        if (oldKey != null && oldKey.equals(key)) {
             return;
         }
         if (delete(oldKey, value)) {
@@ -28,6 +27,8 @@ public abstract class FieldKeeper<U extends Comparable, V> implements Serializab
     public abstract Set<V> search(ConditionService conditionService, SimpleCondition condition);
 
     public abstract Set<V> search(U key);
+
+    public abstract void destroy();
 
     public String getFieldName() {
         return fieldName;

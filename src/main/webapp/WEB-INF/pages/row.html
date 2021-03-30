@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ru" layout:decorate="~{layout}" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Строка</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <!--/*@thymesVar id="row" type="server.model.pojo.Row"*/-->
+    <!--/*@thymesVar id="fields" type="java.util.List<server.model.ModelService.FieldInfo>"*/-->
+    <form action="#" method="post" th:action="@{/row/}" th:object="${row}">
+        <div>ID : <span th:text="${row.getId()}"></span></div>
+        <input th:field="*{id}" type="hidden"/>
+        <div th:each="field : ${fields}">
+            <div class="form-group">
+                <label th:for="*{fields[__${field.name}__]}" th:text="${field.name}">Поле</label>
+                <input class="form-control" th:field="*{fields[__${field.name}__]}" type="text"/>
+            </div>
+        </div>
+        <button type="submit">Сохранить</button>
+    </form>
+</div>
+</body>
+</html>

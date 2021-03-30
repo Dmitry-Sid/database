@@ -2,10 +2,7 @@ package server.controllers;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import server.model.ModelService;
 import server.model.RowRepository;
 import server.model.pojo.Row;
@@ -13,6 +10,7 @@ import server.model.pojo.Row;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.HashMap;
+import java.util.Map;
 
 @Controller
 @RequestMapping(value = "/row", produces = "text/plain;charset=UTF-8")
@@ -40,8 +38,13 @@ public class RowController {
         return "row";
     }
 
-    @GetMapping("/")
+    @PostMapping("/")
     public String save(@ModelAttribute Row row) throws UnsupportedEncodingException {
+        final Map<String, Comparable> map = new HashMap<>();
+        row.getFields().forEach((key, value) -> {
+            map.put(key, modelService.getValue(key, (String) value));
+        });
+        map.forEach((key, value) -> row.getFields().put(key, value));
         rowRepository.add(row);
         return "redirect:/row/?id=" + URLEncoder.encode(Integer.toString(row.getId()), "UTF-8");
     }

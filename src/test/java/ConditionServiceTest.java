@@ -204,7 +204,7 @@ public class ConditionServiceTest {
 
     @Test
     public void parseTest() {
-        assertEquals(new SimpleCondition(ICondition.SimpleType.EQ, "int", 50), conditionService.parse("   int  eq         50 "));
+        assertEquals(new SimpleCondition(ICondition.SimpleType.EQ, "int", 50), conditionService.parse("   int  EQ         50 "));
         assertEquals(new SimpleCondition(ICondition.SimpleType.EQ, "double", 22.3), conditionService.parse("double EQ 22.3"));
         assertNotEquals(new SimpleCondition(ICondition.SimpleType.NOT, "int", 50), conditionService.parse("int EQ 50"));
         assertEquals(new SimpleCondition(ICondition.SimpleType.NOT, "int", 50), conditionService.parse("int NOT 50"));
@@ -257,7 +257,7 @@ public class ConditionServiceTest {
                                     new SimpleCondition(ICondition.SimpleType.GT, "String", "st"),
                                     new SimpleCondition(ICondition.SimpleType.GTE, "double", 20.0))));
             assertEquals(condition, conditionService.parse("OR(" +
-                    "AND(OR(String like te;double not 30.0);int EQ 50;double EQ 30.0);" +
+                    "AND(OR(String LIKE te;double NOT 30.0);int EQ 50;double EQ 30.0);" +
                     "String EQ test;" +
                     "AND(int LTE 50;double GT 30.0;AND(String GT st;double GTE 20.0)))"));
         }

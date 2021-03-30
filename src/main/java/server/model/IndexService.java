@@ -7,17 +7,17 @@ import java.util.Set;
 
 public interface IndexService {
 
-    public SearchResult search(ICondition condition);
+    SearchResult search(ICondition condition);
 
-    public void transform(Row oldRow, Row row);
+    void transform(Row oldRow, Row row);
 
-    public void insert(Row row);
+    void insert(Row row);
 
-    public void delete(Row row);
+    void delete(Row row);
 
-    public void subscribeOnIndexesChanges(Runnable runnable);
+    void subscribeOnIndexesChanges(Runnable runnable);
 
-    public class SearchResult {
+    class SearchResult {
         public final boolean found;
         public final Set<Integer> idSet;
 

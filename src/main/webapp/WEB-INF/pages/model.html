@@ -1,37 +1,37 @@
 <!DOCTYPE html>
-<html lang="ru" layout:decorate="~{layout}" xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<html lang="ru" layout:decorate="~{layout}" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:th="http://www.thymeleaf.org">
 <head>
     <title>Модель</title>
 </head>
 <body>
 <div layout:fragment="content">
     <!--/*@thymesVar id="fieldsForm" type="java.util.List<server.controllers.ModelController.FieldsForm>"*/-->
-    <form th:action="@{/model/add/}" method="post">
+    <form method="post" th:action="@{/model/add/}">
         <div class="row">
             <div class="col-md-3">
-                <input type="text" name="fieldName"/>
+                <input name="fieldName" type="text"/>
             </div>
             <div class="col-md-3">
                 <select class="form-control" name="type">
                     <option th:each="type : ${types}"
-                            th:value="${type.getName()}"
-                            th:text="${type.getName()}">
+                            th:text="${type.getName()}"
+                            th:value="${type.getName()}">
                     </option>
                 </select>
             </div>
         </div>
         <button type="submit">Добавить</button>
     </form>
-    <form action="#" th:action="@{/model/}" th:object="${fieldsForm}" method="post">
+    <form action="#" method="post" th:action="@{/model/}" th:object="${fieldsForm}">
         <tr th:each="field, stat : *{fields}">
             <div class="row">
                 <div class="col-md-3" th:text="${field.name}"></div>
                 <div class="col-md-3" th:text="${field.type.getName()}"></div>
                 <div class="col-md-3">
                     Индекс
-                    <input type="hidden" th:field="*{fields[__${stat.index}__].name}"/>
-                    <input type="checkbox" th:field="*{fields[__${stat.index}__].index}" th:value="${field.name}"/>
+                    <input th:field="*{fields[__${stat.index}__].name}" type="hidden"/>
+                    <input th:field="*{fields[__${stat.index}__].index}" th:value="${field.name}" type="checkbox"/>
                 </div>
                 <a th:href="@{/model/delete/(field=${field.name})}">удалить</a>
             </div>

@@ -3,8 +3,10 @@ import server.model.ModelService;
 import server.model.impl.ModelServiceImpl;
 import server.model.impl.ObjectConverterImpl;
 
-import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -25,7 +27,7 @@ public class ModelServiceTest {
 
     @Test
     public void getValueTest() {
-        final ModelService modelService =  new ModelServiceImpl("test", new ObjectConverterImpl());
+        final ModelService modelService = new ModelServiceImpl("test", new ObjectConverterImpl());
         modelService.add("test1", Byte.class);
         modelService.add("test2", Character.class);
         modelService.add("test3", Short.class);
@@ -46,7 +48,7 @@ public class ModelServiceTest {
 
     @Test
     public void deleteTest() {
-        final ModelService modelService =  new ModelServiceImpl("test", new ObjectConverterImpl());
+        final ModelService modelService = new ModelServiceImpl("test", new ObjectConverterImpl());
         modelService.add("test1", Byte.class);
         modelService.add("test2", Character.class);
         modelService.add("test3", Short.class);
@@ -73,7 +75,7 @@ public class ModelServiceTest {
 
     @Test
     public void addIndexTest() {
-        final ModelService modelService =  new ModelServiceImpl("test", new ObjectConverterImpl());
+        final ModelService modelService = new ModelServiceImpl("test", new ObjectConverterImpl());
         modelService.add("test1", Byte.class);
         modelService.add("test2", Character.class);
         modelService.add("test3", Short.class);
@@ -88,7 +90,7 @@ public class ModelServiceTest {
 
     @Test
     public void deleteIndexTest() {
-        final ModelService modelService =  new ModelServiceImpl("test", new ObjectConverterImpl());
+        final ModelService modelService = new ModelServiceImpl("test", new ObjectConverterImpl());
         modelService.add("test1", Byte.class);
         modelService.add("test2", Character.class);
         modelService.add("test3", Short.class);
@@ -111,7 +113,7 @@ public class ModelServiceTest {
 
     @Test
     public void subscribeOnFieldsChangesTest() {
-        final ModelService modelService =  new ModelServiceImpl("test", new ObjectConverterImpl());
+        final ModelService modelService = new ModelServiceImpl("test", new ObjectConverterImpl());
         final AtomicReference<Set<String>> atomicReference = new AtomicReference<>();
         modelService.subscribeOnFieldsChanges(atomicReference::set);
         modelService.add("test1", Byte.class);
@@ -130,7 +132,7 @@ public class ModelServiceTest {
 
     @Test
     public void subscribeOnIndexesChangesTest() {
-        final ModelService modelService =  new ModelServiceImpl("test", new ObjectConverterImpl());
+        final ModelService modelService = new ModelServiceImpl("test", new ObjectConverterImpl());
         final AtomicReference<Set<String>> atomicReference = new AtomicReference<>();
         modelService.subscribeOnIndexesChanges(atomicReference::set);
         modelService.add("test1", Byte.class);
