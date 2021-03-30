@@ -15,6 +15,8 @@ public interface IndexService {
 
     public void delete(Row row);
 
+    public void subscribeOnIndexesChanges(Runnable runnable);
+
     public class SearchResult {
         public final boolean found;
         public final Set<Integer> idSet;

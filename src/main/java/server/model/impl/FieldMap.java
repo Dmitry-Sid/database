@@ -12,12 +12,12 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-public class FieldMap<U extends Comparable, V> extends FieldKeeper<U, V> implements Serializable {
+public class FieldMap<U extends Comparable, V> extends FieldKeeper<U, V> {
     private static final long serialVersionUID = 460578047585681920L;
     private final Map<U, Set<V>> valuesMap;
 
-    public FieldMap(String fieldName, ConditionService conditionService, Map<U, Set<V>> valuesMap) {
-        super(fieldName, conditionService);
+    public FieldMap(String fieldName, Map<U, Set<V>> valuesMap) {
+        super(fieldName);
         this.valuesMap = valuesMap;
     }
 
@@ -49,7 +49,7 @@ public class FieldMap<U extends Comparable, V> extends FieldKeeper<U, V> impleme
     }
 
     @Override
-    public Set<V> search(SimpleCondition condition) {
+    public Set<V> search(ConditionService conditionService, SimpleCondition condition) {
         return valuesMap.entrySet().stream().filter(entry -> conditionService.check(entry.getKey(), condition))
                 .flatMap(entry -> entry.getValue().stream()).collect(Collectors.toSet());
     }

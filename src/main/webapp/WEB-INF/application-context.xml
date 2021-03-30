@@ -61,6 +61,8 @@
     <bean id="indexService" class="server.model.impl.IndexServiceImpl" destroy-method="destroy">
         <constructor-arg index="0" value="C:\database\indexes\indexes"/>
         <constructor-arg index="1" ref="objectConverter"/>
+        <constructor-arg index="2" ref="modelService"/>
+        <constructor-arg index="3" ref="conditionService"/>
     </bean>
     <bean id="conditionService" class="server.model.impl.ConditionServiceImpl">
         <constructor-arg ref="modelService"/>

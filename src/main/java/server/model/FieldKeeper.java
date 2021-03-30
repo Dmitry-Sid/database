@@ -2,15 +2,14 @@ package server.model;
 
 import server.model.pojo.SimpleCondition;
 
+import java.io.Serializable;
 import java.util.Set;
 
-public abstract class FieldKeeper<U extends Comparable, V> {
+public abstract class FieldKeeper<U extends Comparable, V> implements Serializable {
     private final String fieldName;
-    protected final ConditionService conditionService;
 
-    protected FieldKeeper(String fieldName, ConditionService conditionService) {
+    protected FieldKeeper(String fieldName) {
         this.fieldName = fieldName;
-        this.conditionService = conditionService;
     }
 
     public void transform(U oldKey, U key, V value) {
@@ -26,7 +25,7 @@ public abstract class FieldKeeper<U extends Comparable, V> {
 
     public abstract boolean delete(U key, V value);
 
-    public abstract Set<V> search(SimpleCondition condition);
+    public abstract Set<V> search(ConditionService conditionService, SimpleCondition condition);
 
     public abstract Set<V> search(U key);
 

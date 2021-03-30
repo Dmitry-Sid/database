@@ -3,11 +3,10 @@ import server.model.ModelService;
 import server.model.impl.ModelServiceImpl;
 import server.model.impl.ObjectConverterImpl;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
 
@@ -18,7 +17,7 @@ public class ModelServiceTest {
         final ModelService modelService = new ModelServiceImpl("test", new ObjectConverterImpl());
         modelService.add("test1", Integer.class);
         modelService.add("test2", String.class);
-        assertEquals(new HashSet<>(Arrays.asList("test1", "test2")), modelService.getFields());
+        assertEquals(new HashSet<>(Arrays.asList("test1", "test2")), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         assertTrue(modelService.contains("test1"));
         assertTrue(modelService.contains("test2"));
         assertFalse(modelService.contains("test3"));
@@ -51,7 +50,7 @@ public class ModelServiceTest {
         modelService.add("test1", Byte.class);
         modelService.add("test2", Character.class);
         modelService.add("test3", Short.class);
-        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields());
+        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         assertTrue(modelService.contains("test1"));
         assertTrue(modelService.contains("test2"));
         assertTrue(modelService.contains("test3"));
@@ -59,17 +58,17 @@ public class ModelServiceTest {
         assertFalse(modelService.contains("test1"));
         assertTrue(modelService.contains("test2"));
         assertTrue(modelService.contains("test3"));
-        assertEquals(new HashSet<>(Arrays.asList("test2", "test3")), modelService.getFields());
+        assertEquals(new HashSet<>(Arrays.asList("test2", "test3")), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         modelService.delete("test2");
         assertFalse(modelService.contains("test1"));
         assertFalse(modelService.contains("test2"));
         assertTrue(modelService.contains("test3"));
-        assertEquals(new HashSet<>(Collections.singletonList("test3")), modelService.getFields());
+        assertEquals(new HashSet<>(Collections.singletonList("test3")), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         modelService.delete("test2");
         assertFalse(modelService.contains("test1"));
         assertFalse(modelService.contains("test2"));
         assertTrue(modelService.contains("test3"));
-        assertEquals(new HashSet<>(Collections.singletonList("test3")), modelService.getFields());
+        assertEquals(new HashSet<>(Collections.singletonList("test3")), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
     }
 
     @Test
@@ -80,10 +79,10 @@ public class ModelServiceTest {
         modelService.add("test3", Short.class);
         assertEquals(new HashSet<>(Collections.emptySet()), modelService.getIndexedFields());
         modelService.addIndex("test2");
-        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields());
+        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         assertEquals(new HashSet<>(Collections.singletonList("test2")), modelService.getIndexedFields());
         modelService.addIndex("test3");
-        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields());
+        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         assertEquals(new HashSet<>(Arrays.asList("test2", "test3")), modelService.getIndexedFields());
     }
 
@@ -95,16 +94,16 @@ public class ModelServiceTest {
         modelService.add("test3", Short.class);
         assertEquals(new HashSet<>(Collections.emptySet()), modelService.getIndexedFields());
         modelService.addIndex("test2");
-        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields());
+        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         assertEquals(new HashSet<>(Collections.singletonList("test2")), modelService.getIndexedFields());
         modelService.addIndex("test3");
-        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields());
+        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         assertEquals(new HashSet<>(Arrays.asList("test2", "test3")), modelService.getIndexedFields());
         modelService.deleteIndex("test3");
-        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields());
+        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         assertEquals(new HashSet<>(Collections.singletonList("test2")), modelService.getIndexedFields());
         modelService.deleteIndex("test1");
-        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields());
+        assertEquals(new HashSet<>(Arrays.asList("test1", "test2", "test3")), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         assertEquals(new HashSet<>(Collections.singletonList("test2")), modelService.getIndexedFields());
         modelService.deleteIndex("test2");
         assertEquals(new HashSet<>(Collections.emptySet()), modelService.getIndexedFields());
@@ -116,17 +115,17 @@ public class ModelServiceTest {
         final AtomicReference<Set<String>> atomicReference = new AtomicReference<>();
         modelService.subscribeOnFieldsChanges(atomicReference::set);
         modelService.add("test1", Byte.class);
-        assertEquals(atomicReference.get(), modelService.getFields());
+        assertEquals(atomicReference.get(), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         modelService.add("test2", Short.class);
-        assertEquals(atomicReference.get(), modelService.getFields());
+        assertEquals(atomicReference.get(), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         modelService.addIndex("test1");
-        assertEquals(atomicReference.get(), modelService.getFields());
+        assertEquals(atomicReference.get(), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         modelService.addIndex("test2");
-        assertEquals(atomicReference.get(), modelService.getFields());
+        assertEquals(atomicReference.get(), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         modelService.delete("test1");
-        assertEquals(atomicReference.get(), modelService.getFields());
+        assertEquals(atomicReference.get(), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         modelService.delete("test2");
-        assertEquals(atomicReference.get(), modelService.getFields());
+        assertEquals(atomicReference.get(), modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
     }
 
     @Test

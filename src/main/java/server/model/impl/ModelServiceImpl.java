@@ -6,12 +6,12 @@ import server.model.ObjectConverter;
 
 import java.io.File;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -35,8 +35,8 @@ public class ModelServiceImpl implements ModelService {
 
     private void checkFields(Map<String, FieldInfo> fields) {
         fields.forEach((key, info) -> {
-            if (!types.contains(info.type)) {
-                throw new RuntimeException("unknown type " + info.type);
+            if (!types.contains(info.getType())) {
+                throw new RuntimeException("unknown type " + info.getType());
             }
         });
     }
@@ -48,7 +48,7 @@ public class ModelServiceImpl implements ModelService {
 
     @Override
     public Comparable getValue(String field, String value) {
-        final Class<?> type = fields.get(field).type;
+        final Class<?> type = fields.get(field).getType();
         if (type == null) {
             throw new RuntimeException("unknown field " + field);
         }
@@ -78,20 +78,21 @@ public class ModelServiceImpl implements ModelService {
         if (!types.contains(type)) {
             throw new RuntimeException("unknown type " + type);
         }
-        fields.putIfAbsent(field, new FieldInfo(type, new AtomicBoolean(false)));
-        fieldsChangesSubscribers.forEach(consumer -> consumer.accept(getFields()));
+        fields.putIfAbsent(field, new FieldInfo(field, type, false));
+        fieldsChangesSubscribers.forEach(consumer -> consumer.accept(getFields().stream().map(FieldInfo::getName).collect(Collectors.toSet())));
     }
 
     @Override
     public void delete(String field) {
         fields.remove(field);
-        fieldsChangesSubscribers.forEach(consumer -> consumer.accept(getFields()));
+        fieldsChangesSubscribers.forEach(consumer -> consumer.accept(getFields().stream().map(FieldInfo::getName).collect(Collectors.toSet())));
+        indexesChangesSubscribers.forEach(consumer -> consumer.accept(getIndexedFields()));
     }
 
     @Override
     public void addIndex(String field) {
         fields.computeIfPresent(field, (key, info) -> {
-            info.isIndex.set(true);
+            info.setIndex(true);
             return info;
         });
         indexesChangesSubscribers.forEach(consumer -> consumer.accept(getIndexedFields()));
@@ -100,20 +101,20 @@ public class ModelServiceImpl implements ModelService {
     @Override
     public void deleteIndex(String field) {
         fields.computeIfPresent(field, (key, info) -> {
-            info.isIndex.set(false);
+            info.setIndex(false);
             return info;
         });
         indexesChangesSubscribers.forEach(consumer -> consumer.accept(getIndexedFields()));
     }
 
     @Override
-    public Set<String> getFields() {
-        return fields.keySet();
+    public List<FieldInfo> getFields() {
+        return new ArrayList<>(fields.values());
     }
 
     @Override
     public Set<String> getIndexedFields() {
-        return fields.entrySet().stream().filter(entry -> entry.getValue().isIndex.get()).map(Map.Entry::getKey).collect(Collectors.toSet());
+        return fields.entrySet().stream().filter(entry -> entry.getValue().isIndex()).map(Map.Entry::getKey).collect(Collectors.toSet());
     }
 
     @Override
@@ -128,16 +129,5 @@ public class ModelServiceImpl implements ModelService {
 
     private void destroy() {
         objectConverter.toFile((Serializable) fields, fileName);
-    }
-
-    private static class FieldInfo implements Serializable {
-        private static final long serialVersionUID = 3990344518009191295L;
-        private final Class<?> type;
-        private final AtomicBoolean isIndex;
-
-        private FieldInfo(Class<?> type, AtomicBoolean isIndex) {
-            this.type = type;
-            this.isIndex = isIndex;
-        }
     }
 }

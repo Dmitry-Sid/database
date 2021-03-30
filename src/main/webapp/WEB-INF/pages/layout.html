@@ -30,6 +30,9 @@
                 <li class="sidebar-item" th:classappend="${#request.requestURI.endsWith('/')} ? 'active' : ''">
                     <a th:href="@{/}" class="sidebar-link"><i class="align-middle" data-feather="home"></i> Поиск</a>
                 </li>
+                <li class="sidebar-item" th:classappend="${#request.requestURI.endsWith('/model/')} ? 'active' : ''">
+                    <a th:href="@{/model/}" class="sidebar-link"><i class="align-middle" data-feather="home"></i> Модель</a>
+                </li>
             </ul>
         </div>
     </nav>

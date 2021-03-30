@@ -10,13 +10,10 @@ import server.model.ConditionException;
 import server.model.ConditionService;
 import server.model.ModelService;
 import server.model.RowRepository;
-import server.model.pojo.ICondition;
-import server.model.pojo.Row;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 @Controller
 @RequestMapping(value = "/", produces = "text/plain;charset=UTF-8")
@@ -33,7 +30,7 @@ public class RowListController {
     }
 
     @GetMapping("/")
-    public String getCityPlaces(Model model, @RequestParam(defaultValue = "") String searchRequest, @RequestParam(defaultValue = "0") int page) {
+    public String searchRows(Model model, @RequestParam(defaultValue = "") String searchRequest, @RequestParam(defaultValue = "0") int page) {
         model.addAttribute("searchRequest", searchRequest);
         try {
             model.addAttribute("rows", rowRepository.getList(conditionService.parse(searchRequest), page * ROWS_PER_PAGE, ROWS_PER_PAGE));
@@ -44,7 +41,13 @@ public class RowListController {
     }
 
     @PostMapping("/")
-    public String searchPlacesByCity(@RequestParam String searchRequest) throws UnsupportedEncodingException {
+    public String setSearchRequest(@RequestParam String searchRequest) throws UnsupportedEncodingException {
         return "redirect:/?searchRequest=" + URLEncoder.encode(searchRequest, "UTF-8");
+    }
+
+    @GetMapping("/delete")
+    public String delete(@RequestParam int id) {
+        rowRepository.delete(id);
+        return "redirect:/";
     }
 }

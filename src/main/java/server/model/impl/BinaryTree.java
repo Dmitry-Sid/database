@@ -22,8 +22,8 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
     private final Object ROOT_LOCK = new Object();
     private Node<U, V> root;
 
-    public BinaryTree(String field, ConditionService conditionService) {
-        super(field, conditionService);
+    public BinaryTree(String field) {
+        super(field);
     }
 
     @Override
@@ -163,7 +163,7 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
     }
 
     @Override
-    public Set<V> search(SimpleCondition condition) {
+    public Set<V> search(ConditionService conditionService, SimpleCondition condition) {
         final ChainComparableLock chainComparableLock = new ChainComparableLock();
         synchronized (ROOT_LOCK) {
             if (root == null) {
@@ -172,7 +172,7 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
             chainComparableLock.lock(root.key);
         }
         try {
-            final ConditionSearcher<V> conditionSearcher = new ConditionSearcher<>(condition, chainComparableLock);
+            final ConditionSearcher<V> conditionSearcher = new ConditionSearcher<>(conditionService, condition, chainComparableLock);
             conditionSearcher.search(root);
             return conditionSearcher.set;
         } finally {
@@ -202,10 +202,12 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
 
     private class ConditionSearcher<V> {
         private final Set<V> set = new HashSet<>();
+        private final ConditionService conditionService;
         private final SimpleCondition condition;
         private final ChainComparableLock chainComparableLock;
 
-        private ConditionSearcher(SimpleCondition condition, ChainComparableLock chainComparableLock) {
+        private ConditionSearcher(ConditionService conditionService, SimpleCondition condition, ChainComparableLock chainComparableLock) {
+            this.conditionService = conditionService;
             this.condition = condition;
             this.chainComparableLock = chainComparableLock;
         }

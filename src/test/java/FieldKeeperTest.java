@@ -1,5 +1,6 @@
 import org.junit.Test;
 import server.model.FieldKeeper;
+import server.model.impl.ConditionServiceImpl;
 import server.model.pojo.ICondition;
 import server.model.pojo.SimpleCondition;
 
@@ -58,32 +59,32 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert(14, 8);
             fieldKeeper.insert(13, 9);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.EQ, "int", 6)));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.EQ, "int", 6)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(4), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.NOT, "int", 6)));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.NOT, "int", 6)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.GT, "int", 9)));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.GT, "int", 9)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.GTE, "int", 9)));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.GTE, "int", 9)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 3, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LT, "int", 10)));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.LT, "int", 10)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(2, 3, 4, 5), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LTE, "int", 10)));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.LTE, "int", 10)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 4, 5), list);
             }
@@ -101,37 +102,37 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert("test14", 8);
             fieldKeeper.insert("test13", 9);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.EQ, "String", "test6")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.EQ, "String", "test6")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(4), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.NOT, "String", "test6")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.NOT, "String", "test6")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LT, "String", "test9")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.LT, "String", "test9")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 4, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LTE, "String", "test9")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.LTE, "String", "test9")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.GT, "String", "test10")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.GT, "String", "test10")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(2, 3, 4, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.GTE, "String", "test10")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.GTE, "String", "test10")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LIKE, "String", "test1")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.LIKE, "String", "test1")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 6, 7, 8, 9), list);
             }

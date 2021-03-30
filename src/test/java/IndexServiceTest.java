@@ -1,7 +1,9 @@
 import org.junit.Test;
-import server.model.FieldKeeper;
-import server.model.IndexService;
+import server.model.*;
+import server.model.impl.ConditionServiceImpl;
 import server.model.impl.IndexServiceImpl;
+import server.model.impl.ModelServiceImpl;
+import server.model.impl.ObjectConverterImpl;
 import server.model.pojo.ComplexCondition;
 import server.model.pojo.EmptyCondition;
 import server.model.pojo.ICondition;
@@ -163,15 +165,15 @@ public class IndexServiceTest {
         final Map<String, FieldKeeper> fieldKeepers = new HashMap<>();
         fieldKeepers.put("int", mockIntFieldKeeper());
         fieldKeepers.put("String", mockStringFieldKeeper());
-        return new IndexServiceImpl(fieldKeepers);
+        return new IndexServiceImpl(fieldKeepers, new ConditionServiceImpl(TestUtils.mockModelService()));
     }
 
     private FieldKeeper<Integer, Integer> mockIntFieldKeeper() {
         final FieldKeeper<Integer, Integer> fieldKeeper = (FieldKeeper<Integer, Integer>) mock(FieldKeeper.class);
         final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
         final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LT, "int", 20);
-        when(fieldKeeper.search(any(SimpleCondition.class))).thenAnswer(invocation -> {
-            final ICondition condition = (ICondition) invocation.getArguments()[0];
+        when(fieldKeeper.search(any(ConditionService.class), any(SimpleCondition.class))).thenAnswer(invocation -> {
+            final ICondition condition = (ICondition) invocation.getArguments()[1];
             final Set<Integer> set = new LinkedHashSet<>();
             if (condition1.equals(condition)) {
                 for (int i = 10; i <= 60; i++) {
@@ -204,8 +206,8 @@ public class IndexServiceTest {
         final FieldKeeper<String, Integer> fieldKeeper = (FieldKeeper<String, Integer>) mock(FieldKeeper.class);
         final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "String", "se");
         final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LT, "String", "te");
-        when(fieldKeeper.search(any(SimpleCondition.class))).thenAnswer(invocation -> {
-            final ICondition condition = (ICondition) invocation.getArguments()[0];
+        when(fieldKeeper.search(any(ConditionService.class), any(SimpleCondition.class))).thenAnswer(invocation -> {
+            final ICondition condition = (ICondition) invocation.getArguments()[1];
             final Set<Integer> set = new LinkedHashSet<>();
             if (condition1.equals(condition)) {
                 for (int i = 20; i <= 70; i++) {

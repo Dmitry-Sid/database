@@ -34,10 +34,11 @@ public class RowRepositoryImpl implements RowRepository {
         this.indexService = indexService;
         this.conditionService = conditionService;
         this.buffer = new BufferImpl<>(bufferSize, runnableConsumer(), bufferConsumer());
-        this.fields.addAll(modelService.getFields());
+        this.fields.addAll(modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         modelService.subscribeOnFieldsChanges(fields -> {
             processDeletedFields(RowRepositoryImpl.this.fields.stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet()));
         });
+        indexService.subscribeOnIndexesChanges(this::processIndexesChanges);
     }
 
     @Override
@@ -187,6 +188,18 @@ public class RowRepositoryImpl implements RowRepository {
             throw new RuntimeException(e);
         }
         rows.forEach(this::add);
+    }
+
+    private void processIndexesChanges() {
+        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
+            final AtomicBoolean stopChecker = new AtomicBoolean(false);
+            try (final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream()) {
+                final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, indexService::insert, null);
+                rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private Consumer<Runnable> runnableConsumer() {

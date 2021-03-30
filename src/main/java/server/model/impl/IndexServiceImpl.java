@@ -1,38 +1,54 @@
 package server.model.impl;
 
-import server.model.ConditionException;
-import server.model.FieldKeeper;
-import server.model.IndexService;
-import server.model.ObjectConverter;
+import server.model.*;
 import server.model.pojo.*;
 
 import java.io.File;
 import java.io.Serializable;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 public class IndexServiceImpl implements IndexService {
     private static final SearchResult EMPTY = new SearchResult(false, Collections.emptySet());
     private final Map<String, FieldKeeper> fieldKeepers;
     private final String fileName;
     private final ObjectConverter objectConverter;
+    private final ConditionService conditionService;
+    private List<Runnable> runnableList = new CopyOnWriteArrayList<>();
 
-    public IndexServiceImpl(Map<String, FieldKeeper> fieldKeepers) {
+    public IndexServiceImpl(Map<String, FieldKeeper> fieldKeepers, ConditionService conditionService) {
         this.fieldKeepers = fieldKeepers;
+        this.conditionService = conditionService;
         this.fileName = null;
         this.objectConverter = null;
     }
 
-    public IndexServiceImpl(String fileName, ObjectConverter objectConverter) {
+    public IndexServiceImpl(String fileName, ObjectConverter objectConverter, ModelService modelService, ConditionService conditionService) {
         this.fileName = fileName;
         this.objectConverter = objectConverter;
+        this.conditionService = conditionService;
         if (new File(fileName).exists()) {
             this.fieldKeepers = objectConverter.fromFile(HashMap.class, fileName);
-            return;
+        } else {
+            this.fieldKeepers = new HashMap<>();
         }
-        this.fieldKeepers = new HashMap<>();
+        modelService.subscribeOnIndexesChanges(fields -> {
+            final AtomicBoolean added = new AtomicBoolean(false);
+            fields.forEach(field -> {
+                if (!fieldKeepers.containsKey(field)) {
+                    added.set(true);
+                    fieldKeepers.putIfAbsent(field, new FieldMap(field, new ConcurrentHashMap<>()));
+                }
+            });
+            final Set<String> fieldSet = fieldKeepers.keySet().stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet());
+            fieldSet.forEach(fieldKeepers::remove);
+            if (added.get()) {
+                runnableList.forEach(Runnable::run);
+            }
+        });
     }
 
     @Override
@@ -45,7 +61,7 @@ public class IndexServiceImpl implements IndexService {
 
     private Set<Integer> searchIdSet(ICondition condition) {
         if (condition instanceof SimpleCondition) {
-            return fieldKeepers.get(((SimpleCondition) condition).getField()).search((SimpleCondition) condition);
+            return fieldKeepers.get(((SimpleCondition) condition).getField()).search(conditionService, (SimpleCondition) condition);
         } else if (condition instanceof ComplexCondition) {
             return searchIdSet((ComplexCondition) condition);
         } else if (condition instanceof EmptyCondition) {
@@ -89,6 +105,11 @@ public class IndexServiceImpl implements IndexService {
     @Override
     public void delete(Row row) {
         fieldKeepers.forEach((key, value) -> value.delete(row.getFields().get(value.getFieldName()), row.getId()));
+    }
+
+    @Override
+    public void subscribeOnIndexesChanges(Runnable runnable) {
+        runnableList.add(runnable);
     }
 
     private void destroy() {
