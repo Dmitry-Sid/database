@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Fragments</title>
+</head>
+<body>
+<!--/*@thymesVar id="totalPages" type="java.lang.Integer"*/-->
+<!--/*@thymesVar id="pageNumbers" type="java.util.List<java.lang.Integer>"*/-->
+<!--/*@thymesVar id="startLink" type="java.lang.String"*/-->
+<!--/*@thymesVar id="page" type="java.lang.Integer"*/-->
+<div th:fragment="pagination (totalPages, pageNumbers, startLink, page)">
+    <div th:if="${totalPages > 0}" class="pagination">
+        <li th:if="${page > 1}">
+            <a th:href="${startLink} + '&page=' + ${page - 1}">&laquo;</a>
+        </li>
+        <li th:class="${page==1} ? active">
+            <a th:href="${startLink} + '&page=1'">1</a>
+        </li>
+        <li th:if="${page > 4}">
+            <a th:href="${startLink} + '&page=' + ${page - 3}">...</a>
+        </li>
+        <th:block th:each="pageNumber : ${pageNumbers}">
+            <li th:if="${pageNumber != 1 && pageNumber != totalPages && T(java.lang.Math).abs(page - pageNumber) <= 2}"
+                th:class="${pageNumber==page} ? active">
+                <a th:href="${startLink} + '&page=' + ${pageNumber}" th:text="${pageNumber}"></a>
+            </li>
+        </th:block>
+        <li th:if="${totalPages - page > 4}">
+            <a th:href="${startLink} + '&page=' + ${page + 3}">...</a>
+        </li>
+        <li th:if="${totalPages > 1}" th:class="${page==totalPages} ? active">
+            <a th:href="${startLink} + '&page=' + ${totalPages}" th:text="${totalPages}"></a>
+        </li>
+        <li th:if="${page < totalPages}">
+            <a th:href="${startLink} + '&page=' + ${page + 1}">&raquo;</a>
+        </li>
+    </div>
+</div>
+</body>
+</html>

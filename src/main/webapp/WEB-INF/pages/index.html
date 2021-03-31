@@ -14,32 +14,7 @@
         <input name="searchRequest" style="width: 50%" th:value="${searchRequest}" type="text"/>
         <input type="submit" value="Поиск"/>
     </form>
-    <div th:if="${totalPages > 0}" class="pagination">
-        <li th:if="${page > 1}">
-            <a th:href="@{/(searchRequest=${searchRequest}, page=${page - 1})}">&laquo;</a>
-        </li>
-        <li th:class="${page==1} ? active">
-            <a th:href="@{/(searchRequest=${searchRequest}, page=${1})}" th:text="${1}"></a>
-        </li>
-        <li th:if="${page > 4}">
-            <a th:href="@{/(searchRequest=${searchRequest}, page=${page - 3})}">...</a>
-        </li>
-        <th:block th:each="pageNumber : ${pageNumbers}">
-            <li th:if="${pageNumber != 1 && pageNumber != totalPages && T(java.lang.Math).abs(page - pageNumber) <= 2}"
-                th:class="${pageNumber==page} ? active">
-                <a th:href="@{/(searchRequest=${searchRequest}, page=${pageNumber})}" th:text="${pageNumber}"></a>
-            </li>
-        </th:block>
-        <li th:if="${totalPages - page > 4}">
-            <a th:href="@{/(searchRequest=${searchRequest}, page=${page + 3})}">...</a>
-        </li>
-        <li th:class="${page==totalPages} ? active">
-            <a th:href="@{/(searchRequest=${searchRequest}, page=${totalPages})}" th:text="${totalPages}"></a>
-        </li>
-        <li th:if="${page < totalPages}">
-            <a th:href="@{/(searchRequest=${searchRequest}, page=${page + 1})}">&raquo;</a>
-        </li>
-    </div>
+    <th:block th:insert="fragments.html :: pagination (${totalPages}, ${pageNumbers}, @{/(searchRequest=${searchRequest})}, ${page})"></th:block>
     <!--/*@thymesVar id="rows" type="java.util.List<server.model.pojo.Row>"*/-->
     <!--/*@thymesVar id="fields" type="java.util.List<server.model.ModelService.FieldInfo>"*/-->
     <table class="table" style="margin-top: 15px" th:if="${rows != null}">
