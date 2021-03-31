@@ -6,7 +6,6 @@ import server.model.ModelService;
 import server.model.RowIdRepository;
 import server.model.RowRepository;
 import server.model.impl.*;
-import server.model.pojo.EmptyCondition;
 import server.model.pojo.ICondition;
 import server.model.pojo.Row;
 import server.model.pojo.SimpleCondition;
@@ -431,6 +430,90 @@ public class RowRepositoryTest {
         }
     }
 
+    @Test
+    public void sizeTest() {
+        sizeTest(1);
+        sizeTest(10);
+        sizeTest(40);
+        sizeTest(1000);
+    }
+
+    private void sizeTest(int bufferSize) {
+        int lastId = 750;
+        try {
+            createFiles(lastId);
+            final RowRepository rowRepository = prepareRepository(bufferSize);
+            assertEquals(750, rowRepository.size(ICondition.empty));
+            assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test")));
+            assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3")));
+            assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2")));
+            assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4")));
+            for (int i = 70; i < 120; i++) {
+                final Map<String, Comparable> map = new HashMap<>();
+                map.put("testField1", "test");
+                rowRepository.add(new Row(i, map));
+            }
+            assertEquals(750, rowRepository.size(ICondition.empty));
+            assertEquals(50, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test")));
+            assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2")));
+            assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3")));
+            assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4")));
+            lastId++;
+            {
+                final Map<String, Comparable> map = new HashMap<>();
+                map.put("testField1", "test");
+                rowRepository.add(new Row(0, map));
+            }
+            {
+                final Map<String, Comparable> map = new HashMap<>();
+                map.put("testField1", "test3");
+                rowRepository.add(new Row(0, map));
+            }
+            assertEquals(752, rowRepository.size(ICondition.empty));
+            assertEquals(51, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test")));
+            assertEquals(1, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3")));
+            assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2")));
+            assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4")));
+            for (int i = 130; i < 180; i++) {
+                final Map<String, Comparable> map = new HashMap<>();
+                map.put("testField2", "test2");
+                rowRepository.add(new Row(i, map));
+            }
+            assertEquals(752, rowRepository.size(ICondition.empty));
+            assertEquals(51, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test")));
+            assertEquals(1, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3")));
+            assertEquals(50, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2")));
+            assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4")));
+            {
+                final Map<String, Comparable> map = new HashMap<>();
+                map.put("testField2", "test2");
+                rowRepository.add(new Row(0, map));
+            }
+            {
+                final Map<String, Comparable> map = new HashMap<>();
+                map.put("testField2", "test4");
+                rowRepository.add(new Row(0, map));
+            }
+            assertEquals(754, rowRepository.size(ICondition.empty));
+            assertEquals(51, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test")));
+            assertEquals(1, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3")));
+            assertEquals(51, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2")));
+            assertEquals(1, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4")));
+        } finally {
+            for (Integer value : TestUtils.prepareBoundsBatch(lastId, maxIdSize)) {
+                new File(filesIdPath + value).delete();
+            }
+            String lastFileName = null;
+            for (Map.Entry<Integer, byte[]> entry : TestUtils.createRowMap(lastId).entrySet()) {
+                final String fileName = filesRowPath + TestUtils.getRowFileNumber(entry.getKey(), maxIdSize / compressSize);
+                if (!fileName.equals(lastFileName)) {
+                    lastFileName = fileName;
+                    new File(fileName).delete();
+                }
+            }
+        }
+    }
+
     private void assertRows(RowRepository rowRepository, final List<Row> rows, final int id, final int index) {
         assertTrue(rowRepository.process(id, row -> assertEquals(row, rows.get(index))));
     }
@@ -452,18 +535,19 @@ public class RowRepositoryTest {
         when(indexService.search(any(ICondition.class))).thenAnswer(invocation -> {
             final ICondition condition = (ICondition) invocation.getArguments()[0];
             final Set<Integer> set = new HashSet<>();
+            boolean found = false;
             if (condition1.equals(condition)) {
                 for (int i = 10; i <= 60; i++) {
                     set.add(i);
                 }
+                found = true;
             } else if (condition2.equals(condition)) {
                 for (int i = 230; i <= 280; i++) {
                     set.add(i);
                 }
-            } else if (condition instanceof EmptyCondition) {
-                return new IndexService.SearchResult(false, set);
+                found = true;
             }
-            return new IndexService.SearchResult(true, set);
+            return new IndexService.SearchResult(found, set);
         });
         return indexService;
     }

@@ -9,6 +9,8 @@ public interface RowRepository extends Repository<Row> {
 
     void add(Row row);
 
+    int size(ICondition iCondition);
+
     List<Row> getList(ICondition iCondition, int from, int size);
 
 }

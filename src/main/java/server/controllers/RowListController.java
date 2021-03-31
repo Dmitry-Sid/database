@@ -10,9 +10,12 @@ import server.model.ConditionException;
 import server.model.ConditionService;
 import server.model.ModelService;
 import server.model.RowRepository;
+import server.model.pojo.ICondition;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Controller
 @RequestMapping(value = "/", produces = "text/plain;charset=UTF-8")
@@ -29,10 +32,16 @@ public class RowListController {
     }
 
     @GetMapping("/")
-    public String searchRows(Model model, @RequestParam(defaultValue = "") String searchRequest, @RequestParam(defaultValue = "0") int page) {
+    public String searchRows(Model model, @RequestParam(defaultValue = "") String searchRequest, @RequestParam(defaultValue = "1") int page) {
         model.addAttribute("searchRequest", searchRequest);
+        model.addAttribute("page", page);
         try {
-            model.addAttribute("rows", rowRepository.getList(conditionService.parse(searchRequest), page * ROWS_PER_PAGE, ROWS_PER_PAGE));
+            final ICondition condition = conditionService.parse(searchRequest);
+            final int totalPages = (int) Math.ceil((double) rowRepository.size(condition) / ROWS_PER_PAGE);
+            model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageNumbers", IntStream.rangeClosed(1, totalPages)
+                    .boxed().collect(Collectors.toList()));
+            model.addAttribute("rows", rowRepository.getList(condition, (page - 1) * ROWS_PER_PAGE, ROWS_PER_PAGE));
             model.addAttribute("fields", modelService.getFields());
         } catch (ConditionException e) {
         }

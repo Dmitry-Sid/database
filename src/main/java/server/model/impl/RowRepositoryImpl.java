@@ -58,6 +58,39 @@ public class RowRepositoryImpl implements RowRepository {
         });
     }
 
+    @Override
+    public int size(ICondition iCondition) {
+        return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
+            final Set<Integer> processedIdSet = new HashSet<>();
+            final AtomicBoolean stopChecker = new AtomicBoolean(false);
+            try (final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream()) {
+                final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
+                    if (conditionService.check(row, iCondition)) {
+                        processedIdSet.add(row.getId());
+                    }
+                }, null);
+                final IndexService.SearchResult searchResult = indexService.search(iCondition);
+                if (searchResult.found) {
+                    if (searchResult.idSet != null && searchResult.idSet.size() > 0) {
+                        rowIdRepository.stream(rowAddressConsumer, stopChecker, searchResult.idSet);
+                    }
+                } else {
+                    rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
+                }
+                buffer.stream(rowElement -> {
+                    final Row row = rowElement.getValue();
+                    final boolean inSet = !searchResult.found || (searchResult.idSet != null && searchResult.idSet.contains(row.getId()));
+                    if (Buffer.State.ADDED.equals(rowElement.getState()) && !processedIdSet.contains(row.getId()) &&
+                            inSet && (conditionService.check(row, iCondition))) {
+                        processedIdSet.add(row.getId());
+                    }
+                });
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return processedIdSet.size();
+        });
+    }
 
     @Override
     public void delete(int id) {
@@ -167,7 +200,7 @@ public class RowRepositoryImpl implements RowRepository {
                         nextFileAction.run();
                     }
                 }
-                chainInputStream.getInputStream().skip(rowAddress.getPosition() - lastPosition.get());
+                fileHelper.skip(chainInputStream.getInputStream(), rowAddress.getPosition() - lastPosition.get());
                 lastPosition.set(rowAddress.getPosition() + rowAddress.getSize());
                 final byte[] bytes = new byte[rowAddress.getSize()];
                 chainInputStream.getInputStream().read(bytes);
