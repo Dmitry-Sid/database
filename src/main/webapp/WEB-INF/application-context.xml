@@ -49,6 +49,7 @@
         <constructor-arg index="4" ref="conditionService"/>
         <constructor-arg index="5" ref="modelService"/>
         <constructor-arg index="6" value="1000"/>
+        <constructor-arg index="7" value="1000"/>
     </bean>
     <bean id="rowIdRepository" class="server.model.impl.RowIdRepositoryImpl" destroy-method="destroy">
         <constructor-arg index="0" ref="objectConverter"/>

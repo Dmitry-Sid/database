@@ -10,11 +10,12 @@
     <!--/*@thymesVar id="pageNumbers" type="java.util.List<java.lang.Integer>"*/-->
     <!--/*@thymesVar id="searchRequest" type="java.lang.String"*/-->
     <!--/*@thymesVar id="page" type="java.lang.Integer"*/-->
-    <form method="post" th:action="@{/}" style="margin-bottom: 10px">
+    <form method="post" style="margin-bottom: 10px" th:action="@{/}">
         <input name="searchRequest" style="width: 50%" th:value="${searchRequest}" type="text"/>
         <input type="submit" value="Поиск"/>
     </form>
-    <th:block th:insert="fragments.html :: pagination (${totalPages}, ${pageNumbers}, @{/(searchRequest=${searchRequest})}, ${page})"></th:block>
+    <th:block
+            th:insert="fragments.html :: pagination (${totalPages}, ${pageNumbers}, @{/(searchRequest=${searchRequest})}, ${page})"></th:block>
     <!--/*@thymesVar id="rows" type="java.util.List<server.model.pojo.Row>"*/-->
     <!--/*@thymesVar id="fields" type="java.util.List<server.model.ModelService.FieldInfo>"*/-->
     <table class="table" style="margin-top: 15px" th:if="${rows != null}">

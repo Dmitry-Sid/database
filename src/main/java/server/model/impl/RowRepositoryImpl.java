@@ -26,19 +26,33 @@ public class RowRepositoryImpl implements RowRepository {
     private final Buffer<Row> buffer;
     private final Set<String> fields = Collections.synchronizedSet(new HashSet<>());
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    private final ProducerConsumer<Runnable> producerConsumer = new ProducerConsumerImpl<>(1000);
 
-    public RowRepositoryImpl(ObjectConverter objectConverter, RowIdRepository rowIdRepository, FileHelper fileHelper, IndexService indexService, ConditionService conditionService, ModelService modelService, int bufferSize) {
+    public RowRepositoryImpl(ObjectConverter objectConverter, RowIdRepository rowIdRepository, FileHelper fileHelper, IndexService indexService, ConditionService conditionService, ModelService modelService, int bufferSize, long sleepTime) {
         this.objectConverter = objectConverter;
         this.rowIdRepository = rowIdRepository;
         this.fileHelper = fileHelper;
         this.indexService = indexService;
         this.conditionService = conditionService;
-        this.buffer = new BufferImpl<>(bufferSize, runnableConsumer(), bufferConsumer());
+        this.buffer = new BufferImpl<>(bufferSize, producerConsumer::put, bufferConsumer());
         this.fields.addAll(modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
-        modelService.subscribeOnFieldsChanges(fields -> {
-            processDeletedFields(RowRepositoryImpl.this.fields.stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet()));
-        });
+        modelService.subscribeOnFieldsChanges(fields -> processDeletedFields(RowRepositoryImpl.this.fields.stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet())));
         indexService.subscribeOnIndexesChanges(this::processIndexesChanges);
+        new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, producerConsumer.take());
+            }
+        }).start();
+        new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    Thread.sleep(sleepTime);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                buffer.flush();
+            }
+        }).start();
     }
 
     @Override
@@ -117,7 +131,7 @@ public class RowRepositoryImpl implements RowRepository {
                     buffer.add(new Row(id, null), Buffer.State.DELETED);
                     return;
                 }
-                consumer.accept(objectConverter.fromBytes(Row.class, fileHelper.read(rowAddress)));
+                consumer.accept(objectConverter.fromBytes(Row.class, bytes));
             });
         });
     }
@@ -216,25 +230,27 @@ public class RowRepositoryImpl implements RowRepository {
         if (deletedFields.isEmpty()) {
             return;
         }
-        final AtomicBoolean stopChecker = new AtomicBoolean(false);
-        final List<Row> rows = new ArrayList<>();
-        try (final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream()) {
-            final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
-                deletedFields.forEach(field -> row.getFields().remove(field));
-                rows.add(row);
-            }, () -> {
-                final Iterator<Row> rowIterator = rows.iterator();
-                while (rowIterator.hasNext()) {
-                    final Row row = rowIterator.next();
-                    add(row);
-                    rowIterator.remove();
-                }
-            });
-            rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        rows.forEach(this::add);
+        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
+            final AtomicBoolean stopChecker = new AtomicBoolean(false);
+            final List<Row> rows = new ArrayList<>();
+            try (final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream()) {
+                final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
+                    deletedFields.forEach(field -> row.getFields().remove(field));
+                    rows.add(row);
+                }, () -> {
+                    final Iterator<Row> rowIterator = rows.iterator();
+                    while (rowIterator.hasNext()) {
+                        final Row row = rowIterator.next();
+                        add(row);
+                        rowIterator.remove();
+                    }
+                });
+                rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            rows.forEach(this::add);
+        });
     }
 
     private void processIndexesChanges() {
@@ -247,24 +263,6 @@ public class RowRepositoryImpl implements RowRepository {
                 throw new RuntimeException(e);
             }
         });
-    }
-
-    private Consumer<Runnable> runnableConsumer() {
-        return runnable -> {
-            final int readCount;
-            if (readWriteLock instanceof ReentrantReadWriteLock) {
-                readCount = ((ReentrantReadWriteLock) readWriteLock).getReadHoldCount();
-            } else {
-                readCount = 0;
-            }
-            for (int i = 0; i < readCount; i++) {
-                readWriteLock.readLock().unlock();
-            }
-            LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, runnable);
-            for (int i = 0; i < readCount; i++) {
-                readWriteLock.readLock().lock();
-            }
-        };
     }
 
     private Consumer<List<Buffer.Element<Row>>> bufferConsumer() {

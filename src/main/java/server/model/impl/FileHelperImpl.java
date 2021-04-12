@@ -41,6 +41,9 @@ public class FileHelperImpl implements FileHelper {
 
     @Override
     public void skip(InputStream inputStream, long size) {
+        if (inputStream == null) {
+            return;
+        }
         try {
             long skipped = inputStream.skip(size);
             if (skipped < size) {
@@ -100,6 +103,9 @@ public class FileHelperImpl implements FileHelper {
 
     @Override
     public void collect(List<CollectBean> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
         String inputFileName = null;
         String tempFileName = null;
         long inputLastPosition = 0;
