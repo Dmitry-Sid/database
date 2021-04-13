@@ -238,11 +238,16 @@ public class RowRepositoryImpl implements RowRepository {
                     deletedFields.forEach(field -> row.getFields().remove(field));
                     rows.add(row);
                 }, () -> {
-                    final Iterator<Row> rowIterator = rows.iterator();
-                    while (rowIterator.hasNext()) {
-                        final Row row = rowIterator.next();
-                        add(row);
-                        rowIterator.remove();
+                    readWriteLock.readLock().unlock();
+                    try {
+                        final Iterator<Row> rowIterator = rows.iterator();
+                        while (rowIterator.hasNext()) {
+                            final Row row = rowIterator.next();
+                            add(row);
+                            rowIterator.remove();
+                        }
+                    } finally {
+                        readWriteLock.readLock().lock();
                     }
                 });
                 rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
@@ -308,5 +313,6 @@ public class RowRepositoryImpl implements RowRepository {
 
     private void destroy() {
         buffer.flush();
+        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, producerConsumer.take());
     }
 }

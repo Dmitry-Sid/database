@@ -289,17 +289,10 @@ public class RowRepositoryTest {
 
     @Test
     public void fieldsChangedTest() {
-        // fieldsChangedTest(1);
-        //   doAndSleep(20000, () -> );
-        //try {
-        //    Thread.sleep(3000);
-        //} catch (InterruptedException e) {
-        //    e.printStackTrace();
-        //}
-        //doAndSleep(20000, () -> fieldsChangedTest(1));
-        //doAndSleep(20000, () -> fieldsChangedTest(10));
-        //doAndSleep(20000, () -> fieldsChangedTest(40));
-        //doAndSleep(20000, () -> fieldsChangedTest(1000));
+        doAndSleep(() -> fieldsChangedTest(1));
+        doAndSleep(() -> fieldsChangedTest(10));
+        doAndSleep(() -> fieldsChangedTest(40));
+        doAndSleep(() -> fieldsChangedTest(1000));
     }
 
     public void fieldsChangedTest(int bufferSize) {
@@ -579,15 +572,6 @@ public class RowRepositoryTest {
         runnable.run();
         try {
             Thread.sleep(1500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void doAndSleep(long sleepTime, Runnable runnable) {
-        runnable.run();
-        try {
-            Thread.sleep(sleepTime);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

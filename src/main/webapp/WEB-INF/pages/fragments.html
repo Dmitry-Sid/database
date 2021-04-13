@@ -10,7 +10,7 @@
 <!--/*@thymesVar id="startLink" type="java.lang.String"*/-->
 <!--/*@thymesVar id="page" type="java.lang.Integer"*/-->
 <div th:fragment="pagination (totalPages, pageNumbers, startLink, page)">
-    <div class="pagination" th:if="${totalPages > 0}">
+    <div class="pagination" th:if="${totalPages > 1}">
         <li th:if="${page > 1}">
             <a th:href="${startLink} + '&page=' + ${page - 1}">&laquo;</a>
         </li>
