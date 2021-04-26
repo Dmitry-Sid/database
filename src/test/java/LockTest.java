@@ -1,5 +1,6 @@
 import org.junit.Test;
 import server.model.lock.Lock;
+import server.model.lock.LockImpl;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -15,7 +16,7 @@ public class LockTest {
     @Test
     public void fullTest() throws InterruptedException, ExecutionException {
         {
-            final Lock<Integer> lock = new Lock<>();
+            final Lock<Integer> lock = new LockImpl<>();
             lock.lock(1);
             final Future<Long> future1 = createFuture(executorService, lock, 1, null);
             final Future<Long> future2 = createFuture(executorService, lock, 2, null);
@@ -40,7 +41,7 @@ public class LockTest {
             assertTrue(future5.get() > 2000);
         }
         {
-            final Lock<String> lock = new Lock<>();
+            final Lock<String> lock = new LockImpl<>();
             lock.lock("test1");
             final Future<Long> future1 = createFuture(executorService, lock, "test1", null);
             final Future<Long> future2 = createFuture(executorService, lock, "test2", null);
@@ -54,7 +55,7 @@ public class LockTest {
 
     @Test
     public void doubleLockTest() throws InterruptedException, ExecutionException {
-        final Lock<Integer> lock = new Lock<>();
+        final Lock<Integer> lock = new LockImpl<>();
         lock.lock(1);
         lock.lock(1);
         final Future<Long> future = executorService.submit(() -> {
