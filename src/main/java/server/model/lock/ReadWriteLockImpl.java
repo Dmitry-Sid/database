@@ -43,12 +43,12 @@ public class ReadWriteLockImpl<T> implements ReadWriteLock<T> {
     private class InnerReadLock extends BaseInnerLock {
 
         @Override
-        public synchronized void lock(T value) {
+        public void lock(T value) {
             lock(value, counter -> counter.getWriteCount().get() > 0, Counter::getReadCount);
         }
 
         @Override
-        public synchronized void unlock(T value) {
+        public void unlock(T value) {
             unlock(value, Counter::getReadCount);
         }
     }
@@ -56,69 +56,73 @@ public class ReadWriteLockImpl<T> implements ReadWriteLock<T> {
     private class InnerWriteLock extends BaseInnerLock {
 
         @Override
-        public synchronized void lock(T value) {
+        public void lock(T value) {
             lock(value, counter -> counter.getWriteCount().get() > 0 || counter.getReadCount().get() > 0, Counter::getWriteCount);
         }
 
         @Override
-        public synchronized void unlock(T value) {
+        public void unlock(T value) {
             unlock(value, Counter::getWriteCount);
         }
     }
 
     private abstract class BaseInnerLock implements Lock<T> {
-        synchronized void lock(T value, Function<Counter, Boolean> waitFunction, Function<Counter, AtomicInteger> changeFunction) {
-            if (value == null) {
-                return;
-            }
-            Counter commonCounter = lockedObjects.get(value);
-            Counter counter = threadLocal.get().get(value);
-            while (true) {
-                if (commonCounter != null && waitFunction.apply(commonCounter) && isNullCounter(counter)) {
-                    try {
-                        wait();
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                } else {
-                    break;
+        void lock(T value, Function<Counter, Boolean> waitFunction, Function<Counter, AtomicInteger> changeFunction) {
+            synchronized (ReadWriteLockImpl.this) {
+                if (value == null) {
+                    return;
                 }
+                Counter commonCounter = lockedObjects.get(value);
+                Counter counter = threadLocal.get().get(value);
+                while (true) {
+                    if (commonCounter != null && waitFunction.apply(commonCounter) && isNullCounter(counter)) {
+                        try {
+                            ReadWriteLockImpl.this.wait();
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                if (counter == null) {
+                    counter = new Counter();
+                }
+                changeFunction.apply(counter).incrementAndGet();
+                threadLocal.get().put(value, counter);
+                if (commonCounter == null) {
+                    commonCounter = new Counter();
+                }
+                changeFunction.apply(commonCounter).incrementAndGet();
+                lockedObjects.put(value, commonCounter);
             }
-            if (counter == null) {
-                counter = new Counter();
-            }
-            changeFunction.apply(counter).incrementAndGet();
-            threadLocal.get().put(value, counter);
-            if (commonCounter == null) {
-                commonCounter = new Counter();
-            }
-            changeFunction.apply(commonCounter).incrementAndGet();
-            lockedObjects.put(value, commonCounter);
         }
 
-        synchronized void unlock(T value, Function<Counter, AtomicInteger> function) {
-            if (value == null) {
-                return;
+        void unlock(T value, Function<Counter, AtomicInteger> function) {
+            synchronized (ReadWriteLockImpl.this) {
+                if (value == null) {
+                    return;
+                }
+                final Counter counter = threadLocal.get().get(value);
+                if (counter == null || function.apply(counter).get() <= 0) {
+                    log.warn("try to unlock not acquired value : " + value + ", thread : " + Thread.currentThread());
+                    threadLocal.get().remove(value);
+                }
+                if (counter != null) {
+                    function.apply(counter).decrementAndGet();
+                }
+                if (isNullCounter(counter)) {
+                    threadLocal.get().remove(value);
+                }
+                final Counter commonCounter = lockedObjects.get(value);
+                if (commonCounter != null) {
+                    function.apply(commonCounter).decrementAndGet();
+                }
+                if (isNullCounter(commonCounter)) {
+                    lockedObjects.remove(value);
+                }
+                ReadWriteLockImpl.this.notifyAll();
             }
-            final Counter counter = threadLocal.get().get(value);
-            if (counter == null || function.apply(counter).get() <= 0) {
-                log.warn("try to unlock not acquired value : " + value + ", thread : " + Thread.currentThread());
-                threadLocal.get().remove(value);
-            }
-            if (counter != null) {
-                function.apply(counter).decrementAndGet();
-            }
-            if (isNullCounter(counter)) {
-                threadLocal.get().remove(value);
-            }
-            final Counter commonCounter = lockedObjects.get(value);
-            if (commonCounter != null) {
-                function.apply(commonCounter).decrementAndGet();
-            }
-            if (isNullCounter(commonCounter)) {
-                lockedObjects.remove(value);
-            }
-            notifyAll();
         }
 
         private boolean isNullCounter(Counter counter) {
