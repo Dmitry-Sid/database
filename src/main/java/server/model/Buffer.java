@@ -24,6 +24,7 @@ public interface Buffer<V extends TableType> {
     class Element<V> {
         private final V value;
         private final State state;
+        private volatile boolean flushed;
 
         public Element(V value, State state) {
             this.value = value;
@@ -36,6 +37,14 @@ public interface Buffer<V extends TableType> {
 
         public State getState() {
             return state;
+        }
+
+        public boolean isFlushed() {
+            return flushed;
+        }
+
+        public void setFlushed(boolean flushed) {
+            this.flushed = flushed;
         }
 
         @Override

@@ -4,6 +4,7 @@ import server.model.Buffer;
 import server.model.pojo.TableType;
 
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,9 +28,6 @@ public class BufferImpl<V extends TableType> implements Buffer<V> {
         if (value == null) {
             return;
         }
-        if (map.size() >= maxSize) {
-            flush();
-        }
         map.put(value.getId(), new Element<>(value, state));
     }
 
@@ -51,14 +49,35 @@ public class BufferImpl<V extends TableType> implements Buffer<V> {
     @Override
     public void flush() {
         runnableConsumer.accept(() -> {
+            final List<Element<V>> list = flushableList();
             if (flushConsumer != null) {
-                flushConsumer.accept(sortedList());
+                flushConsumer.accept(list);
             }
-            map.clear();
+            int mapSize = map.size();
+            if (mapSize > maxSize) {
+                for (Iterator<Map.Entry<Integer, Element<V>>> iterator = map.entrySet().iterator(); iterator.hasNext(); ) {
+                    final Map.Entry<Integer, Element<V>> entry = iterator.next();
+                    if (entry.getValue().isFlushed()) {
+                        iterator.remove();
+                        mapSize--;
+                        if (mapSize <= maxSize) {
+                            break;
+                        }
+                    }
+                }
+            }
+            list.forEach(element -> {
+                element.setFlushed(true);
+            });
         });
     }
 
     private List<Element<V>> sortedList() {
         return map.entrySet().stream().sorted(Comparator.comparing(Map.Entry::getKey)).map(Map.Entry::getValue).collect(Collectors.toList());
+    }
+
+    private List<Element<V>> flushableList() {
+        return map.entrySet().stream().filter(entry -> !entry.getValue().isFlushed())
+                .sorted(Comparator.comparing(Map.Entry::getKey)).map(Map.Entry::getValue).collect(Collectors.toList());
     }
 }

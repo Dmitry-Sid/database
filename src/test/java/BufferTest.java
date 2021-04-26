@@ -59,6 +59,7 @@ public class BufferTest {
 
         Row row = new Row(0, new HashMap<>());
         buffer.add(row, Buffer.State.DELETED);
+        buffer.flush();
         counter.set(0);
         previous.set(0);
         buffer.stream(value -> {
@@ -73,6 +74,7 @@ public class BufferTest {
 
         row = new Row(maxSize - 1, new HashMap<>());
         buffer.add(row, Buffer.State.DELETED);
+        buffer.flush();
         counter.set(0);
         previous.set(0);
         buffer.stream(value -> {
@@ -87,6 +89,7 @@ public class BufferTest {
 
         row = new Row(maxSize, new HashMap<>());
         buffer.add(row, Buffer.State.UPDATED);
+        buffer.flush();
         counter.set(0);
         previous.set(0);
         buffer.stream(value -> {
@@ -95,14 +98,15 @@ public class BufferTest {
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
         });
-        assertEquals(1, counter.get());
-        assertEquals(1, buffer.size());
+        assertEquals(maxSize, counter.get());
+        assertEquals(maxSize, buffer.size());
         assertEquals(new Buffer.Element<>(row, Buffer.State.UPDATED), buffer.get(maxSize));
 
         final Map<String, Comparable> map = new HashMap<>();
         map.put("print", Integer.toString(maxSize + 1));
         row = new Row(maxSize + 1, map);
         buffer.add(row, Buffer.State.UPDATED);
+        buffer.flush();
         counter.set(0);
         previous.set(0);
         buffer.stream(value -> {
@@ -111,8 +115,8 @@ public class BufferTest {
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
         });
-        assertEquals(2, counter.get());
-        assertEquals(2, buffer.size());
+        assertEquals(maxSize, counter.get());
+        assertEquals(maxSize, buffer.size());
         assertEquals(new Buffer.Element<>(row, Buffer.State.UPDATED), buffer.get(maxSize + 1));
 
         buffer.flush();
@@ -124,8 +128,8 @@ public class BufferTest {
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
         });
-        assertEquals(0, counter.get());
-        assertEquals(0, buffer.size());
+        assertEquals(maxSize, counter.get());
+        assertEquals(maxSize, buffer.size());
         readWriteLock.readLock().unlock();
     }
 }

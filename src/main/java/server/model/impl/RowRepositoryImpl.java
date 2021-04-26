@@ -82,7 +82,7 @@ public class RowRepositoryImpl implements RowRepository {
                     if (conditionService.check(row, iCondition)) {
                         processedIdSet.add(row.getId());
                     }
-                }, null);
+                });
                 final IndexService.SearchResult searchResult = indexService.search(iCondition);
                 if (searchResult.found) {
                     if (searchResult.idSet != null && searchResult.idSet.size() > 0) {
@@ -165,7 +165,7 @@ public class RowRepositoryImpl implements RowRepository {
                     if (rows.size() >= size) {
                         stopChecker.set(true);
                     }
-                }, null);
+                });
                 final IndexService.SearchResult searchResult = indexService.search(iCondition);
                 if (searchResult.found) {
                     if (searchResult.idSet != null && searchResult.idSet.size() > 0) {
@@ -191,7 +191,7 @@ public class RowRepositoryImpl implements RowRepository {
         });
     }
 
-    private Consumer<RowAddress> processRow(FileHelper.ChainInputStream chainInputStream, Consumer<Row> rowConsumer, Runnable nextFileAction) {
+    private Consumer<RowAddress> processRow(FileHelper.ChainInputStream chainInputStream, Consumer<Row> rowConsumer) {
         final AtomicReference<String> fileName = new AtomicReference<>();
         final AtomicLong lastPosition = new AtomicLong(0);
         return rowAddress -> {
@@ -210,9 +210,6 @@ public class RowRepositoryImpl implements RowRepository {
                     lastPosition.set(0);
                     fileName.set(rowAddress.getFilePath());
                     chainInputStream.read(fileName.get());
-                    if (nextFileAction != null) {
-                        nextFileAction.run();
-                    }
                 }
                 fileHelper.skip(chainInputStream.getInputStream(), rowAddress.getPosition() - lastPosition.get());
                 lastPosition.set(rowAddress.getPosition() + rowAddress.getSize());
@@ -232,29 +229,15 @@ public class RowRepositoryImpl implements RowRepository {
         }
         LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
             final AtomicBoolean stopChecker = new AtomicBoolean(false);
-            final List<Row> rows = new ArrayList<>();
             try (final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream()) {
                 final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
                     deletedFields.forEach(field -> row.getFields().remove(field));
-                    rows.add(row);
-                }, () -> {
-                    readWriteLock.readLock().unlock();
-                    try {
-                        final Iterator<Row> rowIterator = rows.iterator();
-                        while (rowIterator.hasNext()) {
-                            final Row row = rowIterator.next();
-                            add(row);
-                            rowIterator.remove();
-                        }
-                    } finally {
-                        readWriteLock.readLock().lock();
-                    }
+                    add(row);
                 });
                 rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            rows.forEach(this::add);
         });
     }
 
@@ -262,7 +245,7 @@ public class RowRepositoryImpl implements RowRepository {
         LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
             final AtomicBoolean stopChecker = new AtomicBoolean(false);
             try (final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream()) {
-                final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, indexService::insert, null);
+                final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, indexService::insert);
                 rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
             } catch (IOException e) {
                 throw new RuntimeException(e);
