@@ -56,13 +56,14 @@ public interface Buffer<V extends TableType> {
                 return false;
             }
             final Element<?> element = (Element<?>) o;
-            return Objects.equals(getValue(), element.getValue()) &&
+            return isFlushed() == element.isFlushed() &&
+                    Objects.equals(getValue(), element.getValue()) &&
                     getState() == element.getState();
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(getValue(), getState());
+            return Objects.hash(getValue(), getState(), isFlushed());
         }
     }
 
