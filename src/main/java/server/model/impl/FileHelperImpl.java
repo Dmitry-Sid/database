@@ -3,6 +3,9 @@ package server.model.impl;
 import com.sun.org.slf4j.internal.Logger;
 import com.sun.org.slf4j.internal.LoggerFactory;
 import server.model.FileHelper;
+import server.model.lock.Lock;
+import server.model.lock.LockService;
+import server.model.lock.ReadWriteLock;
 import server.model.pojo.Pair;
 import server.model.pojo.RowAddress;
 
@@ -13,6 +16,7 @@ import java.util.function.Consumer;
 
 public class FileHelperImpl implements FileHelper {
     private static final Logger log = LoggerFactory.getLogger(FileHelperImpl.class);
+    private final ReadWriteLock<String> readWriteLock = LockService.createReadWriteLock(String.class);
 
     @Override
     public void write(String fileName, byte[] bytes, boolean append) {
@@ -26,17 +30,19 @@ public class FileHelperImpl implements FileHelper {
 
     @Override
     public byte[] read(RowAddress rowAddress) {
-        if (!new File(rowAddress.getFilePath()).exists()) {
-            return null;
-        }
-        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(rowAddress.getFilePath()))) {
-            skip(inputStream, rowAddress.getPosition());
-            final byte[] bytes = new byte[rowAddress.getSize()];
-            inputStream.read(bytes);
-            return bytes;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return LockService.doInLock(readWriteLock.readLock(), rowAddress.getFilePath(), () -> {
+            if (!new File(rowAddress.getFilePath()).exists()) {
+                return null;
+            }
+            try (InputStream inputStream = new BufferedInputStream(new FileInputStream(rowAddress.getFilePath()))) {
+                skip(inputStream, rowAddress.getPosition());
+                final byte[] bytes = new byte[rowAddress.getSize()];
+                inputStream.read(bytes);
+                return bytes;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     @Override
@@ -64,12 +70,12 @@ public class FileHelperImpl implements FileHelper {
     }
 
     @Override
-    public ChainInputStream getChainInputStream() {
+    public ChainStream<InputStream> getChainInputStream() {
         return new ChainLockInputStream();
     }
 
     @Override
-    public ChainOutputStream getChainOutputStream() {
+    public ChainStream<OutputStream> getChainOutputStream() {
         return new ChainLockOutputStream();
     }
 
@@ -111,46 +117,46 @@ public class FileHelperImpl implements FileHelper {
         long inputLastPosition = 0;
         int bit;
         final List<Runnable> runnableList = new ArrayList<>();
-        try (ChainInputStream chainInputStream = getChainInputStream();
-             ChainOutputStream chainOutputStream = getChainOutputStream()) {
+        try (ChainStream<InputStream> chainInputStream = getChainInputStream();
+             ChainStream<OutputStream> chainOutputStream = getChainOutputStream()) {
             for (CollectBean collectBean : list) {
                 final RowAddress rowAddress = collectBean.rowAddress;
                 if (inputFileName == null) {
                     inputFileName = rowAddress.getFilePath();
                     tempFileName = getTempFile(inputFileName);
-                    chainInputStream.read(inputFileName);
+                    chainInputStream.init(inputFileName);
                     chainOutputStream.init(tempFileName);
                 } else if (!inputFileName.equals(rowAddress.getFilePath())) {
                     writeToEnd(chainInputStream, chainOutputStream);
                     inputLastPosition = 0;
-                    chainInputStream.read(rowAddress.getFilePath());
+                    chainInputStream.init(rowAddress.getFilePath());
                     chainOutputStream.init(getTempFile(rowAddress.getFilePath()));
                     saveTempFile(tempFileName, inputFileName, runnableList);
                     inputFileName = rowAddress.getFilePath();
                     tempFileName = getTempFile(inputFileName);
                 }
                 boolean found = false;
-                if (chainInputStream.getInputStream() != null) {
-                    chainInputStream.getInputStream().mark(1);
-                    while ((bit = chainInputStream.getInputStream().read()) != -1) {
+                if (chainInputStream.getStream() != null) {
+                    chainInputStream.getStream().mark(1);
+                    while ((bit = chainInputStream.getStream().read()) != -1) {
                         if (inputLastPosition == rowAddress.getPosition()) {
-                            chainInputStream.getInputStream().reset();
-                            collectBean.inputOutputConsumer.accept(chainInputStream.getInputStream(), chainOutputStream.getOutputStream());
+                            chainInputStream.getStream().reset();
+                            collectBean.inputOutputConsumer.accept(chainInputStream.getStream(), chainOutputStream.getStream());
                             inputLastPosition = rowAddress.getPosition() + rowAddress.getSize();
                             found = true;
                             break;
                         } else {
-                            chainOutputStream.getOutputStream().write(bit);
+                            chainOutputStream.getStream().write(bit);
                         }
-                        chainInputStream.getInputStream().mark(1);
+                        chainInputStream.getStream().mark(1);
                         inputLastPosition++;
                     }
                 }
                 if (!found) {
-                    if (chainInputStream.getInputStream() != null) {
-                        chainInputStream.getInputStream().reset();
+                    if (chainInputStream.getStream() != null) {
+                        chainInputStream.getStream().reset();
                     }
-                    collectBean.inputOutputConsumer.accept(chainInputStream.getInputStream(), chainOutputStream.getOutputStream());
+                    collectBean.inputOutputConsumer.accept(chainInputStream.getStream(), chainOutputStream.getStream());
                 }
                 runnableList.add(collectBean.runnable);
             }
@@ -174,11 +180,11 @@ public class FileHelperImpl implements FileHelper {
         deleteAndRename(new File(tempFileName), new File(inputFileName));
     }
 
-    private void writeToEnd(ChainInputStream chainInputStream, ChainOutputStream chainOutputStream) throws IOException {
-        if (chainInputStream.getInputStream() != null) {
+    private void writeToEnd(ChainStream<InputStream> chainInputStream, ChainStream<OutputStream> chainOutputStream) throws IOException {
+        if (chainInputStream.getStream() != null) {
             int bit;
-            while ((bit = chainInputStream.getInputStream().read()) != -1) {
-                chainOutputStream.getOutputStream().write(bit);
+            while ((bit = chainInputStream.getStream().read()) != -1) {
+                chainOutputStream.getStream().write(bit);
             }
         }
     }
@@ -229,7 +235,7 @@ public class FileHelperImpl implements FileHelper {
         return true;
     }
 
-    private abstract static class ChainLockStream<T extends Closeable> {
+    private abstract static class ChainLockStream<T extends Closeable> implements ChainStream<T> {
         T currentStream;
         private String currentFileName;
         private boolean closed = true;
@@ -237,6 +243,7 @@ public class FileHelperImpl implements FileHelper {
         public void init(String fileName) {
             close();
             try {
+            //    getLock().lock(fileName);
                 currentFileName = fileName;
                 currentStream = createStream(fileName);
                 closed = false;
@@ -248,6 +255,7 @@ public class FileHelperImpl implements FileHelper {
 
         protected abstract T createStream(String fileName) throws Exception;
 
+        protected abstract Lock<String> getLock();
 
         public String getFileName() {
             return currentFileName;
@@ -257,6 +265,7 @@ public class FileHelperImpl implements FileHelper {
             return currentStream;
         }
 
+        @Override
         public void close() {
             if (currentStream != null) {
                 try {
@@ -266,6 +275,9 @@ public class FileHelperImpl implements FileHelper {
                     log.warn(e.toString());
                 }
             }
+            if (currentFileName != null) {
+             //   getLock().unlock(currentFileName);
+            }
         }
 
         public boolean isClosed() {
@@ -273,36 +285,30 @@ public class FileHelperImpl implements FileHelper {
         }
     }
 
-    public class ChainLockInputStream extends ChainLockStream<InputStream> implements ChainInputStream {
-
-        public void read(String fileName) {
-            init(fileName);
-        }
-
+    public class ChainLockInputStream extends ChainLockStream<InputStream> {
         @Override
-        public InputStream getInputStream() {
-            return currentStream;
-        }
-
-        @Override
-        protected InputStream createStream(String fileName) throws Exception {
+        protected InputStream createStream(String fileName) throws FileNotFoundException {
             if (!new File(fileName).exists()) {
                 return null;
             }
             return new BufferedInputStream(new FileInputStream(fileName));
         }
-    }
-
-    public class ChainLockOutputStream extends ChainLockStream<OutputStream> implements ChainOutputStream {
 
         @Override
-        public OutputStream getOutputStream() {
-            return currentStream;
+        protected Lock<String> getLock() {
+            return readWriteLock.readLock();
         }
+    }
 
+    public class ChainLockOutputStream extends ChainLockStream<OutputStream> {
         @Override
         protected OutputStream createStream(String fileName) throws Exception {
             return new BufferedOutputStream(new FileOutputStream(fileName), 10000);
+        }
+
+        @Override
+        protected Lock<String> getLock() {
+            return readWriteLock.writeLock();
         }
     }
 }

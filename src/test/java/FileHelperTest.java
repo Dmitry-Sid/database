@@ -149,21 +149,21 @@ public class FileHelperTest {
     @Test
     public void chainInputStreamTest() throws IOException {
         try {
-            final FileHelper.ChainInputStream chainInputStream = fileHelper.getChainInputStream();
+            final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream();
             final byte[] bytes1 = new byte[]{1, 3, 4, 8, 6};
             final byte[] bytes2 = new byte[]{2, 9, 11, 4, 7};
             fileHelper.write("test1", bytes1, true);
             fileHelper.write("test2", bytes2, true);
             assertTrue(chainInputStream.isClosed());
-            chainInputStream.read("test1");
+            chainInputStream.init("test1");
             assertFalse(chainInputStream.isClosed());
             final byte[] bytes3 = new byte[5];
-            chainInputStream.getInputStream().read(bytes3);
+            chainInputStream.getStream().read(bytes3);
             assertBytes(bytes1, bytes3);
             assertFalse(chainInputStream.isClosed());
-            chainInputStream.read("test2");
+            chainInputStream.init("test2");
             final byte[] bytes4 = new byte[5];
-            chainInputStream.getInputStream().read(bytes4);
+            chainInputStream.getStream().read(bytes4);
             assertBytes(bytes2, bytes4);
             chainInputStream.close();
             assertTrue(chainInputStream.isClosed());
@@ -176,15 +176,15 @@ public class FileHelperTest {
     @Test
     public void chainOutputStream() throws IOException {
         try {
-            final FileHelper.ChainOutputStream chainOutputStream = fileHelper.getChainOutputStream();
+            final FileHelper.ChainStream<OutputStream> chainOutputStream = fileHelper.getChainOutputStream();
             final byte[] bytes1 = new byte[]{1, 3, 4, 8, 6};
             final byte[] bytes2 = new byte[]{2, 9, 11, 4, 7};
             assertTrue(chainOutputStream.isClosed());
             chainOutputStream.init("test1");
             assertFalse(chainOutputStream.isClosed());
-            chainOutputStream.getOutputStream().write(bytes1);
+            chainOutputStream.getStream().write(bytes1);
             chainOutputStream.init("test2");
-            chainOutputStream.getOutputStream().write(bytes2);
+            chainOutputStream.getStream().write(bytes2);
             assertFalse(chainOutputStream.isClosed());
             chainOutputStream.close();
             assertTrue(chainOutputStream.isClosed());

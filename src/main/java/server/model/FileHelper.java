@@ -16,9 +16,9 @@ public interface FileHelper {
 
     void skip(InputStream inputStream, long size);
 
-    ChainInputStream getChainInputStream();
+    ChainStream<InputStream> getChainInputStream();
 
-    ChainOutputStream getChainOutputStream();
+    ChainStream<OutputStream> getChainOutputStream();
 
     void collect(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer);
 
@@ -28,22 +28,12 @@ public interface FileHelper {
         void accept(InputStream inputStream, OutputStream outputStream) throws IOException;
     }
 
-    interface ChainInputStream extends Closeable {
-        void read(String fileName);
-
-        String getFileName();
-
-        InputStream getInputStream();
-
-        boolean isClosed();
-    }
-
-    interface ChainOutputStream extends Closeable {
+    interface ChainStream<T extends Closeable> extends Closeable {
         void init(String fileName);
 
         String getFileName();
 
-        OutputStream getOutputStream();
+        T getStream();
 
         boolean isClosed();
     }
