@@ -30,19 +30,17 @@ public class FileHelperImpl implements FileHelper {
 
     @Override
     public byte[] read(RowAddress rowAddress) {
-        return LockService.doInLock(readWriteLock.readLock(), rowAddress.getFilePath(), () -> {
-            if (!new File(rowAddress.getFilePath()).exists()) {
-                return null;
-            }
-            try (InputStream inputStream = new BufferedInputStream(new FileInputStream(rowAddress.getFilePath()))) {
-                skip(inputStream, rowAddress.getPosition());
-                final byte[] bytes = new byte[rowAddress.getSize()];
-                inputStream.read(bytes);
-                return bytes;
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        if (!new File(rowAddress.getFilePath()).exists()) {
+            return null;
+        }
+        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(rowAddress.getFilePath()))) {
+            skip(inputStream, rowAddress.getPosition());
+            final byte[] bytes = new byte[rowAddress.getSize()];
+            inputStream.read(bytes);
+            return bytes;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
