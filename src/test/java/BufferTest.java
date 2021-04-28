@@ -20,7 +20,7 @@ public class BufferTest {
 
     private void fullTest(int maxSize) {
         final AtomicInteger flushedConsumerCounter = new AtomicInteger();
-        final Buffer<Row> buffer = new BufferImpl<>(maxSize, Runnable::run, list -> {
+        final Buffer<Row> buffer = new BufferImpl<>(maxSize, list -> {
             list.forEach(value -> flushedConsumerCounter.incrementAndGet());
         });
         for (int i = 0; i < maxSize - 1; i++) {

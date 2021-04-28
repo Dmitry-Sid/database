@@ -4,6 +4,8 @@ import com.sun.org.slf4j.internal.Logger;
 import com.sun.org.slf4j.internal.LoggerFactory;
 import server.model.ObjectConverter;
 import server.model.RowIdRepository;
+import server.model.lock.LockService;
+import server.model.lock.ReadWriteLock;
 import server.model.pojo.RowAddress;
 
 import java.io.File;
@@ -15,8 +17,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+// TODO сделать синхронизацию по loadAndCache
 public class RowIdRepositoryImpl implements RowIdRepository {
     private static final Logger log = LoggerFactory.getLogger(RowIdRepositoryImpl.class);
+    private final ReadWriteLock<String> readWriteLock = LockService.getFileReadWriteLock();
 
     private final ObjectConverter objectConverter;
     private final Variables variables;
@@ -103,22 +107,28 @@ public class RowIdRepositoryImpl implements RowIdRepository {
     public void stream(Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker, Set<Integer> idSet) {
         if (idSet == null) {
             for (Integer value : variables.idBatches) {
-                if (stopChecker.get()) {
-                    return;
+                for (int i = 1; i <= compressSize; i++) {
+                    readWriteLock.readLock().lock(filesRowPath + (compressSize * (value - 1) + i));
                 }
-                final String fileName = filesIdPath + value;
-                if (!variables.cachedRowAddresses.fileName.equals(fileName)) {
-                    loadCachedRowAddresses(fileName);
+                try {
+                    if (stopChecker.get()) {
+                        return;
+                    }
+                    final String fileName = filesIdPath + value;
+                    if (!variables.cachedRowAddresses.fileName.equals(fileName)) {
+                        loadCachedRowAddresses(fileName);
+                    }
+                    stream(this.variables.cachedRowAddresses.rowAddressMap, rowAddressConsumer, stopChecker);
+                } finally {
+                    for (int i = 1; i <= compressSize; i++) {
+                        readWriteLock.readLock().unlock(filesRowPath + (compressSize * (value - 1) + i));
+                    }
                 }
-                stream(this.variables.cachedRowAddresses.rowAddressMap, rowAddressConsumer, stopChecker);
             }
         } else {
             for (Integer id : idSet.stream().sorted(Integer::compareTo)
                     .collect(Collectors.toCollection(LinkedHashSet::new))) {
-                final RowAddress rowAddress = cacheAndGetRowAddress(id);
-                if (rowAddress != null) {
-                    rowAddressConsumer.accept(cacheAndGetRowAddress(id));
-                }
+                process(id, rowAddressConsumer);
             }
         }
     }
@@ -155,12 +165,14 @@ public class RowIdRepositoryImpl implements RowIdRepository {
 
     @Override
     public boolean process(int id, Consumer<RowAddress> consumer) {
-        final RowAddress rowAddress = cacheAndGetRowAddress(id);
-        if (rowAddress == null) {
-            return false;
-        }
-        consumer.accept(objectConverter.clone(rowAddress));
-        return true;
+        return LockService.doInLock(readWriteLock.readLock(), getRowFileName(id), () -> {
+            final RowAddress rowAddress = cacheAndGetRowAddress(id);
+            if (rowAddress == null) {
+                return false;
+            }
+            consumer.accept(objectConverter.clone(rowAddress));
+            return true;
+        });
     }
 
     private void cacheAndSaveRowAddresses(CachedRowAddresses cachedRowAddresses) {

@@ -20,7 +20,7 @@ public interface FileHelper {
 
     ChainStream<OutputStream> getChainOutputStream();
 
-    void collect(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer);
+    void collect(CollectBean collectBean);
 
     void collect(List<CollectBean> list);
 

@@ -3,6 +3,12 @@ package server.model.lock;
 import java.util.function.Supplier;
 
 public class LockService {
+    private static final ReadWriteLock<String> fileReadWriteLock = createReadWriteLock(String.class);
+
+    public static ReadWriteLock<String> getFileReadWriteLock() {
+        return fileReadWriteLock;
+    }
+
     public static <T> Lock<T> createLock(Class<T> clazz) {
         return new LockImpl<>();
     }

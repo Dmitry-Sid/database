@@ -99,10 +99,10 @@ public class FileHelperTest {
             final RowAddress rowAddress = new RowAddress("test", 1, 0, 5);
             fileHelper.write("test", bytes1, true);
             final byte[] bytes3 = new byte[5];
-            fileHelper.collect(rowAddress, (inputStream, outputStream) -> {
+            fileHelper.collect(new FileHelper.CollectBean(rowAddress, (inputStream, outputStream) -> {
                 inputStream.read(bytes3);
                 outputStream.write(bytes2);
-            });
+            }, null));
             assertBytes(bytes1, bytes3);
             assertBytes(bytes2, fileHelper.read(rowAddress));
         } finally {
@@ -122,24 +122,24 @@ public class FileHelperTest {
             assertBytes(bytes2, fileHelper.read(rowAddress2));
             assertBytes(bytes3, fileHelper.read(rowAddress3));
             final byte[] bytes6 = new byte[5];
-            fileHelper.collect(rowAddress1, (inputStream, outputStream) -> {
+            fileHelper.collect(new FileHelper.CollectBean(rowAddress1, (inputStream, outputStream) -> {
                 inputStream.read(bytes6);
-            });
+            }, null));
             assertBytes(bytes1, bytes6);
             assertBytes(new byte[5], fileHelper.read(rowAddress3));
             final byte[] bytes7 = new byte[5];
-            fileHelper.collect(rowAddress1, (inputStream, outputStream) -> {
+            fileHelper.collect(new FileHelper.CollectBean(rowAddress1, (inputStream, outputStream) -> {
                 inputStream.read(bytes7);
                 outputStream.write(bytes7);
-            });
+            }, null));
             assertBytes(bytes2, bytes7);
             assertBytes(bytes2, fileHelper.read(rowAddress1));
             assertBytes(bytes3, fileHelper.read(rowAddress2));
             final byte[] bytes8 = new byte[5];
-            fileHelper.collect(rowAddress1, (inputStream, outputStream) -> {
+            fileHelper.collect(new FileHelper.CollectBean(rowAddress1, (inputStream, outputStream) -> {
                 inputStream.skip(5);
                 outputStream.write(bytes8);
-            });
+            }, null));
             assertBytes(bytes8, fileHelper.read(rowAddress1));
         } finally {
             new File("test").delete();

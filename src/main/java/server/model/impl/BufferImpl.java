@@ -14,12 +14,10 @@ import java.util.stream.Collectors;
 public class BufferImpl<V extends TableType> implements Buffer<V> {
     private final Map<Integer, Element<V>> map = new ConcurrentHashMap<>();
     private final int maxSize;
-    private final Consumer<Runnable> runnableConsumer;
     private final Consumer<List<Element<V>>> flushConsumer;
 
-    public BufferImpl(int maxSize, Consumer<Runnable> runnableConsumer, Consumer<List<Element<V>>> flushConsumer) {
+    public BufferImpl(int maxSize, Consumer<List<Element<V>>> flushConsumer) {
         this.maxSize = maxSize;
-        this.runnableConsumer = runnableConsumer;
         this.flushConsumer = flushConsumer;
     }
 
@@ -48,27 +46,25 @@ public class BufferImpl<V extends TableType> implements Buffer<V> {
 
     @Override
     public void flush() {
-        runnableConsumer.accept(() -> {
-            final List<Element<V>> list = flushableList();
-            if (flushConsumer != null) {
-                flushConsumer.accept(list);
-            }
-            int mapSize = map.size();
-            if (mapSize > maxSize) {
-                for (Iterator<Map.Entry<Integer, Element<V>>> iterator = map.entrySet().iterator(); iterator.hasNext(); ) {
-                    final Map.Entry<Integer, Element<V>> entry = iterator.next();
-                    if (entry.getValue().isFlushed()) {
-                        iterator.remove();
-                        mapSize--;
-                        if (mapSize <= maxSize) {
-                            break;
-                        }
+        final List<Element<V>> list = flushableList();
+        if (flushConsumer != null) {
+            flushConsumer.accept(list);
+        }
+        int mapSize = map.size();
+        if (mapSize > maxSize) {
+            for (Iterator<Map.Entry<Integer, Element<V>>> iterator = map.entrySet().iterator(); iterator.hasNext(); ) {
+                final Map.Entry<Integer, Element<V>> entry = iterator.next();
+                if (entry.getValue().isFlushed()) {
+                    iterator.remove();
+                    mapSize--;
+                    if (mapSize <= maxSize) {
+                        break;
                     }
                 }
             }
-            list.forEach(element -> {
-                element.setFlushed(true);
-            });
+        }
+        list.forEach(element -> {
+            element.setFlushed(true);
         });
     }
 

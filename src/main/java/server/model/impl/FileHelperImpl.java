@@ -16,31 +16,35 @@ import java.util.function.Consumer;
 
 public class FileHelperImpl implements FileHelper {
     private static final Logger log = LoggerFactory.getLogger(FileHelperImpl.class);
-    private final ReadWriteLock<String> readWriteLock = LockService.createReadWriteLock(String.class);
+    private final ReadWriteLock<String> readWriteLock = LockService.getFileReadWriteLock();
 
     @Override
     public void write(String fileName, byte[] bytes, boolean append) {
-        try (BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(fileName, append))) {
-            output.write(bytes);
-            output.flush();
-        } catch (IOException e) {
-            throw new RuntimeException();
-        }
+        LockService.doInLock(readWriteLock.writeLock(), fileName, () -> {
+            try (BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(fileName, append))) {
+                output.write(bytes);
+                output.flush();
+            } catch (IOException e) {
+                throw new RuntimeException();
+            }
+        });
     }
 
     @Override
     public byte[] read(RowAddress rowAddress) {
-        if (!new File(rowAddress.getFilePath()).exists()) {
-            return null;
-        }
-        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(rowAddress.getFilePath()))) {
-            skip(inputStream, rowAddress.getPosition());
-            final byte[] bytes = new byte[rowAddress.getSize()];
-            inputStream.read(bytes);
-            return bytes;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return LockService.doInLock(readWriteLock.readLock(), rowAddress.getFilePath(), () -> {
+            if (!new File(rowAddress.getFilePath()).exists()) {
+                return null;
+            }
+            try (InputStream inputStream = new BufferedInputStream(new FileInputStream(rowAddress.getFilePath()))) {
+                skip(inputStream, rowAddress.getPosition());
+                final byte[] bytes = new byte[rowAddress.getSize()];
+                inputStream.read(bytes);
+                return bytes;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     @Override
@@ -78,21 +82,27 @@ public class FileHelperImpl implements FileHelper {
     }
 
     @Override
-    public void collect(RowAddress rowAddress, InputOutputConsumer inputOutputConsumer) {
-        actionWithRollBack(rowAddress.getFilePath(), (pair) -> {
+    public void collect(CollectBean collectBean) {
+        actionWithRollBack(collectBean.rowAddress.getFilePath(), (pair) -> {
             try (InputStream input = new FileInputStream(pair.getFirst());
                  OutputStream output = new BufferedOutputStream(new FileOutputStream(pair.getSecond()), 10000)) {
                 int bit;
-                if (rowAddress.getPosition() == 0) {
-                    inputOutputConsumer.accept(input, output);
+                if (collectBean.rowAddress.getPosition() == 0) {
+                    collectBean.inputOutputConsumer.accept(input, output);
+                    if (collectBean.runnable != null) {
+                        collectBean.runnable.run();
+                    }
                     while ((bit = input.read()) != -1) {
                         output.write(bit);
                     }
                 } else {
                     long position = 0;
                     while ((bit = input.read()) != -1) {
-                        if (position == rowAddress.getPosition() - 1) {
-                            inputOutputConsumer.accept(input, output);
+                        if (position == collectBean.rowAddress.getPosition() - 1) {
+                            collectBean.inputOutputConsumer.accept(input, output);
+                            if (collectBean.runnable != null) {
+                                collectBean.runnable.run();
+                            }
                         } else {
                             output.write(bit);
                         }
@@ -169,13 +179,15 @@ public class FileHelperImpl implements FileHelper {
     }
 
     private void saveTempFile(String tempFileName, String inputFileName, List<Runnable> runnableList) {
-        for (Runnable runnable : runnableList) {
-            if (runnable != null) {
-                runnable.run();
+        LockService.doInLock(readWriteLock.writeLock(), inputFileName, () -> {
+            for (Runnable runnable : runnableList) {
+                if (runnable != null) {
+                    runnable.run();
+                }
             }
-        }
-        runnableList.clear();
-        deleteAndRename(new File(tempFileName), new File(inputFileName));
+            runnableList.clear();
+            deleteAndRename(new File(tempFileName), new File(inputFileName));
+        });
     }
 
     private void writeToEnd(ChainStream<InputStream> chainInputStream, ChainStream<OutputStream> chainOutputStream) throws IOException {
@@ -192,16 +204,18 @@ public class FileHelperImpl implements FileHelper {
     }
 
     private void actionWithRollBack(String fileName, Consumer<Pair<File, File>> consumer) {
-        final String tempFile = getTempFile(fileName);
-        final Pair<File, File> pair = new Pair<>(new File(fileName), new File(tempFile));
-        try {
-            consumer.accept(pair);
-            deleteAndRename(pair.getSecond(), pair.getFirst());
-        } catch (Throwable throwable) {
-            delete(pair.getSecond());
-            log.error("error", throwable);
-            throw throwable;
-        }
+        LockService.doInLock(readWriteLock.writeLock(), fileName, () -> {
+            final String tempFile = getTempFile(fileName);
+            final Pair<File, File> pair = new Pair<>(new File(fileName), new File(tempFile));
+            try {
+                consumer.accept(pair);
+                deleteAndRename(pair.getSecond(), pair.getFirst());
+            } catch (Throwable throwable) {
+                delete(pair.getSecond());
+                log.error("error", throwable);
+                throw throwable;
+            }
+        });
     }
 
     private boolean deleteAndRename(File fileFrom, File fileTo) {
@@ -241,7 +255,7 @@ public class FileHelperImpl implements FileHelper {
         public void init(String fileName) {
             close();
             try {
-            //    getLock().lock(fileName);
+                getLock().lock(fileName);
                 currentFileName = fileName;
                 currentStream = createStream(fileName);
                 closed = false;
@@ -274,7 +288,7 @@ public class FileHelperImpl implements FileHelper {
                 }
             }
             if (currentFileName != null) {
-             //   getLock().unlock(currentFileName);
+                getLock().unlock(currentFileName);
             }
         }
 
