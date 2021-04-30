@@ -3,6 +3,7 @@ import server.model.ObjectConverter;
 import server.model.RowIdRepository;
 import server.model.impl.ObjectConverterImpl;
 import server.model.impl.RowIdRepositoryImpl;
+import server.model.lock.Lock;
 import server.model.pojo.Row;
 import server.model.pojo.RowAddress;
 
@@ -10,6 +11,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.Mockito.*;
@@ -76,10 +79,10 @@ public class TestUtils {
                 rowAddressMap.put(id, rowAddress);
                 id++;
             }
-            cachedRowAddresses = new RowIdRepositoryImpl.CachedRowAddresses(filesIdPath + value, rowAddressMap, rowAddress);
+            cachedRowAddresses = new RowIdRepositoryImpl.CachedRowAddresses(rowAddressMap, rowAddress);
             objectConverter.toFile(cachedRowAddresses, filesIdPath + value);
         }
-        final RowIdRepositoryImpl.Variables variables = new RowIdRepositoryImpl.Variables(new AtomicInteger(lastId), boundsBatch, cachedRowAddresses);
+        final RowIdRepositoryImpl.Variables variables = new RowIdRepositoryImpl.Variables(new AtomicInteger(lastId), boundsBatch, new ConcurrentHashMap<>());
         objectConverter.toFile(variables, fileName);
     }
 
@@ -128,6 +131,31 @@ public class TestUtils {
                 fileOutputStream.close();
             }
         } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static <T> Future<Long> createFuture(ExecutorService executorService, Lock<T> lock, T value, Exception exc) {
+        return executorService.submit(() -> {
+            final long begin = System.currentTimeMillis();
+            lock.lock(value);
+            try {
+                Thread.sleep(1000);
+                if (exc != null) {
+                    throw exc;
+                }
+                return System.currentTimeMillis() - begin;
+            } finally {
+                lock.unlock(value);
+            }
+        });
+    }
+
+    public static void doAndSleep(Runnable runnable) {
+        runnable.run();
+        try {
+            Thread.sleep(1500);
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }

@@ -21,9 +21,9 @@ public class ReadWriteLockTest {
                 final ReadWriteLock<Integer> lock = new ReadWriteLockImpl<>();
                 lock.readLock().lock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
-                final Future<Long> future1 = createFuture(executorService, lock.readLock(), 1, null);
-                final Future<Long> future2 = createFuture(executorService, lock.readLock(), 2, null);
-                final Future<Long> future3 = createFuture(executorService, lock.readLock(), 1, null);
+                final Future<Long> future1 = TestUtils.createFuture(executorService, lock.readLock(), 1, null);
+                final Future<Long> future2 = TestUtils.createFuture(executorService, lock.readLock(), 2, null);
+                final Future<Long> future3 = TestUtils.createFuture(executorService, lock.readLock(), 1, null);
                 sleep(1);
                 lock.readLock().unlock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " released lock");
@@ -37,9 +37,9 @@ public class ReadWriteLockTest {
                 final ReadWriteLock<Integer> lock = new ReadWriteLockImpl<>();
                 lock.readLock().lock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
-                final Future<Long> future1 = createFuture(executorService, lock.writeLock(), 1, null);
-                final Future<Long> future2 = createFuture(executorService, lock.writeLock(), 2, null);
-                final Future<Long> future3 = createFuture(executorService, lock.writeLock(), 1, null);
+                final Future<Long> future1 = TestUtils.createFuture(executorService, lock.writeLock(), 1, null);
+                final Future<Long> future2 = TestUtils.createFuture(executorService, lock.writeLock(), 2, null);
+                final Future<Long> future3 = TestUtils.createFuture(executorService, lock.writeLock(), 1, null);
                 sleep(1);
                 lock.readLock().unlock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " released lock");
@@ -54,9 +54,9 @@ public class ReadWriteLockTest {
                 final ReadWriteLock<Integer> lock = new ReadWriteLockImpl<>();
                 lock.writeLock().lock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
-                final Future<Long> future1 = createFuture(executorService, lock.readLock(), 1, null);
-                final Future<Long> future2 = createFuture(executorService, lock.readLock(), 2, null);
-                final Future<Long> future3 = createFuture(executorService, lock.readLock(), 1, null);
+                final Future<Long> future1 = TestUtils.createFuture(executorService, lock.readLock(), 1, null);
+                final Future<Long> future2 = TestUtils.createFuture(executorService, lock.readLock(), 2, null);
+                final Future<Long> future3 = TestUtils.createFuture(executorService, lock.readLock(), 1, null);
                 sleep(1);
                 lock.writeLock().unlock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " released lock");
@@ -71,9 +71,9 @@ public class ReadWriteLockTest {
                 final ReadWriteLock<Integer> lock = new ReadWriteLockImpl<>();
                 lock.writeLock().lock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
-                final Future<Long> future1 = createFuture(executorService, lock.writeLock(), 1, null);
-                final Future<Long> future2 = createFuture(executorService, lock.writeLock(), 2, null);
-                final Future<Long> future3 = createFuture(executorService, lock.writeLock(), 1, null);
+                final Future<Long> future1 = TestUtils.createFuture(executorService, lock.writeLock(), 1, null);
+                final Future<Long> future2 = TestUtils.createFuture(executorService, lock.writeLock(), 2, null);
+                final Future<Long> future3 = TestUtils.createFuture(executorService, lock.writeLock(), 1, null);
                 sleep(1);
                 lock.writeLock().unlock(1);
                 System.out.println("value : " + 1 + ", threadName : " + Thread.currentThread().getName() + " released lock");
@@ -93,7 +93,7 @@ public class ReadWriteLockTest {
             final long beginMain = System.currentTimeMillis();
             lock.readLock().lock(1);
             lock.readLock().lock(1);
-            final Future<Long> future = createFuture(executorService, lock.readLock(), 1, null);
+            final Future<Long> future = TestUtils.createFuture(executorService, lock.readLock(), 1, null);
             sleep(1);
             lock.readLock().unlock(1);
             lock.readLock().unlock(1);
@@ -108,7 +108,7 @@ public class ReadWriteLockTest {
             final long beginMain = System.currentTimeMillis();
             lock.readLock().lock(1);
             lock.writeLock().lock(1);
-            final Future<Long> future = createFuture(executorService, lock.readLock(), 1, null);
+            final Future<Long> future = TestUtils.createFuture(executorService, lock.readLock(), 1, null);
             sleep(1);
             lock.writeLock().unlock(1);
             lock.readLock().unlock(1);
@@ -117,24 +117,6 @@ public class ReadWriteLockTest {
             future.get();
             assertTrue(future.get() >= time + 1000);
         }
-    }
-
-    private <T> Future<Long> createFuture(ExecutorService executorService, Lock<T> lock, T value, Exception exc) {
-        return executorService.submit(() -> {
-            final long begin = System.currentTimeMillis();
-            lock.lock(value);
-            try {
-                System.out.println("value : " + value + ", threadName : " + Thread.currentThread().getName() + " acquired lock");
-                sleep(value);
-                if (exc != null) {
-                    throw exc;
-                }
-                return System.currentTimeMillis() - begin;
-            } finally {
-                lock.unlock(value);
-                System.out.println("value : " + value + ", threadName : " + Thread.currentThread().getName() + " released lock");
-            }
-        });
     }
 
     private <T> void sleep(T value) throws InterruptedException {

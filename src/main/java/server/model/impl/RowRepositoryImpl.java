@@ -23,6 +23,7 @@ public class RowRepositoryImpl implements RowRepository {
     private final ConditionService conditionService;
     private final Buffer<Row> buffer;
     private final Set<String> fields = Collections.synchronizedSet(new HashSet<>());
+    private final ProducerConsumer<Runnable> producerConsumer = new ProducerConsumerImpl<>(1000);
 
     public RowRepositoryImpl(ObjectConverter objectConverter, RowIdRepository rowIdRepository, FileHelper fileHelper, IndexService indexService, ConditionService conditionService, ModelService modelService, int bufferSize, long sleepTime) {
         this.objectConverter = objectConverter;
@@ -41,7 +42,12 @@ public class RowRepositoryImpl implements RowRepository {
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
-                buffer.flush();
+                producerConsumer.put(buffer::flush);
+            }
+        }).start();
+        new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                producerConsumer.take().run();
             }
         }).start();
     }
@@ -274,6 +280,6 @@ public class RowRepositoryImpl implements RowRepository {
     }
 
     private void destroy() {
-        buffer.flush();
+        producerConsumer.put(buffer::flush);
     }
 }

@@ -3,6 +3,7 @@ package server.model.impl;
 import com.sun.org.slf4j.internal.Logger;
 import com.sun.org.slf4j.internal.LoggerFactory;
 import server.model.ObjectConverter;
+import server.model.ProducerConsumer;
 import server.model.RowIdRepository;
 import server.model.lock.LockService;
 import server.model.lock.ReadWriteLock;
@@ -17,10 +18,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-// TODO сделать синхронизацию по loadAndCache
+// TODO сохранение во времени
 public class RowIdRepositoryImpl implements RowIdRepository {
     private static final Logger log = LoggerFactory.getLogger(RowIdRepositoryImpl.class);
-    private final ReadWriteLock<String> readWriteLock = LockService.getFileReadWriteLock();
+    private final ReadWriteLock<String> rowReadWriteLock = LockService.getFileReadWriteLock();
+    private final ReadWriteLock<String> rowIdReadWriteLock = LockService.createReadWriteLock(String.class);
+    private final ProducerConsumer<Runnable> producerConsumer = new ProducerConsumerImpl<>(1000);
 
     private final ObjectConverter objectConverter;
     private final Variables variables;
@@ -38,11 +41,25 @@ public class RowIdRepositoryImpl implements RowIdRepository {
         if (new File(variablesFileName).exists()) {
             this.variables = objectConverter.fromFile(Variables.class, variablesFileName);
         } else {
-            this.variables = new Variables(new AtomicInteger(0), Collections.synchronizedSet(new LinkedHashSet<>()),
-                    new RowIdRepositoryImpl.CachedRowAddresses(filesIdPath + 1, new ConcurrentHashMap<>(), null));
+            this.variables = new Variables(new AtomicInteger(0), Collections.synchronizedSet(new LinkedHashSet<>()), new ConcurrentHashMap<>());
         }
         this.filesIdPath = filesIdPath;
         this.maxIdSize = maxIdSize;
+        /*new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                producerConsumer.put(this::saveAndClearMap);
+            }
+        }).start();
+        new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                producerConsumer.take().run();
+            }
+        }).start();*/
     }
 
     @Override
@@ -54,34 +71,35 @@ public class RowIdRepositoryImpl implements RowIdRepository {
     public void add(int id, Consumer<RowAddress> rowAddressConsumer) {
         final String fileName = getRowIdFileName(id);
         final boolean created = !variables.idBatches.contains(getRowIdFileNumber(id));
-        final RowAddress rowAddress;
         if (created) {
             variables.idBatches.add(getRowIdFileNumber(id));
             final Map<Integer, RowAddress> rowAddressMap = emptyRowAddressMap();
-            rowAddress = createRowAddress(id);
+            final RowAddress rowAddress = createRowAddress(id);
             rowAddressConsumer.accept(rowAddress);
             rowAddressMap.put(id, rowAddress);
-            cacheAndSaveRowAddresses(new CachedRowAddresses(fileName, rowAddressMap, rowAddress));
+            this.variables.cachedRowAddressesMap.put(fileName, new CachedRowAddresses(rowAddressMap, rowAddress));
         } else {
-            RowAddress rowAddressFromMap = cacheAndGetRowAddress(id);
-            if (rowAddressFromMap == null) {
-                rowAddress = createRowAddress(id);
-                if (variables.cachedRowAddresses.lastRowAddress != null &&
-                        variables.cachedRowAddresses.lastRowAddress.getFilePath().equals(getRowFileName(id))) {
-                    final RowAddress lastRowAddress = variables.cachedRowAddresses.lastRowAddress;
-                    lastRowAddress.setNext(rowAddress);
-                    rowAddress.setPosition(lastRowAddress.getPosition() + lastRowAddress.getSize());
-                    rowAddress.setPrevious(lastRowAddress);
+            processRowAddresses(fileName, cachedRowAddresses -> {
+                final RowAddress rowAddressFromMap = cachedRowAddresses.rowAddressMap.get(id);
+                final RowAddress rowAddress;
+                if (rowAddressFromMap == null) {
+                    rowAddress = createRowAddress(id);
+                    if (cachedRowAddresses.lastRowAddress != null && cachedRowAddresses.lastRowAddress.getFilePath().equals(getRowFileName(id))) {
+                        final RowAddress lastRowAddress = cachedRowAddresses.lastRowAddress;
+                        lastRowAddress.setNext(rowAddress);
+                        rowAddress.setPosition(lastRowAddress.getPosition() + lastRowAddress.getSize());
+                        rowAddress.setPrevious(lastRowAddress);
+                    }
+                    rowAddressConsumer.accept(rowAddress);
+                    cachedRowAddresses.lastRowAddress = rowAddress;
+                } else {
+                    rowAddress = rowAddressFromMap;
+                    final int sizeBefore = rowAddress.getSize();
+                    rowAddressConsumer.accept(rowAddress);
+                    transform(rowAddress.getId(), sizeBefore, rowAddress.getSize());
                 }
-                rowAddressConsumer.accept(rowAddress);
-                variables.cachedRowAddresses.lastRowAddress = rowAddress;
-            } else {
-                rowAddress = rowAddressFromMap;
-                final int sizeBefore = rowAddress.getSize();
-                rowAddressConsumer.accept(rowAddress);
-                transform(rowAddress.getId(), sizeBefore, rowAddress.getSize());
-            }
-            variables.cachedRowAddresses.rowAddressMap.put(rowAddress.getId(), rowAddress);
+                cachedRowAddresses.rowAddressMap.put(rowAddress.getId(), rowAddress);
+            });
         }
     }
 
@@ -93,14 +111,16 @@ public class RowIdRepositoryImpl implements RowIdRepository {
         if (sizeBefore == sizeAfter) {
             return;
         }
-        RowAddress rowAddressNext = cacheAndGetRowAddress(id);
-        if (rowAddressNext == null) {
-            throw new RuntimeException("cannot find rowAddress with id : " + id);
-        }
-        rowAddressNext.setSize(sizeAfter);
-        while ((rowAddressNext = rowAddressNext.getNext()) != null) {
-            rowAddressNext.setPosition(rowAddressNext.getPosition() + (sizeAfter - sizeBefore));
-        }
+        processRowAddresses(getRowIdFileName(id), cachedRowAddresses -> {
+            RowAddress rowAddressNext = cachedRowAddresses.rowAddressMap.get(id);
+            if (rowAddressNext == null) {
+                throw new RuntimeException("cannot find rowAddress with id : " + id);
+            }
+            rowAddressNext.setSize(sizeAfter);
+            while ((rowAddressNext = rowAddressNext.getNext()) != null) {
+                rowAddressNext.setPosition(rowAddressNext.getPosition() + (sizeAfter - sizeBefore));
+            }
+        });
     }
 
     @Override
@@ -108,20 +128,17 @@ public class RowIdRepositoryImpl implements RowIdRepository {
         if (idSet == null) {
             for (Integer value : variables.idBatches) {
                 for (int i = 1; i <= compressSize; i++) {
-                    readWriteLock.readLock().lock(filesRowPath + (compressSize * (value - 1) + i));
+                    rowReadWriteLock.readLock().lock(filesRowPath + (compressSize * (value - 1) + i));
                 }
                 try {
                     if (stopChecker.get()) {
                         return;
                     }
                     final String fileName = filesIdPath + value;
-                    if (!variables.cachedRowAddresses.fileName.equals(fileName)) {
-                        loadCachedRowAddresses(fileName);
-                    }
-                    stream(this.variables.cachedRowAddresses.rowAddressMap, rowAddressConsumer, stopChecker);
+                    processRowAddresses(fileName, cachedRowAddresses -> stream(cachedRowAddresses.rowAddressMap, rowAddressConsumer, stopChecker));
                 } finally {
                     for (int i = 1; i <= compressSize; i++) {
-                        readWriteLock.readLock().unlock(filesRowPath + (compressSize * (value - 1) + i));
+                        rowReadWriteLock.readLock().unlock(filesRowPath + (compressSize * (value - 1) + i));
                     }
                 }
             }
@@ -145,63 +162,39 @@ public class RowIdRepositoryImpl implements RowIdRepository {
 
     @Override
     public void delete(int id) {
-        final RowAddress rowAddress = cacheAndGetRowAddress(id);
-        if (rowAddress == null) {
-            log.warn("rowAddress not found, id : " + id);
-            return;
-        }
-        transform(id, rowAddress.getSize(), 0);
-        if (rowAddress.getPrevious() != null) {
-            rowAddress.getPrevious().setNext(rowAddress.getNext());
-        }
-        if (rowAddress.getNext() != null) {
-            rowAddress.getNext().setPrevious(rowAddress.getPrevious());
-        }
-        variables.cachedRowAddresses.rowAddressMap.remove(id);
-        if (variables.cachedRowAddresses.rowAddressMap.isEmpty()) {
-            variables.idBatches.remove(getRowIdFileNumber(id));
-        }
+        processRowAddresses(getRowIdFileName(id), cachedRowAddresses -> {
+            final RowAddress rowAddress = cachedRowAddresses.rowAddressMap.get(id);
+            if (rowAddress == null) {
+                log.warn("rowAddress not found, id : " + id);
+                return;
+            }
+            transform(id, rowAddress.getSize(), 0);
+            if (rowAddress.getPrevious() != null) {
+                rowAddress.getPrevious().setNext(rowAddress.getNext());
+            }
+            if (rowAddress.getNext() != null) {
+                rowAddress.getNext().setPrevious(rowAddress.getPrevious());
+            }
+            cachedRowAddresses.rowAddressMap.remove(id);
+            if (cachedRowAddresses.rowAddressMap.isEmpty()) {
+                variables.idBatches.remove(getRowIdFileNumber(id));
+            }
+        });
     }
 
     @Override
     public boolean process(int id, Consumer<RowAddress> consumer) {
-        return LockService.doInLock(readWriteLock.readLock(), getRowFileName(id), () -> {
-            final RowAddress rowAddress = cacheAndGetRowAddress(id);
-            if (rowAddress == null) {
-                return false;
-            }
-            consumer.accept(objectConverter.clone(rowAddress));
-            return true;
+        return LockService.doInLock(rowReadWriteLock.readLock(), getRowFileName(id), () -> {
+            final AtomicBoolean processed = new AtomicBoolean();
+            processRowAddresses(getRowIdFileName(id), cachedRowAddresses -> {
+                final RowAddress rowAddress = cachedRowAddresses.rowAddressMap.get(id);
+                if (rowAddress != null) {
+                    consumer.accept(objectConverter.clone(rowAddress));
+                    processed.set(true);
+                }
+            });
+            return processed.get();
         });
-    }
-
-    private void cacheAndSaveRowAddresses(CachedRowAddresses cachedRowAddresses) {
-        if (cachedRowAddresses == null) {
-            return;
-        }
-        variables.cachedRowAddresses = cachedRowAddresses;
-        objectConverter.toFile(cachedRowAddresses, cachedRowAddresses.fileName);
-    }
-
-    private void loadCachedRowAddresses(String fileName) {
-        if (!new File(fileName).exists()) {
-            return;
-        }
-        if (this.variables.cachedRowAddresses.fileName.equals(fileName)) {
-            return;
-        }
-        cacheAndSaveRowAddresses(this.variables.cachedRowAddresses);
-        this.variables.cachedRowAddresses = objectConverter.fromFile(CachedRowAddresses.class, fileName);
-    }
-
-    private RowAddress cacheAndGetRowAddress(int id) {
-        final String fileName = getRowIdFileName(id);
-        RowAddress rowAddress = variables.cachedRowAddresses.rowAddressMap.get(id);
-        if (rowAddress == null && !fileName.equals(variables.cachedRowAddresses.fileName)) {
-            loadCachedRowAddresses(fileName);
-            rowAddress = variables.cachedRowAddresses.rowAddressMap.get(id);
-        }
-        return rowAddress;
     }
 
     private int getRowIdFileNumber(int id) {
@@ -224,31 +217,71 @@ public class RowIdRepositoryImpl implements RowIdRepository {
         return new ConcurrentHashMap<>();
     }
 
+    private void processRowAddresses(String fileName, Consumer<CachedRowAddresses> consumer) {
+        CachedRowAddresses cachedRowAddresses = variables.cachedRowAddressesMap.get(fileName);
+        if (cachedRowAddresses == null) {
+            rowIdReadWriteLock.writeLock().lock(fileName);
+            try {
+                cachedRowAddresses = variables.cachedRowAddressesMap.get(fileName);
+                if (cachedRowAddresses == null) {
+                    cachedRowAddresses = objectConverter.fromFile(CachedRowAddresses.class, fileName);
+                    if (cachedRowAddresses != null) {
+                        variables.cachedRowAddressesMap.put(fileName, cachedRowAddresses);
+                    }
+                }
+            } finally {
+                rowIdReadWriteLock.writeLock().unlock(fileName);
+            }
+        }
+        if (cachedRowAddresses != null) {
+            rowIdReadWriteLock.readLock().lock(fileName);
+            try {
+                consumer.accept(cachedRowAddresses);
+            } finally {
+                rowIdReadWriteLock.readLock().unlock(fileName);
+            }
+        }
+    }
+
+    private void saveAndClearMap() {
+        final Set<Map.Entry<String, CachedRowAddresses>> entrySet = variables.cachedRowAddressesMap.entrySet();
+        final AtomicInteger mapSize = new AtomicInteger(entrySet.size());
+        for (Iterator<Map.Entry<String, CachedRowAddresses>> iterator = entrySet.iterator(); iterator.hasNext(); ) {
+            final Map.Entry<String, CachedRowAddresses> entry = iterator.next();
+            LockService.doInLock(rowIdReadWriteLock.writeLock(), entry.getKey(), () -> {
+                objectConverter.toFile(entry.getValue(), entry.getKey());
+                if (mapSize.get() > 1) {
+                    iterator.remove();
+                }
+            });
+            mapSize.decrementAndGet();
+        }
+    }
+
     private void destroy() {
         objectConverter.toFile(variables, variablesFileName);
+        producerConsumer.put(this::saveAndClearMap);
     }
 
     public static class Variables implements Serializable {
         private static final long serialVersionUID = 1228422981455428546L;
         private final AtomicInteger lastId;
         private final Set<Integer> idBatches;
-        private CachedRowAddresses cachedRowAddresses;
+        private Map<String, CachedRowAddresses> cachedRowAddressesMap;
 
-        public Variables(AtomicInteger lastId, Set<Integer> idBatches, CachedRowAddresses cachedRowAddresses) {
+        public Variables(AtomicInteger lastId, Set<Integer> idBatches, Map<String, CachedRowAddresses> cachedRowAddressesMap) {
             this.lastId = lastId;
             this.idBatches = idBatches;
-            this.cachedRowAddresses = cachedRowAddresses;
+            this.cachedRowAddressesMap = cachedRowAddressesMap;
         }
     }
 
     public static class CachedRowAddresses implements Serializable {
         private static final long serialVersionUID = 6741511503259730900L;
-        private final String fileName;
         private final Map<Integer, RowAddress> rowAddressMap;
         private RowAddress lastRowAddress;
 
-        public CachedRowAddresses(String fileName, Map<Integer, RowAddress> rowAddressMap, RowAddress lastRowAddress) {
-            this.fileName = fileName;
+        public CachedRowAddresses(Map<Integer, RowAddress> rowAddressMap, RowAddress lastRowAddress) {
             this.rowAddressMap = rowAddressMap;
             this.lastRowAddress = lastRowAddress;
         }

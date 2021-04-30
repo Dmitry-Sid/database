@@ -9,6 +9,9 @@ public class ObjectConverterImpl implements ObjectConverter {
 
     @Override
     public <T extends Serializable> T fromFile(Class<T> clazz, String file) {
+        if (!new File(file).exists()) {
+            return null;
+        }
         try (InputStream inputStream = new FileInputStream(file)) {
             return SerializationUtils.deserialize(inputStream);
         } catch (IOException e) {
