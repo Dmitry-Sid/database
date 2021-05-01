@@ -1,5 +1,6 @@
 import server.model.ModelService;
 import server.model.ObjectConverter;
+import server.model.Repository;
 import server.model.RowIdRepository;
 import server.model.impl.ObjectConverterImpl;
 import server.model.impl.RowIdRepositoryImpl;
@@ -24,7 +25,7 @@ public class TestUtils {
         }});
     }
 
-    public static RowIdRepository prepareRowIdManager(String fileName, String filesIdPath, String filesRowPath, int maxIdSize, int compressSize) {
+    public static RowIdRepository prepareRowIdRepository(String fileName, String filesIdPath, String filesRowPath, int maxIdSize, int compressSize) {
         return new RowIdRepositoryImpl(new ObjectConverterImpl(), fileName, filesIdPath, filesRowPath, maxIdSize, compressSize);
     }
 
@@ -151,10 +152,11 @@ public class TestUtils {
         });
     }
 
-    public static void doAndSleep(Runnable runnable) {
+    public static void doAndSleep(Repository repository, Runnable runnable) {
         runnable.run();
+        repository.destroy();
         try {
-            Thread.sleep(1500);
+            Thread.sleep(3000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

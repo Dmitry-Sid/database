@@ -10,4 +10,8 @@ public interface Repository<T extends TableType> {
 
     boolean process(int id, Consumer<T> consumer);
 
+    default void destroy() {
+
+    }
+
 }

@@ -16,14 +16,15 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class RowRepositoryImpl implements RowRepository {
+    protected final RowIdRepository rowIdRepository;
     private final ObjectConverter objectConverter;
-    private final RowIdRepository rowIdRepository;
     private final FileHelper fileHelper;
     private final IndexService indexService;
     private final ConditionService conditionService;
     private final Buffer<Row> buffer;
     private final Set<String> fields = Collections.synchronizedSet(new HashSet<>());
     private final ProducerConsumer<Runnable> producerConsumer = new ProducerConsumerImpl<>(1000);
+    private volatile boolean destroyed = true;
 
     public RowRepositoryImpl(ObjectConverter objectConverter, RowIdRepository rowIdRepository, FileHelper fileHelper, IndexService indexService, ConditionService conditionService, ModelService modelService, int bufferSize, long sleepTime) {
         this.objectConverter = objectConverter;
@@ -36,17 +37,20 @@ public class RowRepositoryImpl implements RowRepository {
         modelService.subscribeOnFieldsChanges(fields -> processDeletedFields(RowRepositoryImpl.this.fields.stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet())));
         indexService.subscribeOnIndexesChanges(this::processIndexesChanges);
         new Thread(() -> {
-            while (!Thread.currentThread().isInterrupted()) {
+            while (!destroyed && !Thread.currentThread().isInterrupted()) {
                 try {
                     Thread.sleep(sleepTime);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
+                if (destroyed || Thread.currentThread().isInterrupted()) {
+                    break;
+                }
                 producerConsumer.put(buffer::flush);
             }
         }).start();
         new Thread(() -> {
-            while (!Thread.currentThread().isInterrupted()) {
+            while (true) {
                 producerConsumer.take().run();
             }
         }).start();
@@ -279,7 +283,9 @@ public class RowRepositoryImpl implements RowRepository {
         });
     }
 
-    private void destroy() {
+    @Override
+    public void destroy() {
         producerConsumer.put(buffer::flush);
+        destroyed = true;
     }
 }
