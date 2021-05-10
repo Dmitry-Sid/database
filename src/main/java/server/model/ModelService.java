@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
-public interface ModelService {
+public interface ModelService extends Destroyable {
     List<Class<?>> types = Arrays.asList(Byte.class, Character.class, Short.class, Integer.class,
             Long.class, Float.class, Double.class, String.class);
 

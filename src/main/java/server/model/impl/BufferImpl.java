@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class BufferImpl<V extends TableType> implements Buffer<V> {
@@ -64,16 +65,24 @@ public class BufferImpl<V extends TableType> implements Buffer<V> {
             }
         }
         list.forEach(element -> {
-            element.setFlushed(true);
+            if (State.DELETED.equals(element.getState())) {
+                map.remove(element.getValue().getId());
+            } else {
+                element.setFlushed(true);
+            }
         });
     }
 
     private List<Element<V>> sortedList() {
-        return map.entrySet().stream().sorted(Comparator.comparing(Map.Entry::getKey)).map(Map.Entry::getValue).collect(Collectors.toList());
+        return list(entry -> true);
     }
 
     private List<Element<V>> flushableList() {
-        return map.entrySet().stream().filter(entry -> !entry.getValue().isFlushed())
-                .sorted(Comparator.comparing(Map.Entry::getKey)).map(Map.Entry::getValue).collect(Collectors.toList());
+        return list(entry -> !entry.getValue().isFlushed());
+    }
+
+    private List<Element<V>> list(Predicate<? super Map.Entry<Integer, Element<V>>> predicate) {
+        return map.entrySet().stream().filter(predicate).sorted(Comparator.comparing(Map.Entry::getKey))
+                .map(Map.Entry::getValue).collect(Collectors.toList());
     }
 }

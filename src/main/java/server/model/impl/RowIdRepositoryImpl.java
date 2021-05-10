@@ -251,8 +251,11 @@ public class RowIdRepositoryImpl implements RowIdRepository {
         for (Iterator<Map.Entry<String, CachedRowAddresses>> iterator = entrySet.iterator(); iterator.hasNext(); ) {
             final Map.Entry<String, CachedRowAddresses> entry = iterator.next();
             LockService.doInLock(rowIdReadWriteLock.writeLock(), entry.getKey(), () -> {
-                objectConverter.toFile(entry.getValue(), entry.getKey());
-                if (mapSize.get() > 1) {
+                final CachedRowAddresses cachedRowAddresses = entry.getValue();
+                if (!cachedRowAddresses.rowAddressMap.isEmpty()) {
+                    objectConverter.toFile(entry.getValue(), entry.getKey());
+                }
+                if (mapSize.get() > 1 || cachedRowAddresses.rowAddressMap.isEmpty()) {
                     iterator.remove();
                 }
             });

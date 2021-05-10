@@ -127,7 +127,8 @@ public class ModelServiceImpl implements ModelService {
         indexesChangesSubscribers.add(fieldsConsumer);
     }
 
-    private void destroy() {
+    @Override
+    public void destroy() {
         objectConverter.toFile((Serializable) fields, fileName);
     }
 }

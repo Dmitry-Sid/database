@@ -142,7 +142,8 @@ public class IndexServiceImpl implements IndexService {
         return fileName + "." + fieldName;
     }
 
-    private void destroy() {
+    @Override
+    public void destroy() {
         objectConverter.toFile(new HashSet<>(fieldKeepers.keySet()), fileName);
         fieldKeepers.values().forEach(FieldKeeper::destroy);
     }

@@ -1,5 +1,4 @@
 import org.junit.Test;
-import server.model.lock.Lock;
 import server.model.lock.ReadWriteLock;
 import server.model.lock.ReadWriteLockImpl;
 

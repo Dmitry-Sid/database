@@ -59,17 +59,15 @@ public class BufferTest {
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
         });
-        assertEquals(maxSize - 1, counter.get());
-        assertEquals(maxSize - 1, buffer.size());
+        assertEquals(maxSize - 2, counter.get());
+        assertEquals(maxSize - 2, buffer.size());
         {
-            final Buffer.Element<Row> element = buffer.get(0);
-            assertEquals(row, element.getValue());
-            assertEquals(Buffer.State.DELETED, element.getState());
+            assertNull(buffer.get(0));
         }
         assertEquals(maxSize - 1, flushedConsumerCounter.get());
 
         row = new Row(maxSize - 1, new HashMap<>());
-        buffer.add(row, Buffer.State.DELETED);
+        buffer.add(row, Buffer.State.ADDED);
         counter.set(0);
         previous.set(0);
         final AtomicInteger flushed = new AtomicInteger();
@@ -82,13 +80,13 @@ public class BufferTest {
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
         });
-        assertEquals(maxSize, counter.get());
-        assertEquals(maxSize, buffer.size());
-        assertEquals(maxSize - 1, flushed.get());
+        assertEquals(maxSize - 1, counter.get());
+        assertEquals(maxSize - 1, buffer.size());
+        assertEquals(maxSize - 2, flushed.get());
         {
             final Buffer.Element<Row> element = buffer.get(maxSize - 1);
             assertEquals(row, element.getValue());
-            assertEquals(Buffer.State.DELETED, element.getState());
+            assertEquals(Buffer.State.ADDED, element.getState());
         }
         assertEquals(maxSize - 1, flushedConsumerCounter.get());
 
@@ -106,9 +104,9 @@ public class BufferTest {
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
         });
-        assertEquals(maxSize + 1, counter.get());
-        assertEquals(maxSize + 1, buffer.size());
-        assertEquals(maxSize - 1, flushed.get());
+        assertEquals(maxSize, counter.get());
+        assertEquals(maxSize, buffer.size());
+        assertEquals(maxSize - 2, flushed.get());
         {
             final Buffer.Element<Row> element = buffer.get(maxSize);
             assertEquals(row, element.getValue());
@@ -132,9 +130,9 @@ public class BufferTest {
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
         });
-        assertEquals(maxSize + 2, counter.get());
-        assertEquals(maxSize + 2, buffer.size());
-        assertEquals(maxSize - 1, flushed.get());
+        assertEquals(maxSize + 1, counter.get());
+        assertEquals(maxSize + 1, buffer.size());
+        assertEquals(maxSize - 2, flushed.get());
         {
             final Buffer.Element<Row> element = buffer.get(maxSize + 1);
             assertEquals(row, element.getValue());

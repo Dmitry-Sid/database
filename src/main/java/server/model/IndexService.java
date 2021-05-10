@@ -5,7 +5,7 @@ import server.model.pojo.Row;
 
 import java.util.Set;
 
-public interface IndexService {
+public interface IndexService extends Destroyable {
 
     SearchResult search(ICondition condition);
 

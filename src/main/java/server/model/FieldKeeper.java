@@ -4,7 +4,7 @@ import server.model.pojo.SimpleCondition;
 
 import java.util.Set;
 
-public abstract class FieldKeeper<U extends Comparable, V> {
+public abstract class FieldKeeper<U extends Comparable, V> implements Destroyable {
     private final String fieldName;
 
     protected FieldKeeper(String fieldName) {
@@ -27,8 +27,6 @@ public abstract class FieldKeeper<U extends Comparable, V> {
     public abstract Set<V> search(ConditionService conditionService, SimpleCondition condition);
 
     public abstract Set<V> search(U key);
-
-    public abstract void destroy();
 
     public String getFieldName() {
         return fieldName;
