@@ -579,7 +579,7 @@ public class RowRepositoryTest {
     private void createFiles(int lastId) {
         final Map<Integer, byte[]> map = TestUtils.createRowMap(lastId);
         TestUtils.createRowFiles(map, filesRowPath, maxIdSize / compressSize);
-        TestUtils.createIdFiles(lastId, maxIdSize, compressSize, fileVariablesName, filesIdPath, filesRowPath, 0, map);
+        TestUtils.createRowIdFiles(lastId, maxIdSize, compressSize, fileVariablesName, filesIdPath, filesRowPath, 0, map);
     }
 
     private static class TestRowRepository extends RowRepositoryImpl {

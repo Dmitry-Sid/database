@@ -4,11 +4,15 @@ import server.model.pojo.SimpleCondition;
 
 import java.util.Set;
 
-public abstract class FieldKeeper<U extends Comparable, V> implements Destroyable {
+public abstract class FieldKeeper<U extends Comparable<U>, V> implements Destroyable {
     private final String fieldName;
+    protected final String fileName;
+    protected final ObjectConverter objectConverter;
 
-    protected FieldKeeper(String fieldName) {
+    protected FieldKeeper(String fieldName, String fileName, ObjectConverter objectConverter) {
         this.fieldName = fieldName;
+        this.fileName = fileName;
+        this.objectConverter = objectConverter;
     }
 
     public void transform(U oldKey, U key, V value) {

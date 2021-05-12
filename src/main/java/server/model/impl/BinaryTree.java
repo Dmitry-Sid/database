@@ -6,7 +6,6 @@ import server.model.FieldKeeper;
 import server.model.ObjectConverter;
 import server.model.lock.Lock;
 import server.model.lock.LockService;
-import server.model.pojo.BinarySearchDirection;
 import server.model.pojo.ICondition;
 import server.model.pojo.Pair;
 import server.model.pojo.SimpleCondition;
@@ -18,17 +17,14 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Supplier;
 
-public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> implements Serializable {
+public class BinaryTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> implements Serializable {
+    private static final long serialVersionUID = 6741768402000850940L;
     private final Lock<Comparable> lock = LockService.createLock(Comparable.class);
     private final Object ROOT_LOCK = new Object();
-    private final String fileName;
-    private final ObjectConverter objectConverter;
     private Node<U, V> root;
 
     public BinaryTree(String field, String fileName, ObjectConverter objectConverter) {
-        super(field);
-        this.fileName = fileName;
-        this.objectConverter = objectConverter;
+        super(field, fileName, objectConverter);
         if (new File(fileName).exists()) {
             this.root = objectConverter.fromFile(Node.class, fileName);
         }
@@ -157,7 +153,7 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
                 return null;
             };
             if (nodeTo != null) {
-                LockService.doInLock(lock, nodeTo.key, supplier::get);
+                LockService.doInLock(lock, nodeTo.key, supplier);
             } else {
                 return supplier.get();
             }
@@ -186,7 +182,7 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
             chainComparableLock.lock(root.key);
         }
         try {
-            final ConditionSearcher<V> conditionSearcher = new ConditionSearcher<>(conditionService, condition, chainComparableLock);
+            final ConditionSearcher conditionSearcher = new ConditionSearcher(conditionService, condition, chainComparableLock);
             conditionSearcher.search(root);
             return conditionSearcher.set;
         } finally {
@@ -253,14 +249,14 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
         private Node<U, V> left;
         private Node<U, V> right;
 
-        public Node(U key, Set<V> value) {
+        Node(U key, Set<V> value) {
             this.key = key;
             this.value = value;
         }
 
     }
 
-    private class ConditionSearcher<V> {
+    private class ConditionSearcher {
         private final Set<V> set = new HashSet<>();
         private final ConditionService conditionService;
         private final SimpleCondition condition;
@@ -298,7 +294,7 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
             }
         }
 
-        private BinarySearchDirection determineDirection(Comparable value) {
+        private BinarySearchDirection determineDirection(U value) {
             if (value == null) {
                 throw new ConditionException("unknown field " + condition.getField());
             }
@@ -308,7 +304,7 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
                 }
                 return BinarySearchDirection.BOTH;
             }
-            final int compareResult = value.compareTo(condition.getValue());
+            final int compareResult = value.compareTo((U) condition.getValue());
             switch (condition.getType()) {
                 case EQ:
                     if (compareResult == 0) {
@@ -351,5 +347,9 @@ public class BinaryTree<U extends Comparable, V> extends FieldKeeper<U, V> imple
                 lock.unlock(currentComparable);
             }
         }
+    }
+
+    public enum BinarySearchDirection {
+        LEFT, RIGHT, BOTH, NONE
     }
 }

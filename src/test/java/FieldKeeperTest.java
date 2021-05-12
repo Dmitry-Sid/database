@@ -283,6 +283,6 @@ public abstract class FieldKeeperTest {
         }
     }
 
-    protected abstract <T extends Comparable> FieldKeeper<T, Integer> prepareFieldKeeper(Class<T> clazz, String fieldName);
+    abstract <T extends Comparable<T>> FieldKeeper<T, Integer> prepareFieldKeeper(Class<T> clazz, String fieldName);
 
 }

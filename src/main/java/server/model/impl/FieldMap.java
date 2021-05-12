@@ -15,15 +15,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-public class FieldMap<U extends Comparable, V> extends FieldKeeper<U, V> {
+public class FieldMap<U extends Comparable<U>, V> extends FieldKeeper<U, V> {
     private final Map<U, Set<V>> valuesMap;
-    private final String fileName;
-    private final ObjectConverter objectConverter;
 
     public FieldMap(String fieldName, String fileName, ObjectConverter objectConverter) {
-        super(fieldName);
-        this.fileName = fileName;
-        this.objectConverter = objectConverter;
+        super(fieldName, fileName, objectConverter);
         if (new File(fileName).exists()) {
             this.valuesMap = objectConverter.fromFile(ConcurrentHashMap.class, fileName);
         } else {

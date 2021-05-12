@@ -55,7 +55,7 @@ public interface Buffer<V extends TableType> {
             if (!(o instanceof Element)) {
                 return false;
             }
-            final Element<?> element = (Element<?>) o;
+            final Element<V> element = (Element<V>) o;
             return isFlushed() == element.isFlushed() &&
                     Objects.equals(getValue(), element.getValue()) &&
                     getState() == element.getState();

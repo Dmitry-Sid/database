@@ -134,7 +134,7 @@ public class IndexServiceImpl implements IndexService {
         runnableList.add(runnable);
     }
 
-    private <U extends Comparable, V> FieldKeeper<U, V> createFieldKeeper(String fieldName) {
+    private <U extends Comparable<U>, V> FieldKeeper<U, V> createFieldKeeper(String fieldName) {
         return new FieldMap<>(fieldName, getFieldKeeperFileName(fieldName), objectConverter);
     }
 

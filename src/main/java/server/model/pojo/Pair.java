@@ -1,8 +1,10 @@
 package server.model.pojo;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public class Pair<T, V> {
+public class Pair<T, V> implements Serializable {
+    private static final long serialVersionUID = 2664745560308946450L;
     private final T first;
     private final V second;
 

@@ -464,7 +464,7 @@ public class RowIdRepositoryTest {
     }
 
     private void createFiles(int lastId) {
-        TestUtils.createIdFiles(lastId, maxIdSize, compressSize, fileName, filesIdPath, filesRowPath, rowAddressSize, null);
+        TestUtils.createRowIdFiles(lastId, maxIdSize, compressSize, fileName, filesIdPath, filesRowPath, rowAddressSize, null);
     }
 
     private RowIdRepository prepareRowIdRepository() {

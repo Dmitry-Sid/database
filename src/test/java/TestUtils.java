@@ -50,7 +50,7 @@ public class TestUtils {
         return modelService;
     }
 
-    public static void createIdFiles(int lastId, int maxIdSize, int compressSize, String fileName, String filesIdPath, String filesRowPath, int rowAddressSize, Map<Integer, byte[]> rowMap) {
+    public static void createRowIdFiles(int lastId, int maxIdSize, int compressSize, String fileName, String filesIdPath, String filesRowPath, int rowAddressSize, Map<Integer, byte[]> rowMap) {
         final int maxRowSize = maxIdSize / compressSize;
         final Set<Integer> boundsBatch = prepareBoundsBatch(lastId, maxIdSize);
         final ObjectConverter objectConverter = new ObjectConverterImpl();
