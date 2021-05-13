@@ -18,6 +18,9 @@ public class SimpleCondition implements ICondition {
     }
 
     private void check(SimpleType type, String field, Comparable value) {
+        if (value == null) {
+            return;
+        }
         if (StringUtils.isBlank(field)) {
             throw new ConditionException("empty field name");
         }

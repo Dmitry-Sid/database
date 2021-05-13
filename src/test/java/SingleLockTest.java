@@ -52,28 +52,4 @@ public class SingleLockTest {
             assertTrue(future2.get() < 2000);
         }
     }
-
-    @Test
-    public void doubleLockTest() throws InterruptedException, ExecutionException {
-        final Lock<Integer> lock = new SingleLock<>();
-        lock.lock(1);
-        lock.lock(1);
-        final Future<Long> future = executorService.submit(() -> {
-            final long begin = System.currentTimeMillis();
-            lock.lock(2);
-            try {
-                Thread.sleep(1000);
-                return System.currentTimeMillis() - begin;
-            } finally {
-                lock.unlock(2);
-            }
-        });
-        Thread.sleep(1000);
-        lock.unlock(1);
-        assertFalse(future.isDone());
-        Thread.sleep(1000);
-        lock.unlock(1);
-        assertTrue(future.get() > 3000 && future.get() < 4000);
-    }
-
 }

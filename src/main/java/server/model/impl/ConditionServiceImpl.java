@@ -9,6 +9,9 @@ import server.model.pojo.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import static server.model.pojo.ICondition.SimpleType.EQ;
+import static server.model.pojo.ICondition.SimpleType.NOT;
+
 public class ConditionServiceImpl implements ConditionService {
 
     private final ModelService modelService;
@@ -104,10 +107,14 @@ public class ConditionServiceImpl implements ConditionService {
         final String valueStr = parts[1].trim();
         checkFieldName(field);
         final Comparable value;
-        try {
-            value = modelService.getValue(field, valueStr);
-        } catch (NumberFormatException e) {
-            throw new ConditionException("wrong value type for field : " + field + ", value : " + valueStr);
+        if (!"null".equals(valueStr)) {
+            try {
+                value = modelService.getValue(field, valueStr);
+            } catch (NumberFormatException e) {
+                throw new ConditionException("wrong value type for field : " + field + ", value : " + valueStr);
+            }
+        } else {
+            value = null;
         }
         return new Pair<>(field, value);
     }
@@ -172,20 +179,26 @@ public class ConditionServiceImpl implements ConditionService {
     }
 
     private <T> boolean check(T input, SimpleCondition condition) {
+        if (condition.getValue() == null && !(EQ.equals(condition.getType()) || NOT.equals(condition.getType()))) {
+            throw new ConditionException("wrong condition " + condition.getField() + ", null values allowed only for EQ and NOT");
+        }
         final Comparable value;
         if (input instanceof Row) {
             final Row row = (Row) input;
-            if (!row.getFields().containsKey(condition.getField())) {
-                return false;
-            }
             value = row.getFields().get(condition.getField());
         } else if (input instanceof Comparable) {
             value = (Comparable) input;
         } else {
-            throw new ConditionException("unknown type if input :" + input);
+            value = null;
         }
         if (value == null) {
-            throw new ConditionException("unknown field " + condition.getField());
+            if (condition.getValue() == null) {
+                return EQ.equals(condition.getType());
+            }
+            return NOT.equals(condition.getType());
+        }
+        if (condition.getValue() == null) {
+            return NOT.equals(condition.getType());
         }
         if (ICondition.SimpleType.LIKE.equals(condition.getType())) {
             if (condition.getValue() == null) {

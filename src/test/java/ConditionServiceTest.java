@@ -33,6 +33,27 @@ public class ConditionServiceTest {
             assertFalse(conditionService.check(row.getFields().get("int"), condition));
         }
         {
+            final ICondition condition = new SimpleCondition(ICondition.SimpleType.EQ, "int", null);
+            assertFalse(conditionService.check(row, condition));
+            assertFalse(conditionService.check(row.getFields().get("int"), condition));
+        }
+        {
+            final ICondition condition = new SimpleCondition(ICondition.SimpleType.NOT, "int", null);
+            assertTrue(conditionService.check(row, condition));
+            assertTrue(conditionService.check(row.getFields().get("int"), condition));
+        }
+        {
+            final ICondition condition = new SimpleCondition(ICondition.SimpleType.EQ, "int1", null);
+            assertTrue(conditionService.check(row, condition));
+            assertTrue(conditionService.check(row.getFields().get("int1"), condition));
+        }
+        {
+            final ICondition condition = new SimpleCondition(ICondition.SimpleType.NOT, "int1", null);
+            assertFalse(conditionService.check(row, condition));
+            assertFalse(conditionService.check(row.getFields().get("int1"), condition));
+        }
+        testWrongConditions(row);
+        {
             {
                 final ICondition condition = new SimpleCondition(ICondition.SimpleType.GT, "int", 49);
                 assertTrue(conditionService.check(row, condition));
@@ -108,6 +129,26 @@ public class ConditionServiceTest {
                 assertFalse(conditionService.check(row.getFields().get("String"), condition));
             }
         }
+    }
+
+    private void testWrongConditions(Row row) {
+        testWrongCondition(row, ICondition.SimpleType.LT);
+        testWrongCondition(row, ICondition.SimpleType.LTE);
+        testWrongCondition(row, ICondition.SimpleType.GT);
+        testWrongCondition(row, ICondition.SimpleType.GTE);
+        testWrongCondition(row, ICondition.SimpleType.LIKE);
+    }
+
+    private void testWrongCondition(Row row, ICondition.SimpleType simpleType) {
+        String exception = null;
+        try {
+            final ICondition condition = new SimpleCondition(simpleType, "int", null);
+            assertFalse(conditionService.check(row, condition));
+            assertFalse(conditionService.check(row.getFields().get("int"), condition));
+        } catch (Exception e) {
+            exception = e.getMessage();
+        }
+        assertEquals("wrong condition int, null values allowed only for EQ and NOT", exception);
     }
 
     @Test
@@ -213,6 +254,9 @@ public class ConditionServiceTest {
         assertEquals(new SimpleCondition(ICondition.SimpleType.LTE, "int", 50), conditionService.parse("int LTE 50"));
         assertEquals(new SimpleCondition(ICondition.SimpleType.LT, "int", 50), conditionService.parse("int LT 50"));
         assertEquals(new SimpleCondition(ICondition.SimpleType.LIKE, "String", "se"), conditionService.parse("String LIKE se"));
+        assertEquals(new SimpleCondition(ICondition.SimpleType.EQ, "int", null), conditionService.parse("int EQ null"));
+        assertEquals(new SimpleCondition(ICondition.SimpleType.NOT, "String", null), conditionService.parse("String NOT null"));
+        assertNotEquals(new SimpleCondition(ICondition.SimpleType.EQ, "int", null), conditionService.parse("String NOT null"));
         {
             final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
                     new SimpleCondition(ICondition.SimpleType.EQ, "int", 50),

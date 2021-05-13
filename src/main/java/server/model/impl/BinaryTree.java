@@ -1,8 +1,8 @@
 package server.model.impl;
 
+import server.model.BaseFieldKeeper;
 import server.model.ConditionException;
 import server.model.ConditionService;
-import server.model.FieldKeeper;
 import server.model.ObjectConverter;
 import server.model.lock.Lock;
 import server.model.lock.LockService;
@@ -10,44 +10,41 @@ import server.model.pojo.ICondition;
 import server.model.pojo.Pair;
 import server.model.pojo.SimpleCondition;
 
-import java.io.File;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Supplier;
 
-public class BinaryTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> implements Serializable {
+public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> implements Serializable {
     private static final long serialVersionUID = 6741768402000850940L;
     private final Lock<Comparable> lock = LockService.createLock(Comparable.class);
     private final Object ROOT_LOCK = new Object();
-    private Node<U, V> root;
 
-    public BinaryTree(String field, String fileName, ObjectConverter objectConverter) {
-        super(field, fileName, objectConverter);
-        if (new File(fileName).exists()) {
-            this.root = objectConverter.fromFile(Node.class, fileName);
-        }
+    public BinaryTree(String field, String path, ObjectConverter objectConverter) {
+        super(field, path, objectConverter);
     }
 
     @Override
-    public void insert(U key, V value) {
-        if (key == null) {
-            return;
-        }
+    protected BaseFieldKeeper.Variables<U, V> createVariables() {
+        return new BinaryTreeVariables<>(null);
+    }
+
+    @Override
+    public void insertNotNull(U key, V value) {
         LockService.doInLock(lock, key, () -> {
             final Pair<Node<U, V>, Node<U, V>> pair;
             final ChainComparableLock chainComparableLock = new ChainComparableLock();
             try {
-                pair = search(root, key, chainComparableLock);
+                pair = searchNotNull(getVariables().root, key, chainComparableLock);
             } finally {
                 chainComparableLock.close();
             }
             if (pair.getFirst() == null) {
                 final Node<U, V> createdNode = new Node<>(key, new HashSet<>(Collections.singletonList(value)));
                 synchronized (ROOT_LOCK) {
-                    if (root == null) {
-                        root = createdNode;
+                    if (getVariables().root == null) {
+                        getVariables().root = createdNode;
                         return null;
                     }
                 }
@@ -68,21 +65,18 @@ public class BinaryTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> im
     }
 
     @Override
-    public boolean delete(U key, V value) {
-        if (key == null) {
-            return true;
-        }
+    public boolean deleteNotNull(U key, V value) {
         return LockService.doInLock(lock, key, () -> {
             final ChainComparableLock chainComparableLock = new ChainComparableLock();
             synchronized (ROOT_LOCK) {
-                if (root == null) {
+                if (getVariables().root == null) {
                     return false;
                 }
-                chainComparableLock.lock(root.key);
+                chainComparableLock.lock(getVariables().root.key);
             }
             final Node<U, V> node;
             try {
-                node = search(root, key, chainComparableLock).getFirst();
+                node = searchNotNull(getVariables().root, key, chainComparableLock).getFirst();
             } finally {
                 chainComparableLock.close();
             }
@@ -126,8 +120,8 @@ public class BinaryTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> im
         LockService.doInLock(lock, nodeFrom.key, () -> {
             final Supplier<Object> supplier = () -> {
                 synchronized (ROOT_LOCK) {
-                    if (nodeFrom == root) {
-                        root = nodeTo;
+                    if (nodeFrom == getVariables().root) {
+                        getVariables().root = nodeTo;
                         return null;
                     }
                 }
@@ -173,17 +167,17 @@ public class BinaryTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> im
     }
 
     @Override
-    public Set<V> search(ConditionService conditionService, SimpleCondition condition) {
+    public Set<V> searchNotNull(ConditionService conditionService, SimpleCondition condition) {
         final ChainComparableLock chainComparableLock = new ChainComparableLock();
         synchronized (ROOT_LOCK) {
-            if (root == null) {
+            if (getVariables().root == null) {
                 return Collections.emptySet();
             }
-            chainComparableLock.lock(root.key);
+            chainComparableLock.lock(getVariables().root.key);
         }
         try {
             final ConditionSearcher conditionSearcher = new ConditionSearcher(conditionService, condition, chainComparableLock);
-            conditionSearcher.search(root);
+            conditionSearcher.search(getVariables().root);
             return conditionSearcher.set;
         } finally {
             chainComparableLock.close();
@@ -191,19 +185,16 @@ public class BinaryTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> im
     }
 
     @Override
-    public Set<V> search(U key) {
-        if (key == null) {
-            return Collections.emptySet();
-        }
+    public Set<V> searchNotNull(U key) {
         final ChainComparableLock chainComparableLock = new ChainComparableLock();
         synchronized (ROOT_LOCK) {
-            if (root == null) {
+            if (getVariables().root == null) {
                 return Collections.emptySet();
             }
-            chainComparableLock.lock(root.key);
+            chainComparableLock.lock(getVariables().root.key);
         }
         try {
-            final Pair<Node<U, V>, Node<U, V>> pair = search(root, key, chainComparableLock);
+            final Pair<Node<U, V>, Node<U, V>> pair = searchNotNull(getVariables().root, key, chainComparableLock);
             if (pair == null || pair.getFirst() == null) {
                 return Collections.emptySet();
             }
@@ -215,13 +206,10 @@ public class BinaryTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> im
 
     @Override
     public void destroy() {
-        objectConverter.toFile(root, fileName);
+        objectConverter.toFile(getVariables().root, getFileName());
     }
 
-    private Pair<Node<U, V>, Node<U, V>> search(Node<U, V> node, U key, ChainComparableLock chainComparableLock) {
-        if (key == null) {
-            throw new RuntimeException("null key");
-        }
+    private Pair<Node<U, V>, Node<U, V>> searchNotNull(Node<U, V> node, U key, ChainComparableLock chainComparableLock) {
         if (node == null) {
             return new Pair<>(null, null);
         }
@@ -233,12 +221,12 @@ public class BinaryTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> im
             if (node.left == null) {
                 return new Pair<>(null, node);
             }
-            return search(node.left, key, chainComparableLock);
+            return searchNotNull(node.left, key, chainComparableLock);
         }
         if (node.right == null) {
             return new Pair<>(null, node);
         }
-        return search(node.right, key, chainComparableLock);
+        return searchNotNull(node.right, key, chainComparableLock);
     }
 
     private static class Node<U, V> implements Serializable {
@@ -351,5 +339,18 @@ public class BinaryTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> im
 
     public enum BinarySearchDirection {
         LEFT, RIGHT, BOTH, NONE
+    }
+
+    private static class BinaryTreeVariables<U, V> extends Variables<U, V> {
+        private static final long serialVersionUID = -5170318601024702402L;
+        private Node<U, V> root;
+
+        private BinaryTreeVariables(Node<U, V> root) {
+            this.root = root;
+        }
+    }
+
+    private BinaryTreeVariables<U, V> getVariables() {
+        return (BinaryTreeVariables<U, V>) variables;
     }
 }

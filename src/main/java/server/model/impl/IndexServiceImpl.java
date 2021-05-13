@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 public class IndexServiceImpl implements IndexService {
     private static final SearchResult EMPTY = new SearchResult(false, Collections.emptySet());
     private final Map<String, FieldKeeper> fieldKeepers;
-    private final String fileName;
+    private final String path;
     private final ObjectConverter objectConverter;
     private final ConditionService conditionService;
     private List<Runnable> runnableList = new CopyOnWriteArrayList<>();
@@ -21,17 +21,17 @@ public class IndexServiceImpl implements IndexService {
     public IndexServiceImpl(Map<String, FieldKeeper> fieldKeepers, ConditionService conditionService) {
         this.fieldKeepers = fieldKeepers;
         this.conditionService = conditionService;
-        this.fileName = null;
+        this.path = null;
         this.objectConverter = null;
     }
 
-    public IndexServiceImpl(String fileName, ObjectConverter objectConverter, ModelService modelService, ConditionService conditionService) {
-        this.fileName = fileName;
+    public IndexServiceImpl(String path, ObjectConverter objectConverter, ModelService modelService, ConditionService conditionService) {
+        this.path = path;
         this.objectConverter = objectConverter;
         this.conditionService = conditionService;
         this.fieldKeepers = new ConcurrentHashMap<>();
-        if (new File(fileName).exists()) {
-            final Set<String> fields = objectConverter.fromFile(HashSet.class, fileName);
+        if (new File(path).exists()) {
+            final Set<String> fields = objectConverter.fromFile(HashSet.class, path);
             fields.forEach(field -> fieldKeepers.put(field, createFieldKeeper(field)));
         }
         modelService.subscribeOnIndexesChanges(fields -> {
@@ -44,8 +44,9 @@ public class IndexServiceImpl implements IndexService {
             });
             final Set<String> fieldSet = fieldKeepers.keySet().stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet());
             fieldSet.forEach(field -> {
+                final FieldKeeper fieldKeeper = fieldKeepers.get(field);
+                fieldKeeper.clear();
                 fieldKeepers.remove(field);
-                new File(getFieldKeeperFileName(field)).delete();
             });
             if (added.get()) {
                 runnableList.forEach(Runnable::run);
@@ -135,16 +136,12 @@ public class IndexServiceImpl implements IndexService {
     }
 
     private <U extends Comparable<U>, V> FieldKeeper<U, V> createFieldKeeper(String fieldName) {
-        return new FieldMap<>(fieldName, getFieldKeeperFileName(fieldName), objectConverter);
-    }
-
-    private String getFieldKeeperFileName(String fieldName) {
-        return fileName + "." + fieldName;
+        return new FieldMap<>(fieldName, path, objectConverter);
     }
 
     @Override
     public void destroy() {
-        objectConverter.toFile(new HashSet<>(fieldKeepers.keySet()), fileName);
+        objectConverter.toFile(new HashSet<>(fieldKeepers.keySet()), path);
         fieldKeepers.values().forEach(FieldKeeper::destroy);
     }
 }

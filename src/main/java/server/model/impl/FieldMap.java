@@ -1,11 +1,10 @@
 package server.model.impl;
 
+import server.model.BaseFieldKeeper;
 import server.model.ConditionService;
-import server.model.FieldKeeper;
 import server.model.ObjectConverter;
 import server.model.pojo.SimpleCondition;
 
-import java.io.File;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
@@ -15,37 +14,36 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-public class FieldMap<U extends Comparable<U>, V> extends FieldKeeper<U, V> {
-    private final Map<U, Set<V>> valuesMap;
+public class FieldMap<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
 
-    public FieldMap(String fieldName, String fileName, ObjectConverter objectConverter) {
-        super(fieldName, fileName, objectConverter);
-        if (new File(fileName).exists()) {
-            this.valuesMap = objectConverter.fromFile(ConcurrentHashMap.class, fileName);
-        } else {
-            this.valuesMap = new ConcurrentHashMap<>();
-        }
+    public FieldMap(String fieldName, String path, ObjectConverter objectConverter) {
+        super(fieldName, path, objectConverter);
     }
 
     @Override
-    public void insert(U key, V value) {
+    protected Variables<U, V> createVariables() {
+        return new MapVariables<>();
+    }
+
+    @Override
+    public void insertNotNull(U key, V value) {
         if (key == null) {
             return;
         }
-        valuesMap.computeIfPresent(key, (mapKey, set) -> {
+        getVariables().valuesMap.computeIfPresent(key, (mapKey, set) -> {
             set.add(value);
             return set;
         });
-        valuesMap.putIfAbsent(key, new HashSet<>(Collections.singletonList(value)));
+        getVariables().valuesMap.putIfAbsent(key, new HashSet<>(Collections.singletonList(value)));
     }
 
     @Override
-    public boolean delete(U key, V value) {
+    public boolean deleteNotNull(U key, V value) {
         if (key == null) {
             return true;
         }
         final AtomicBoolean deleted = new AtomicBoolean(false);
-        valuesMap.computeIfPresent(key, (mapKey, set) -> {
+        getVariables().valuesMap.computeIfPresent(key, (mapKey, set) -> {
             if (!set.contains(value)) {
                 deleted.set(false);
                 return set;
@@ -61,18 +59,27 @@ public class FieldMap<U extends Comparable<U>, V> extends FieldKeeper<U, V> {
     }
 
     @Override
-    public Set<V> search(ConditionService conditionService, SimpleCondition condition) {
-        return valuesMap.entrySet().stream().filter(entry -> conditionService.check(entry.getKey(), condition))
+    public Set<V> searchNotNull(ConditionService conditionService, SimpleCondition condition) {
+        return getVariables().valuesMap.entrySet().stream().filter(entry -> conditionService.check(entry.getKey(), condition))
                 .flatMap(entry -> entry.getValue().stream()).collect(Collectors.toSet());
     }
 
     @Override
-    public Set<V> search(U key) {
-        return valuesMap.getOrDefault(key, Collections.emptySet());
+    public Set<V> searchNotNull(U key) {
+        return getVariables().valuesMap.getOrDefault(key, Collections.emptySet());
     }
 
     @Override
     public void destroy() {
-        objectConverter.toFile((Serializable) valuesMap, fileName);
+        objectConverter.toFile((Serializable) getVariables().valuesMap, getFileName());
+    }
+
+    private static class MapVariables<U, V> extends Variables<U, V> {
+        private static final long serialVersionUID = 674193037333230950L;
+        private final Map<U, Set<V>> valuesMap = new ConcurrentHashMap<>();
+    }
+
+    private MapVariables<U, V> getVariables() {
+        return (MapVariables<U, V>) variables;
     }
 }

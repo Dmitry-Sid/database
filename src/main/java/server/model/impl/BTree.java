@@ -1,7 +1,7 @@
 package server.model.impl;
 
+import server.model.BaseFieldKeeper;
 import server.model.ConditionService;
-import server.model.FieldKeeper;
 import server.model.ObjectConverter;
 import server.model.pojo.Pair;
 import server.model.pojo.SimpleCondition;
@@ -12,33 +12,30 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class BTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> {
-    public final Variables variables;
+public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
     public final int treeFactor;
 
-    public BTree(String fieldName, String fileName, ObjectConverter objectConverter, int treeFactor) {
-        super(fieldName, fileName, objectConverter);
+    public BTree(String fieldName, String path, ObjectConverter objectConverter, int treeFactor) {
+        super(fieldName, path, objectConverter);
         this.treeFactor = treeFactor;
-        if (new File(fileName).exists()) {
-            this.variables = objectConverter.fromFile(Variables.class, fileName);
-        } else {
-            this.variables = new Variables(createNode("root"), new AtomicLong(Long.MIN_VALUE));
-        }
-        this.variables.nodeMap.put(this.variables.root.fileName, this.variables.root);
     }
 
     @Override
-    public synchronized void insert(U key, V value) {
-        if (variables.root.pairs.size() != treeFactor * 2 - 1) {
-            insert(variables.root, key, value);
+    protected Variables<U, V> createVariables() {
+        return new BTreeVariables<>(createNode(), new AtomicLong(Long.MIN_VALUE));
+    }
+
+    @Override
+    public synchronized void insertNotNull(U key, V value) {
+        if (getVariables().root.pairs.size() != treeFactor * 2 - 1) {
+            insert(getVariables().root, key, value);
             return;
         }
-        final Node<U, V> created = createNode("root");
+        final Node<U, V> created = createNode();
         created.leaf = false;
-        variables.root.fileName = generateFileName();
-        variables.nodeMap.put(variables.root.fileName, variables.root);
-        created.children.add(variables.root.fileName);
-        variables.root = created;
+        getVariables().nodeMap.put(getVariables().root.fileName, getVariables().root);
+        created.children.add(getVariables().root.fileName);
+        getVariables().root = created;
         split(created, 0);
         insert(created, key, value);
     }
@@ -58,7 +55,7 @@ public class BTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> {
         index++;
         if (node.leaf) {
             node.pairs.add(index, new Pair<>(key, new HashSet<>(Collections.singleton(value))));
-            variables.nodeMap.put(node.fileName, node);
+            getVariables().nodeMap.put(node.fileName, node);
             return;
         }
         final Node<U, V> readNode = read(node.children.get(index));
@@ -82,9 +79,9 @@ public class BTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> {
         node.pairs.add(index, left.pairs.get(left.pairs.size() - 1));
         left.pairs.remove(left.pairs.size() - 1);
         node.children.add(index + 1, right.fileName);
-        variables.nodeMap.put(node.fileName, node);
-        variables.nodeMap.put(left.fileName, left);
-        variables.nodeMap.put(right.fileName, right);
+        getVariables().nodeMap.put(node.fileName, node);
+        getVariables().nodeMap.put(left.fileName, left);
+        getVariables().nodeMap.put(right.fileName, right);
     }
 
     private <T> void rearrange(List<T> listFrom, List<T> listTo, int indexFrom) {
@@ -100,24 +97,38 @@ public class BTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> {
     }
 
     @Override
-    public synchronized boolean delete(U key, V value) {
+    public synchronized boolean deleteNotNull(U key, V value) {
+        return false;
+    }
+
+    private synchronized boolean delete(Node<U, V> node, U key, V value) {
         return false;
     }
 
     @Override
-    public synchronized Set<V> search(ConditionService conditionService, SimpleCondition condition) {
+    public synchronized Set<V> searchNotNull(ConditionService conditionService, SimpleCondition condition) {
         return null;
     }
 
     @Override
-    public synchronized Set<V> search(U key) {
-        if (key == null) {
-            return Collections.emptySet();
-        }
-        return search(variables.root, key);
+    public synchronized Set<V> searchNotNull(U key) {
+        return searchNotNull(getVariables().root, key);
     }
 
-    private synchronized Set<V> search(Node<U, V> node, U key) {
+    @Override
+    public void clear() {
+        final String searchPath;
+        if (new File(path).isDirectory()) {
+            searchPath = path;
+        } else {
+            searchPath = System.getProperty("user.dir");
+        }
+        for (File file : Objects.requireNonNull(new File(searchPath).listFiles((file, name) -> name.endsWith(fieldName)))) {
+            file.delete();
+        }
+    }
+
+    private synchronized Set<V> searchNotNull(Node<U, V> node, U key) {
         if (node == null || node.pairs.isEmpty()) {
             return Collections.emptySet();
         }
@@ -134,45 +145,37 @@ public class BTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> {
         } else if (node.leaf) {
             return Collections.emptySet();
         }
-        return search(read(node.children.get(index)), key);
+        return searchNotNull(read(node.children.get(index)), key);
     }
 
     public synchronized Node<U, V> read(String fileName) {
-        Node<U, V> node = variables.nodeMap.get(fileName);
+        Node<U, V> node = getVariables().nodeMap.get(fileName);
         if (node == null) {
             node = objectConverter.fromFile(Node.class, fileName);
             node.init();
-            variables.nodeMap.put(fileName, node);
+            getVariables().nodeMap.put(fileName, node);
         }
         return node;
     }
 
     @Override
     public synchronized void destroy() {
-
+        objectConverter.toFile(getVariables(), getFileName());
     }
 
     private Node<U, V> createNode() {
-        return createNode(generateFileName());
-    }
-
-    private Node<U, V> createNode(String fileName) {
-        final Node<U, V> node = new Node<>(fileName);
+        final Node<U, V> node = new Node<>(getFileName(getVariables() == null ? Long.MIN_VALUE : getVariables().counter.incrementAndGet()));
         node.init();
         return node;
     }
 
-    private String generateFileName() {
-        return fileName + variables.counter.incrementAndGet() + ".node";
-    }
-
-    public class Variables implements Serializable {
+    public static class BTreeVariables<U, V> extends Variables<U, V> {
         private static final long serialVersionUID = -4536650721479536430L;
         public volatile Node<U, V> root;
         private final AtomicLong counter;
         public final Map<String, Node<U, V>> nodeMap = new ConcurrentHashMap<>();
 
-        private Variables(Node<U, V> root, AtomicLong counter) {
+        private BTreeVariables(Node<U, V> root, AtomicLong counter) {
             this.root = root;
             this.counter = counter;
         }
@@ -180,7 +183,7 @@ public class BTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> {
 
     public static class Node<U, V> implements Serializable {
         public static final long serialVersionUID = -1534435787722841767L;
-        public volatile String fileName;
+        public final String fileName;
         public volatile boolean initialized = false;
         public volatile boolean leaf = true;
         public volatile List<Pair<U, Set<V>>> pairs;
@@ -197,5 +200,9 @@ public class BTree<U extends Comparable<U>, V> extends FieldKeeper<U, V> {
                 initialized = true;
             }
         }
+    }
+
+    private BTreeVariables<U, V> getVariables() {
+        return (BTreeVariables<U, V>) variables;
     }
 }
