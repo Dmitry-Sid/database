@@ -328,6 +328,11 @@ public abstract class FieldKeeperTest {
             assertTrue(deleteResult.fully);
         }
         {
+            final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(1, 9);
+            assertTrue(deleteResult.deleted);
+            assertTrue(deleteResult.fully);
+        }
+        {
             final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(7, 7);
             assertTrue(deleteResult.deleted);
             assertTrue(deleteResult.fully);

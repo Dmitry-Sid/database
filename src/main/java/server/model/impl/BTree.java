@@ -107,85 +107,157 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         if (!search(key).contains(value)) {
             return NOT;
         }
-        return delete(getVariables().root, key, value, false);
+        final Pair<DeleteResult, Runnable> deletePair = delete(getVariables().root, key, value, false);
+        if (deletePair.getFirst().fully && deletePair.getSecond() != null) {
+            deletePair.getSecond().run();
+        }
+        return deletePair.getFirst();
     }
 
-    private synchronized DeleteResult delete(Node<U, V> node, U key, V value, boolean fully) {
+    /**
+     * Для тестов
+     */
+    protected void checkTree() {
+        checkNode(getVariables().root);
+    }
+
+    private void checkNode(Node<U, V> node) {
+        if (node.pairs.size() == 0) {
+            assert node == getVariables().root;
+            assert node.children.size() == 0;
+            return;
+        }
+        if (node != getVariables().root) {
+            assert node.pairs.size() >= treeFactor - 1;
+        }
+        assert node.pairs.size() <= 2 * treeFactor - 1;
+        if (node.leaf) {
+            assert node.children.size() == 0;
+        } else if (node != getVariables().root) {
+            assert node.children.size() == node.pairs.size() + 1;
+        }
+        Pair<U, Set<V>> previous = checkPair(node, 0);
+        for (int i = 1; i < node.pairs.size(); i++) {
+            final Pair<U, Set<V>> pair = checkPair(node, i);
+            assert previous.getFirst().compareTo(pair.getFirst()) < 0;
+        }
+    }
+
+    private Pair<U, Set<V>> checkPair(Node<U, V> node, int index) {
+        Pair<U, Set<V>> pair = node.pairs.get(index);
+        if (node.children.size() == 0) {
+            return pair;
+        }
+
+        final Node<U, V> childLeft = read(node.children.get(index));
+        assert childLeft.pairs.get(childLeft.pairs.size() - 1).getFirst().compareTo(pair.getFirst()) < 0;
+        checkNode(childLeft);
+
+        final Node<U, V> childRight = read(node.children.get(index + 1));
+        assert childRight.pairs.get(0).getFirst().compareTo(pair.getFirst()) > 0;
+        checkNode(childRight);
+
+        return pair;
+    }
+
+    private synchronized Pair<DeleteResult, Runnable> delete(Node<U, V> node, U key, V value, boolean fully) {
         final Pair<Integer, Pair<U, Set<V>>> pair = find(node.pairs, key, compareResult -> compareResult == 0);
         if (pair != null) {
-            if (fully) {
-                pair.getSecond().getSecond().clear();
-            } else {
+            if (!fully) {
                 pair.getSecond().getSecond().remove(value);
             }
-            if (pair.getSecond().getSecond().isEmpty()) {
-                if (node.leaf) {
-                    node.pairs.remove(pair.getFirst().intValue());
-                    save(node);
-                    return FULLY;
-                }
-                final Node<U, V> childLeft = read(node.children.get(pair.getFirst()));
-                if (childLeft.pairs.size() >= treeFactor) {
-                    move(childLeft, node, childLeft.pairs.size() - 1, pair.getFirst());
-                } else {
-                    final Node<U, V> childRight = read(node.children.get(pair.getFirst() + 1));
-                    if (childRight.pairs.size() >= treeFactor) {
-                        move(childRight, node, 0, pair.getFirst());
-                    } else {
-                        childLeft.pairs.addAll(childRight.pairs);
-                        save(childLeft);
-                        node.pairs.remove(pair.getFirst().intValue());
-                        node.children.remove(childRight.fileName);
+            if (fully || pair.getSecond().getSecond().isEmpty()) {
+                return new Pair<>(FULLY, () -> {
+                    // Нужно по новой искать key, мог удалиться или переместиться
+                    final Pair<Integer, Pair<U, Set<V>>> innerPair = find(node.pairs, key, compareResult -> compareResult == 0);
+                    if (innerPair == null) {
+                        return;
+                    }
+                    final int index = innerPair.getFirst();
+                    if (node.leaf) {
+                        node.pairs.remove(index);
                         save(node);
-                        if (node.pairs.isEmpty()) {
-                            getVariables().root = childLeft;
+                        return;
+                    }
+                    final Node<U, V> childLeft = read(node.children.get(index));
+                    if (childLeft.pairs.size() >= treeFactor) {
+                        move(childLeft, node, childLeft.pairs.size() - 1, index);
+                    } else {
+                        final Node<U, V> childRight = read(node.children.get(index + 1));
+                        if (childRight.pairs.size() >= treeFactor) {
+                            move(childRight, node, 0, index);
+                        } else {
+                            childLeft.pairs.addAll(childRight.pairs);
+                            save(childLeft);
+                            node.pairs.remove(index);
+                            node.children.remove(childRight.fileName);
+                            save(node);
+                            if (node.pairs.isEmpty()) {
+                                getVariables().root = childLeft;
+                            }
                         }
                     }
-                }
-                return FULLY;
+                });
             }
             save(node);
-            return NOT_FULLY;
+            return new Pair<>(NOT_FULLY, null);
         }
         final int index = getChildIndex(node, key);
         if (node.children.size() == 0) {
-            return NOT;
+            return new Pair<>(NOT, null);
         }
         final Node<U, V> child = read(node.children.get(index));
-        final DeleteResult deleteResult = delete(child, key, value, fully);
-        if (deleteResult.fully && child.pairs.size() == treeFactor - 1) {
-            Node<U, V> childLeft = null;
-            Node<U, V> childRight = null;
-            boolean moved = false;
-            if (index > 0) {
-                childLeft = read(node.children.get(index - 1));
-                if (childLeft.pairs.size() >= treeFactor) {
-                    lend(node, child, childLeft, index, true);
-                    moved = true;
-                }
-            }
-            if (!moved) {
-                if (index < node.children.size() - 1) {
-                    childRight = read(node.children.get(index + 1));
-                    if (childRight.pairs.size() >= treeFactor) {
-                        lend(node, child, childRight, index, false);
+        final Pair<DeleteResult, Runnable> deletePair = delete(child, key, value, fully);
+        boolean executed = false;
+        if (deletePair.getFirst().fully) {
+            if (child.pairs.size() == treeFactor - 1) {
+                Node<U, V> childLeft = null;
+                Node<U, V> childRight = null;
+                boolean moved = false;
+                if (index > 0) {
+                    childLeft = read(node.children.get(index - 1));
+                    if (childLeft.pairs.size() >= treeFactor) {
+                        lend(node, child, childLeft, index, true);
                         moved = true;
                     }
                 }
-            }
-            if (!moved && childLeft != null && childRight != null && childLeft.pairs.size() == treeFactor - 1 && childRight.pairs.size() == treeFactor - 1) {
-                node.children.remove(index);
-                save(node);
-                childLeft.pairs.add(node.pairs.remove(index - 1));
-                childLeft.pairs.addAll(child.pairs);
-                childLeft.children.addAll(child.children);
-                save(childLeft);
-                if (node.pairs.isEmpty()) {
-                    getVariables().root = childLeft;
+                if (!moved) {
+                    if (index < node.children.size() - 1) {
+                        childRight = read(node.children.get(index + 1));
+                        if (childRight.pairs.size() >= treeFactor) {
+                            lend(node, child, childRight, index, false);
+                            moved = true;
+                        }
+                    }
+                }
+                if (!moved && childLeft != null && childLeft.pairs.size() == treeFactor - 1) {
+                    merge(node, childLeft, child, index);
+                    moved = true;
+                }
+                if (!moved && childRight != null && childRight.pairs.size() == treeFactor - 1) {
+                    merge(node, child, childRight, index + 1);
                 }
             }
+            if (deletePair.getSecond() != null) {
+                deletePair.getSecond().run();
+                executed = true;
+            }
         }
-        return deleteResult;
+        return new Pair<>(deletePair.getFirst(), executed ? deletePair.getSecond() : null);
+    }
+
+    private void merge(Node<U, V> node, Node<U, V> childLeft, Node<U, V> childRight, int index) {
+        node.children.remove(index);
+        childLeft.pairs.add(node.pairs.remove(index - 1));
+        save(node);
+        childLeft.pairs.addAll(childRight.pairs);
+        childLeft.children.addAll(childRight.children);
+        save(childLeft);
+        childRight.pairs.clear();
+        save(childRight);
+        if (node.pairs.isEmpty()) {
+            getVariables().root = childLeft;
+        }
     }
 
     private Pair<Integer, Pair<U, Set<V>>> find(List<Pair<U, Set<V>>> pairs, U key, Function<Integer, Boolean> compareFunction) {
@@ -200,7 +272,10 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
 
     private void move(Node<U, V> nodeFrom, Node<U, V> nodeTo, int indexFrom, int indexTo) {
         final Pair<U, Set<V>> pairFrom = nodeFrom.pairs.get(indexFrom);
-        delete(nodeFrom, pairFrom.getFirst(), null, true);
+        final Pair<DeleteResult, Runnable> deletePair = delete(nodeFrom, pairFrom.getFirst(), null, true);
+        if (deletePair.getFirst().fully && deletePair.getSecond() != null) {
+            deletePair.getSecond().run();
+        }
         nodeTo.pairs.set(indexTo, pairFrom);
         save(nodeFrom);
         save(nodeTo);
