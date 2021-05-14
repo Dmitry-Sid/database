@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
-    public final int treeFactor;
+    protected final int treeFactor;
 
     public BTree(String fieldName, String path, ObjectConverter objectConverter, int treeFactor) {
         super(fieldName, path, objectConverter);
@@ -74,7 +74,7 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         return node.pairs.size();
     }
 
-    public synchronized void split(Node<U, V> node, int index) {
+    private synchronized void split(Node<U, V> node, int index) {
         final Node<U, V> right = createNode();
         final Node<U, V> left = read(node.children.get(index));
         right.leaf = left.leaf;
@@ -112,52 +112,6 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
             deletePair.getSecond().run();
         }
         return deletePair.getFirst();
-    }
-
-    /**
-     * Для тестов
-     */
-    protected void checkTree() {
-        checkNode(getVariables().root);
-    }
-
-    private void checkNode(Node<U, V> node) {
-        if (node.pairs.size() == 0) {
-            assert node == getVariables().root;
-            assert node.children.size() == 0;
-            return;
-        }
-        if (node != getVariables().root) {
-            assert node.pairs.size() >= treeFactor - 1;
-        }
-        assert node.pairs.size() <= 2 * treeFactor - 1;
-        if (node.leaf) {
-            assert node.children.size() == 0;
-        } else if (node != getVariables().root) {
-            assert node.children.size() == node.pairs.size() + 1;
-        }
-        Pair<U, Set<V>> previous = checkPair(node, 0);
-        for (int i = 1; i < node.pairs.size(); i++) {
-            final Pair<U, Set<V>> pair = checkPair(node, i);
-            assert previous.getFirst().compareTo(pair.getFirst()) < 0;
-        }
-    }
-
-    private Pair<U, Set<V>> checkPair(Node<U, V> node, int index) {
-        Pair<U, Set<V>> pair = node.pairs.get(index);
-        if (node.children.size() == 0) {
-            return pair;
-        }
-
-        final Node<U, V> childLeft = read(node.children.get(index));
-        assert childLeft.pairs.get(childLeft.pairs.size() - 1).getFirst().compareTo(pair.getFirst()) < 0;
-        checkNode(childLeft);
-
-        final Node<U, V> childRight = read(node.children.get(index + 1));
-        assert childRight.pairs.get(0).getFirst().compareTo(pair.getFirst()) > 0;
-        checkNode(childRight);
-
-        return pair;
     }
 
     private synchronized Pair<DeleteResult, Runnable> delete(Node<U, V> node, U key, V value, boolean fully) {
@@ -334,7 +288,7 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         return search(read(node.children.get(index)), key);
     }
 
-    public synchronized Node<U, V> read(String fileName) {
+    protected synchronized Node<U, V> read(String fileName) {
         Node<U, V> node = getVariables().nodeMap.get(fileName);
         if (node == null) {
             node = objectConverter.fromFile(Node.class, fileName);
@@ -359,11 +313,18 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         getVariables().nodeMap.put(node.fileName, node);
     }
 
+    /**
+     * Для тестов
+     */
+    protected BTreeVariables<U, V> getVariables() {
+        return (BTreeVariables<U, V>) variables;
+    }
+
     public static class BTreeVariables<U, V> extends Variables<U, V> {
         private static final long serialVersionUID = -4536650721479536430L;
-        public volatile Node<U, V> root;
-        private final AtomicLong counter;
         public final Map<String, Node<U, V>> nodeMap = new ConcurrentHashMap<>();
+        private final AtomicLong counter;
+        public volatile Node<U, V> root;
 
         private BTreeVariables(Node<U, V> root, AtomicLong counter) {
             this.root = root;
@@ -390,9 +351,5 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
                 initialized = true;
             }
         }
-    }
-
-    private BTreeVariables<U, V> getVariables() {
-        return (BTreeVariables<U, V>) variables;
     }
 }

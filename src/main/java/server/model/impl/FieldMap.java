@@ -69,12 +69,12 @@ public class FieldMap<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> 
         objectConverter.toFile((Serializable) getVariables().valuesMap, getFileName());
     }
 
+    private MapVariables<U, V> getVariables() {
+        return (MapVariables<U, V>) variables;
+    }
+
     private static class MapVariables<U, V> extends Variables<U, V> {
         private static final long serialVersionUID = 674193037333230950L;
         private final Map<U, Set<V>> valuesMap = new ConcurrentHashMap<>();
-    }
-
-    private MapVariables<U, V> getVariables() {
-        return (MapVariables<U, V>) variables;
     }
 }

@@ -229,6 +229,14 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
         return searchNotNull(node.right, key, chainComparableLock);
     }
 
+    private BinaryTreeVariables<U, V> getVariables() {
+        return (BinaryTreeVariables<U, V>) variables;
+    }
+
+    public enum BinarySearchDirection {
+        LEFT, RIGHT, BOTH, NONE
+    }
+
     private static class Node<U, V> implements Serializable {
         private static final long serialVersionUID = 1580600256004817186L;
         private final U key;
@@ -242,6 +250,15 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
             this.value = value;
         }
 
+    }
+
+    private static class BinaryTreeVariables<U, V> extends Variables<U, V> {
+        private static final long serialVersionUID = -5170318601024702402L;
+        private Node<U, V> root;
+
+        private BinaryTreeVariables(Node<U, V> root) {
+            this.root = root;
+        }
     }
 
     private class ConditionSearcher {
@@ -335,22 +352,5 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
                 lock.unlock(currentComparable);
             }
         }
-    }
-
-    public enum BinarySearchDirection {
-        LEFT, RIGHT, BOTH, NONE
-    }
-
-    private static class BinaryTreeVariables<U, V> extends Variables<U, V> {
-        private static final long serialVersionUID = -5170318601024702402L;
-        private Node<U, V> root;
-
-        private BinaryTreeVariables(Node<U, V> root) {
-            this.root = root;
-        }
-    }
-
-    private BinaryTreeVariables<U, V> getVariables() {
-        return (BinaryTreeVariables<U, V>) variables;
     }
 }
