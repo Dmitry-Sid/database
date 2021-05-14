@@ -27,9 +27,6 @@ public class FieldMap<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> 
 
     @Override
     public void insertNotNull(U key, V value) {
-        if (key == null) {
-            return;
-        }
         getVariables().valuesMap.computeIfPresent(key, (mapKey, set) -> {
             set.add(value);
             return set;
@@ -38,24 +35,22 @@ public class FieldMap<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> 
     }
 
     @Override
-    public boolean deleteNotNull(U key, V value) {
-        if (key == null) {
-            return true;
-        }
+    public DeleteResult deleteNotNull(U key, V value) {
         final AtomicBoolean deleted = new AtomicBoolean(false);
+        final AtomicBoolean deletedFully = new AtomicBoolean(false);
         getVariables().valuesMap.computeIfPresent(key, (mapKey, set) -> {
             if (!set.contains(value)) {
-                deleted.set(false);
                 return set;
             }
             set.remove(value);
             deleted.set(true);
             if (set.isEmpty()) {
+                deletedFully.set(true);
                 return null;
             }
             return set;
         });
-        return deleted.get();
+        return new DeleteResult(deleted.get(), deletedFully.get());
     }
 
     @Override

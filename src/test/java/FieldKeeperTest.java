@@ -257,11 +257,30 @@ public abstract class FieldKeeperTest {
         fieldKeeper.insert(12, 6);
         fieldKeeper.insert(7, 7);
         fieldKeeper.insert(13, 8);
-
-        assertTrue(fieldKeeper.delete(9, 4));
-        assertTrue(fieldKeeper.delete(11, 3));
-        assertTrue(fieldKeeper.delete(10, 2));
-        assertTrue(fieldKeeper.delete(null, 65));
+        fieldKeeper.insert(14, 2);
+        fieldKeeper.insert(1, 9);
+        fieldKeeper.insert(15, 44);
+        fieldKeeper.insert(-8, 29);
+        {
+            final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(9, 4);
+            assertTrue(deleteResult.deleted);
+            assertTrue(deleteResult.fully);
+        }
+        {
+            final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(11, 3);
+            assertTrue(deleteResult.deleted);
+            assertTrue(deleteResult.fully);
+        }
+        {
+            final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(10, 2);
+            assertTrue(deleteResult.deleted);
+            assertFalse(deleteResult.fully);
+        }
+        {
+            final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(null, 65);
+            assertTrue(deleteResult.deleted);
+            assertFalse(deleteResult.fully);
+        }
         {
             final List<Integer> list = new ArrayList(fieldKeeper.search(10));
             list.sort(Integer::compareTo);
@@ -298,11 +317,31 @@ public abstract class FieldKeeperTest {
             list.sort(Integer::compareTo);
             assertEquals(Arrays.asList(66), list);
         }
-        assertFalse(fieldKeeper.delete(8, 4));
-        assertTrue(fieldKeeper.delete(12, 6));
-        assertTrue(fieldKeeper.delete(7, 7));
-        assertFalse(fieldKeeper.delete(13, 9));
-        assertTrue(fieldKeeper.delete(null, 66));
+        {
+            final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(8, 4);
+            assertFalse(deleteResult.deleted);
+            assertFalse(deleteResult.fully);
+        }
+        {
+            final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(12, 6);
+            assertTrue(deleteResult.deleted);
+            assertTrue(deleteResult.fully);
+        }
+        {
+            final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(7, 7);
+            assertTrue(deleteResult.deleted);
+            assertTrue(deleteResult.fully);
+        }
+        {
+            final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(13, 9);
+            assertFalse(deleteResult.deleted);
+            assertFalse(deleteResult.fully);
+        }
+        {
+            final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(null, 66);
+            assertTrue(deleteResult.deleted);
+            assertTrue(deleteResult.fully);
+        }
         {
             final List<Integer> list = new ArrayList(fieldKeeper.search(10));
             list.sort(Integer::compareTo);

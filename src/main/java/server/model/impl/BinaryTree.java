@@ -65,12 +65,12 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
     }
 
     @Override
-    public boolean deleteNotNull(U key, V value) {
+    public DeleteResult deleteNotNull(U key, V value) {
         return LockService.doInLock(lock, key, () -> {
             final ChainComparableLock chainComparableLock = new ChainComparableLock();
             synchronized (ROOT_LOCK) {
                 if (getVariables().root == null) {
-                    return false;
+                    return NOT;
                 }
                 chainComparableLock.lock(getVariables().root.key);
             }
@@ -81,14 +81,14 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
                 chainComparableLock.close();
             }
             if (node == null) {
-                return false;
+                return NOT;
             }
             if (!node.value.contains(value)) {
-                return false;
+                return NOT;
             }
             node.value.remove(value);
             if (!node.value.isEmpty()) {
-                return true;
+                return NOT_FULLY;
             }
             if (node.left == null) {
                 rearrange(node, node.right);
@@ -109,7 +109,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
                     chainComparableLock.close();
                 }
             }
-            return true;
+            return FULLY;
         });
     }
 

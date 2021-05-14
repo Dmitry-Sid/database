@@ -11,6 +11,7 @@ import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
     public final int treeFactor;
@@ -33,7 +34,7 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         }
         final Node<U, V> created = createNode();
         created.leaf = false;
-        getVariables().nodeMap.put(getVariables().root.fileName, getVariables().root);
+        save(getVariables().root);
         created.children.add(getVariables().root.fileName);
         getVariables().root = created;
         split(created, 0);
@@ -41,31 +42,36 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
     }
 
     private void insert(Node<U, V> node, U key, V value) {
-        int index = node.pairs.size() - 1;
-        for (; index >= 0; index--) {
-            final Pair<U, Set<V>> pair = node.pairs.get(index);
-            final int compareResult = key.compareTo(pair.getFirst());
-            if (compareResult == 0) {
+        int index = getChildIndex(node, key);
+        if (index > 0) {
+            final Pair<U, Set<V>> pair = node.pairs.get(index - 1);
+            if (key.compareTo(pair.getFirst()) == 0) {
                 pair.getSecond().add(value);
+                save(node);
                 return;
-            } else if (compareResult > 0) {
-                break;
             }
         }
-        index++;
         if (node.leaf) {
             node.pairs.add(index, new Pair<>(key, new HashSet<>(Collections.singleton(value))));
-            getVariables().nodeMap.put(node.fileName, node);
+            save(node);
             return;
         }
-        final Node<U, V> readNode = read(node.children.get(index));
-        if (readNode.pairs.size() == 2 * treeFactor - 1) {
+        final Node<U, V> child = read(node.children.get(index));
+        if (child.pairs.size() == 2 * treeFactor - 1) {
             split(node, index);
             if (key.compareTo(node.pairs.get(index).getFirst()) > 0) {
                 index++;
             }
         }
         insert(read(node.children.get(index)), key, value);
+    }
+
+    private int getChildIndex(Node<U, V> node, U key) {
+        final Pair<Integer, Pair<U, Set<V>>> pair = find(node.pairs, key, compareResult -> compareResult < 0);
+        if (pair != null) {
+            return pair.getFirst();
+        }
+        return node.pairs.size();
     }
 
     public synchronized void split(Node<U, V> node, int index) {
@@ -79,9 +85,9 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         node.pairs.add(index, left.pairs.get(left.pairs.size() - 1));
         left.pairs.remove(left.pairs.size() - 1);
         node.children.add(index + 1, right.fileName);
-        getVariables().nodeMap.put(node.fileName, node);
-        getVariables().nodeMap.put(left.fileName, left);
-        getVariables().nodeMap.put(right.fileName, right);
+        save(node);
+        save(left);
+        save(right);
     }
 
     private <T> void rearrange(List<T> listFrom, List<T> listTo, int indexFrom) {
@@ -97,12 +103,117 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
     }
 
     @Override
-    public synchronized boolean deleteNotNull(U key, V value) {
-        return false;
+    public synchronized DeleteResult deleteNotNull(U key, V value) {
+        if (!search(key).contains(value)) {
+            return NOT;
+        }
+        return delete(getVariables().root, key, value, false);
     }
 
-    private synchronized boolean delete(Node<U, V> node, U key, V value) {
-        return false;
+    private synchronized DeleteResult delete(Node<U, V> node, U key, V value, boolean fully) {
+        final Pair<Integer, Pair<U, Set<V>>> pair = find(node.pairs, key, compareResult -> compareResult == 0);
+        if (pair != null) {
+            if (fully) {
+                pair.getSecond().getSecond().clear();
+            } else {
+                pair.getSecond().getSecond().remove(value);
+            }
+            if (pair.getSecond().getSecond().isEmpty()) {
+                if (node.leaf) {
+                    node.pairs.remove(pair.getFirst().intValue());
+                    save(node);
+                    return FULLY;
+                }
+                final Node<U, V> childLeft = read(node.children.get(pair.getFirst()));
+                if (childLeft.pairs.size() >= treeFactor) {
+                    move(childLeft, node, childLeft.pairs.size() - 1, pair.getFirst());
+                } else {
+                    final Node<U, V> childRight = read(node.children.get(pair.getFirst() + 1));
+                    if (childRight.pairs.size() >= treeFactor) {
+                        move(childRight, node, 0, pair.getFirst());
+                    } else {
+                        childLeft.pairs.addAll(childRight.pairs);
+                        save(childLeft);
+                        node.pairs.remove(pair.getFirst().intValue());
+                        node.children.remove(childRight.fileName);
+                        save(node);
+                        if (node.pairs.isEmpty()) {
+                            getVariables().root = childLeft;
+                        }
+                    }
+                }
+                return FULLY;
+            }
+            save(node);
+            return NOT_FULLY;
+        }
+        final int index = getChildIndex(node, key);
+        if (node.children.size() == 0) {
+            return NOT;
+        }
+        final Node<U, V> child = read(node.children.get(index));
+        final DeleteResult deleteResult = delete(child, key, value, fully);
+        if (deleteResult.fully && child.pairs.size() == treeFactor - 1) {
+            Node<U, V> childLeft = null;
+            Node<U, V> childRight = null;
+            boolean moved = false;
+            if (index > 0) {
+                childLeft = read(node.children.get(index - 1));
+                if (childLeft.pairs.size() >= treeFactor) {
+                    lend(node, child, childLeft, index, true);
+                    moved = true;
+                }
+            }
+            if (!moved) {
+                if (index < node.children.size() - 1) {
+                    childRight = read(node.children.get(index + 1));
+                    if (childRight.pairs.size() >= treeFactor) {
+                        lend(node, child, childRight, index, false);
+                        moved = true;
+                    }
+                }
+            }
+            if (!moved && childLeft != null && childRight != null && childLeft.pairs.size() == treeFactor - 1 && childRight.pairs.size() == treeFactor - 1) {
+                node.children.remove(index);
+                save(node);
+                childLeft.pairs.add(node.pairs.remove(index - 1));
+                childLeft.pairs.addAll(child.pairs);
+                childLeft.children.addAll(child.children);
+                save(childLeft);
+                if (node.pairs.isEmpty()) {
+                    getVariables().root = childLeft;
+                }
+            }
+        }
+        return deleteResult;
+    }
+
+    private Pair<Integer, Pair<U, Set<V>>> find(List<Pair<U, Set<V>>> pairs, U key, Function<Integer, Boolean> compareFunction) {
+        for (int i = 0; i < pairs.size(); i++) {
+            final Pair<U, Set<V>> pair = pairs.get(i);
+            if (compareFunction.apply(key.compareTo(pair.getFirst()))) {
+                return new Pair<>(i, pair);
+            }
+        }
+        return null;
+    }
+
+    private void move(Node<U, V> nodeFrom, Node<U, V> nodeTo, int indexFrom, int indexTo) {
+        final Pair<U, Set<V>> pairFrom = nodeFrom.pairs.get(indexFrom);
+        delete(nodeFrom, pairFrom.getFirst(), null, true);
+        nodeTo.pairs.set(indexTo, pairFrom);
+        save(nodeFrom);
+        save(nodeTo);
+    }
+
+    private void lend(Node<U, V> node, Node<U, V> child, Node<U, V> donor, int index, boolean left) {
+        final Pair<U, Set<V>> nodePair = node.pairs.get(left ? index - 1 : index);
+        final Pair<U, Set<V>> donorPair = donor.pairs.remove(left ? donor.pairs.size() - 1 : 0);
+        child.pairs.add(left ? 0 : child.pairs.size(), nodePair);
+        node.pairs.set(left ? index - 1 : index, donorPair);
+        save(node);
+        save(child);
+        save(donor);
     }
 
     @Override
@@ -112,7 +223,7 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
 
     @Override
     public synchronized Set<V> searchNotNull(U key) {
-        return searchNotNull(getVariables().root, key);
+        return search(getVariables().root, key);
     }
 
     @Override
@@ -128,7 +239,7 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         }
     }
 
-    private synchronized Set<V> searchNotNull(Node<U, V> node, U key) {
+    private synchronized Set<V> search(Node<U, V> node, U key) {
         if (node == null || node.pairs.isEmpty()) {
             return Collections.emptySet();
         }
@@ -145,7 +256,7 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         } else if (node.leaf) {
             return Collections.emptySet();
         }
-        return searchNotNull(read(node.children.get(index)), key);
+        return search(read(node.children.get(index)), key);
     }
 
     public synchronized Node<U, V> read(String fileName) {
@@ -153,7 +264,7 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         if (node == null) {
             node = objectConverter.fromFile(Node.class, fileName);
             node.init();
-            getVariables().nodeMap.put(fileName, node);
+            save(node);
         }
         return node;
     }
@@ -167,6 +278,10 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         final Node<U, V> node = new Node<>(getFileName(getVariables() == null ? Long.MIN_VALUE : getVariables().counter.incrementAndGet()));
         node.init();
         return node;
+    }
+
+    private void save(Node<U, V> node) {
+        getVariables().nodeMap.put(node.fileName, node);
     }
 
     public static class BTreeVariables<U, V> extends Variables<U, V> {

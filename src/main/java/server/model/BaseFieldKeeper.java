@@ -9,6 +9,10 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements FieldKeeper<U, V> {
+    protected static DeleteResult NOT = new DeleteResult(false, false);
+    protected static DeleteResult NOT_FULLY = new DeleteResult(true, false);
+    protected static DeleteResult FULLY = new DeleteResult(true, true);
+
     protected final String fieldName;
     protected final String path;
     protected final ObjectConverter objectConverter;
@@ -32,7 +36,7 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
         if (oldKey != null && oldKey.equals(key)) {
             return;
         }
-        if (delete(oldKey, value)) {
+        if (delete(oldKey, value).deleted) {
             insert(key, value);
         }
     }
@@ -47,9 +51,9 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
     }
 
     @Override
-    public boolean delete(U key, V value) {
+    public DeleteResult delete(U key, V value) {
         if (key == null) {
-            return variables.nullSet.remove(value);
+            return new DeleteResult(variables.nullSet.remove(value), variables.nullSet.isEmpty());
         }
         return deleteNotNull(key, value);
     }
@@ -71,7 +75,7 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
 
     protected abstract void insertNotNull(U key, V value);
 
-    protected abstract boolean deleteNotNull(U key, V value);
+    protected abstract DeleteResult deleteNotNull(U key, V value);
 
     protected abstract Set<V> searchNotNull(ConditionService conditionService, SimpleCondition condition);
 

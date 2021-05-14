@@ -10,7 +10,7 @@ public interface FieldKeeper<U extends Comparable<U>, V> extends Destroyable {
 
     void insert(U key, V value);
 
-    boolean delete(U key, V value);
+    DeleteResult delete(U key, V value);
 
     Set<V> search(ConditionService conditionService, SimpleCondition condition);
 
@@ -19,4 +19,17 @@ public interface FieldKeeper<U extends Comparable<U>, V> extends Destroyable {
     void clear();
 
     String getFieldName();
+
+    class DeleteResult {
+        public final boolean deleted;
+        public final boolean fully;
+
+        public DeleteResult(boolean deleted, boolean fully) {
+            this.deleted = deleted;
+            this.fully = fully;
+        }
+    }
+
+
+
 }
