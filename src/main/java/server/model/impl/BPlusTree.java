@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
-    protected final int treeFactor;
+    public final int treeFactor;
 
     public BPlusTree(String fieldName, String path, ObjectConverter objectConverter, int treeFactor) {
         super(fieldName, path, objectConverter);
@@ -39,6 +39,13 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         created.children.add(root);
         split(created, 0);
         insert(created, key, value);
+    }
+
+    private List<Node<U, V>> getChildren(Node<U, V> node) {
+        if (isLeaf(node)) {
+            throw new IllegalStateException("leaf cannot has children");
+        }
+        return ((InternalNode<U, V>) node).children;
     }
 
     private void insert(Node<U, V> node, U key, V value) {
@@ -79,7 +86,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         final Node<U, V> right = createNode(left.getClass());
         rearrange(left.pairs, right.pairs, treeFactor);
         if (!isLeaf(left)) {
-            rearrange(((InternalNode<U, V>) left).children, ((InternalNode<U, V>) right).children, treeFactor);
+            rearrange(getChildren(left), getChildren(right), treeFactor);
         }
         node.pairs.add(index, left.pairs.get(left.pairs.size() - 1));
         left.pairs.remove(left.pairs.size() - 1);
@@ -103,107 +110,87 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
 
     @Override
     public synchronized DeleteResult deleteNotNull(U key, V value) {
-        if (!search(key).contains(value)) {
+        final Pair<Node<U, V>, Set<V>> pair = search(getVariables().root, key);
+        if (!pair.getSecond().contains(value)) {
             return NOT;
         }
-        final Pair<DeleteResult, Runnable> deletePair = delete(getVariables().root, key, value, false);
-        if (deletePair.getFirst().fully && deletePair.getSecond() != null) {
-            deletePair.getSecond().run();
+        pair.getSecond().remove(value);
+        save(pair.getFirst());
+        if (pair.getSecond().isEmpty()) {
+            delete(getVariables().root, key);
+            return FULLY;
         }
-        return deletePair.getFirst();
+        return NOT_FULLY;
     }
 
-    private synchronized Pair<DeleteResult, Runnable> delete(Node<U, V> node, U key, V value, boolean fully) {
+    private synchronized void delete(Node<U, V> node, U key) {
         final Pair<Integer, Pair<U, Set<V>>> pair = find(node.pairs, key, compareResult -> compareResult == 0);
         if (pair != null) {
-            if (!fully) {
-                pair.getSecond().getSecond().remove(value);
+            final int index = pair.getFirst();
+            if (isLeaf(node)) {
+                node.pairs.remove(index);
+                save(node);
+                return;
             }
-            if (fully || pair.getSecond().getSecond().isEmpty()) {
-                return new Pair<>(FULLY, () -> {
-                    // Нужно по новой инициализировать node и искать key, мог удалиться или переместиться
-                    final boolean isLeaf = isLeaf(node);
-                    final Node<U, V> runnableNode = read(node);
-                    final Pair<Integer, Pair<U, Set<V>>> innerPair = find(runnableNode.pairs, key, compareResult -> compareResult == 0);
-                    if (innerPair == null) {
-                        return;
+            final Node<U, V> childLeft = readChild(node, index);
+            if (childLeft.pairs.size() >= treeFactor) {
+                move(childLeft, node, childLeft.pairs.size() - 1, index);
+            } else {
+                final Node<U, V> childRight = readChild(node, index + 1);
+                if (childRight.pairs.size() >= treeFactor) {
+                    move(childRight, node, 0, index);
+                } else {
+                    childLeft.pairs.addAll(childRight.pairs);
+                    node.pairs.remove(index);
+                    getChildren(node).remove(index + 1);
+                    delete(childRight);
+                    if (node.pairs.isEmpty()) {
+                        getVariables().root = childLeft;
                     }
-                    final int index = innerPair.getFirst();
-                    if (isLeaf) {
-                        runnableNode.pairs.remove(index);
-                        save(runnableNode);
-                        return;
-                    }
-                    final Node<U, V> childLeft = readChild(runnableNode, index);
-                    if (childLeft.pairs.size() >= treeFactor) {
-                        move(childLeft, runnableNode, childLeft.pairs.size() - 1, index);
-                    } else {
-                        final Node<U, V> childRight = readChild(runnableNode, index + 1);
-                        if (childRight.pairs.size() >= treeFactor) {
-                            move(childRight, runnableNode, 0, index);
-                        } else {
-                            childLeft.pairs.addAll(childRight.pairs);
-                            runnableNode.pairs.remove(index);
-                            ((InternalNode<U, V>) runnableNode).children.remove(index + 1);
-                            delete(childRight);
-                            if (runnableNode.pairs.isEmpty()) {
-                                getVariables().root = childLeft;
-                            }
-                            save(childLeft);
-                            save(runnableNode);
-                        }
-                    }
-                });
+                    save(childLeft);
+                    save(node);
+                }
             }
-            save(node);
-            return new Pair<>(NOT_FULLY, null);
+            return;
         }
         if (isLeaf(node)) {
-            return new Pair<>(NOT, null);
+            return;
         }
         final InternalNode<U, V> internalNode = (InternalNode<U, V>) node;
         if (internalNode.children.size() == 0) {
-            return new Pair<>(NOT, null);
+            return;
         }
         final int index = getChildIndex(internalNode, key);
         final Node<U, V> child = readChild(internalNode, index);
-        final Pair<DeleteResult, Runnable> deletePair = delete(child, key, value, fully);
-        boolean executed = false;
-        if (deletePair.getFirst().fully) {
-            if (child.pairs.size() == treeFactor - 1) {
-                Node<U, V> childLeft = null;
-                Node<U, V> childRight = null;
-                boolean moved = false;
-                if (index > 0) {
-                    childLeft = readChild(internalNode, index - 1);
-                    if (childLeft.pairs.size() >= treeFactor) {
-                        lend(internalNode, child, childLeft, index, true);
+        if (child.pairs.size() == treeFactor - 1) {
+            Node<U, V> childLeft = null;
+            Node<U, V> childRight = null;
+            boolean moved = false;
+            if (index > 0) {
+                childLeft = readChild(internalNode, index - 1);
+                if (childLeft.pairs.size() >= treeFactor) {
+                    lend(internalNode, child, childLeft, index, true);
+                    moved = true;
+                }
+            }
+            if (!moved) {
+                if (index < internalNode.children.size() - 1) {
+                    childRight = readChild(internalNode, (index + 1));
+                    if (childRight.pairs.size() >= treeFactor) {
+                        lend(internalNode, child, childRight, index, false);
                         moved = true;
                     }
                 }
-                if (!moved) {
-                    if (index < internalNode.children.size() - 1) {
-                        childRight = readChild(internalNode, (index + 1));
-                        if (childRight.pairs.size() >= treeFactor) {
-                            lend(internalNode, child, childRight, index, false);
-                            moved = true;
-                        }
-                    }
-                }
-                if (!moved && childLeft != null && childLeft.pairs.size() == treeFactor - 1) {
-                    merge(internalNode, childLeft, child, index);
-                    moved = true;
-                }
-                if (!moved && childRight != null && childRight.pairs.size() == treeFactor - 1) {
-                    merge(internalNode, child, childRight, index + 1);
-                }
             }
-            if (deletePair.getSecond() != null) {
-                deletePair.getSecond().run();
-                executed = true;
+            if (!moved && childLeft != null && childLeft.pairs.size() == treeFactor - 1) {
+                merge(internalNode, childLeft, child, index);
+                moved = true;
+            }
+            if (!moved && childRight != null && childRight.pairs.size() == treeFactor - 1) {
+                merge(internalNode, child, childRight, index + 1);
             }
         }
-        return new Pair<>(deletePair.getFirst(), executed ? deletePair.getSecond() : null);
+        delete(read(child), key);
     }
 
     private void delete(Node<U, V> node) {
@@ -219,7 +206,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         save(node);
         childLeft.pairs.addAll(childRight.pairs);
         if (!isLeaf(childLeft)) {
-            ((InternalNode<U, V>) childLeft).children.addAll(((InternalNode<U, V>) childRight).children);
+            getChildren(childLeft).addAll(getChildren(childRight));
         }
         delete(childRight);
         if (node.pairs.isEmpty()) {
@@ -240,10 +227,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
 
     private void move(Node<U, V> nodeFrom, Node<U, V> nodeTo, int indexFrom, int indexTo) {
         final Pair<U, Set<V>> pairFrom = nodeFrom.pairs.get(indexFrom);
-        final Pair<DeleteResult, Runnable> deletePair = delete(nodeFrom, pairFrom.getFirst(), null, true);
-        if (deletePair.getFirst().fully && deletePair.getSecond() != null) {
-            deletePair.getSecond().run();
-        }
+        delete(nodeFrom, pairFrom.getFirst());
         nodeTo.pairs.set(indexTo, pairFrom);
         save(nodeFrom);
         save(nodeTo);
@@ -254,6 +238,9 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         final Pair<U, Set<V>> donorPair = donor.pairs.remove(left ? donor.pairs.size() - 1 : 0);
         child.pairs.add(left ? 0 : child.pairs.size(), nodePair);
         node.pairs.set(left ? index - 1 : index, donorPair);
+        if (!isLeaf(child)) {
+            getChildren(child).add(left ? 0 : getChildren(child).size(), getChildren(donor).remove(left ? getChildren(donor).size() - 1 : 0));
+        }
         save(node);
         save(child);
         save(donor);
@@ -266,7 +253,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
 
     @Override
     public synchronized Set<V> searchNotNull(U key) {
-        return search(getVariables().root, key);
+        return search(getVariables().root, key).getSecond();
     }
 
     @Override
@@ -282,9 +269,9 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         }
     }
 
-    private synchronized Set<V> search(Node<U, V> node, U key) {
+    private synchronized Pair<Node<U, V>, Set<V>> search(Node<U, V> node, U key) {
         if (node == null || node.pairs.isEmpty()) {
-            return Collections.emptySet();
+            return new Pair<>(null, Collections.emptySet());
         }
         Pair<U, Set<V>> pair = null;
         int index = 0;
@@ -295,9 +282,9 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
             }
         }
         if (pair.getFirst().compareTo(key) == 0) {
-            return pair.getSecond();
+            return new Pair<>(node, pair.getSecond());
         } else if (isLeaf(node)) {
-            return Collections.emptySet();
+            return new Pair<>(node, Collections.emptySet());
         }
         return search(readChild(node, index), key);
     }
@@ -306,7 +293,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         if (isLeaf(node)) {
             return null;
         }
-        return read(((InternalNode<U, V>) node).children.get(index));
+        return read(getChildren(node).get(index));
     }
 
     private synchronized Node<U, V> read(Node<U, V> node) {
@@ -314,7 +301,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
             return node;
         }
         LeafNode<U, V> leafNode = (LeafNode<U, V>) node;
-        if (!leafNode.initialized) {
+        if (!isInitialized(leafNode)) {
             leafNode = objectConverter.fromFile(LeafNode.class, ((LeafNode) node).fileName);
         }
         leafNode.init();
@@ -336,7 +323,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     }
 
     private void save(Node<U, V> node) {
-        if (!isLeaf(node) || node == getVariables().root) {
+        if (node == null || !isLeaf(node) || node == getVariables().root) {
             return;
         }
         final LeafNode<U, V> leafNode = (LeafNode<U, V>) node;
@@ -346,6 +333,13 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
 
     protected boolean isLeaf(Node<U, V> node) {
         return node instanceof LeafNode;
+    }
+
+    protected boolean isInitialized(Node<U, V> node) {
+        if (isLeaf(node)) {
+            return ((LeafNode<U, V>) node).initialized;
+        }
+        return false;
     }
 
     /**
@@ -382,7 +376,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     public static class LeafNode<U, V> extends Node<U, V> implements Destroyable {
         private static final long serialVersionUID = -4761087948139648759L;
         public final String fileName;
-        public volatile boolean initialized = false;
+        private volatile boolean initialized = false;
 
         private LeafNode(String fileName) {
             this.fileName = fileName;

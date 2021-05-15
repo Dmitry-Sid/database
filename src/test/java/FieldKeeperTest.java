@@ -1,6 +1,7 @@
 import org.junit.After;
 import org.junit.Test;
 import server.model.FieldKeeper;
+import server.model.impl.BPlusTree;
 import server.model.impl.ConditionServiceImpl;
 import server.model.pojo.ICondition;
 import server.model.pojo.SimpleCondition;
@@ -15,6 +16,55 @@ public abstract class FieldKeeperTest {
     @After
     public void after() {
         prepareFieldKeeper(Integer.class, "int").clear();
+    }
+
+    @Test
+    public void safeStructureTest() {
+        final FieldKeeper<Integer, Integer> fieldKeeper = prepareFieldKeeper(Integer.class, "int");
+        final int size;
+        if (fieldKeeper instanceof BPlusTree) {
+            size = ((BPlusTree<Integer, Integer>) fieldKeeper).treeFactor * 20;
+        } else {
+            size = 1000;
+        }
+        for (int i = 0; i < size; i++) {
+            fieldKeeper.insert(i, i);
+            if (i % 2 == 0) {
+                fieldKeeper.insert(i, i + 1000);
+            }
+        }
+        for (int i = 0; i < size; i++) {
+            final List<Integer> list = new ArrayList(fieldKeeper.search(i));
+            list.sort(Integer::compareTo);
+            if (i % 2 == 0) {
+                assertEquals(Arrays.asList(i, i + 1000), list);
+            } else {
+                assertEquals(Collections.singletonList(i), list);
+            }
+        }
+        for (int i = 0; i < size; i++) {
+            if (i % 2 == 0) {
+                {
+                    final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(i, i);
+                    assertTrue(deleteResult.deleted);
+                    assertFalse(deleteResult.fully);
+                }
+                assertEquals(Collections.singletonList(i + 1000), new ArrayList<>(fieldKeeper.search(i)));
+                {
+                    final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(i, i + 1000);
+                    assertTrue(deleteResult.deleted);
+                    assertTrue(deleteResult.fully);
+                }
+                assertEquals(Collections.emptySet(), fieldKeeper.search(i));
+            } else {
+                {
+                    final FieldKeeper.DeleteResult deleteResult = fieldKeeper.delete(i, i);
+                    assertTrue(deleteResult.deleted);
+                    assertTrue(deleteResult.fully);
+                }
+                assertEquals(Collections.emptySet(), fieldKeeper.search(i));
+            }
+        }
     }
 
     @Test

@@ -85,13 +85,13 @@ public class BPlusTreeTest extends FieldKeeperTest {
             }
 
             Node<U, V> childLeft = ((InternalNode<U, V>) node).children.get(index);
-            assert !isLeaf(childLeft) || !((LeafNode<U, V>) childLeft).initialized && new File(((LeafNode<U, V>) childLeft).fileName).exists();
+            assert !isLeaf(childLeft) || !isInitialized(node) && new File(((LeafNode<U, V>) childLeft).fileName).exists();
             childLeft = readChild(node, index);
             assert childLeft.pairs.get(childLeft.pairs.size() - 1).getFirst().compareTo(pair.getFirst()) < 0;
             checkNode(childLeft);
 
             Node<U, V> childRight = ((InternalNode<U, V>) node).children.get(index + 1);
-            assert !isLeaf(childRight) || !((LeafNode<U, V>) childRight).initialized && new File(((LeafNode<U, V>) childRight).fileName).exists();
+            assert !isLeaf(childRight) || !isInitialized(node) && new File(((LeafNode<U, V>) childRight).fileName).exists();
             childRight = readChild(node, index + 1);
             assert childRight.pairs.get(0).getFirst().compareTo(pair.getFirst()) > 0;
             checkNode(childRight);
