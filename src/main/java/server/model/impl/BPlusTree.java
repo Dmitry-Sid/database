@@ -2,6 +2,7 @@ package server.model.impl;
 
 import server.model.BaseFieldKeeper;
 import server.model.ConditionService;
+import server.model.Destroyable;
 import server.model.ObjectConverter;
 import server.model.pojo.Pair;
 import server.model.pojo.SimpleCondition;
@@ -9,21 +10,20 @@ import server.model.pojo.SimpleCondition;
 import java.io.File;
 import java.io.Serializable;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
-public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
+public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
     protected final int treeFactor;
 
-    public BTree(String fieldName, String path, ObjectConverter objectConverter, int treeFactor) {
+    public BPlusTree(String fieldName, String path, ObjectConverter objectConverter, int treeFactor) {
         super(fieldName, path, objectConverter);
         this.treeFactor = treeFactor;
     }
 
     @Override
     protected Variables<U, V> createVariables() {
-        return new BTreeVariables<>(createNode(), new AtomicLong(Long.MIN_VALUE));
+        return new BTreeVariables<>((LeafNode<U, V>) createNode(LeafNode.class), new AtomicLong(Long.MIN_VALUE));
     }
 
     @Override
@@ -32,11 +32,11 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
             insert(getVariables().root, key, value);
             return;
         }
-        final Node<U, V> created = createNode();
-        created.leaf = false;
-        save(getVariables().root);
-        created.children.add(getVariables().root.fileName);
+        final InternalNode<U, V> created = createNode(InternalNode.class);
+        final Node<U, V> root = getVariables().root;
         getVariables().root = created;
+        save(root);
+        created.children.add(root);
         split(created, 0);
         insert(created, key, value);
     }
@@ -51,19 +51,19 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
                 return;
             }
         }
-        if (node.leaf) {
+        if (isLeaf(node)) {
             node.pairs.add(index, new Pair<>(key, new HashSet<>(Collections.singleton(value))));
             save(node);
             return;
         }
-        final Node<U, V> child = read(node.children.get(index));
+        final Node<U, V> child = readChild(node, index);
         if (child.pairs.size() == 2 * treeFactor - 1) {
-            split(node, index);
+            split((InternalNode<U, V>) node, index);
             if (key.compareTo(node.pairs.get(index).getFirst()) > 0) {
                 index++;
             }
         }
-        insert(read(node.children.get(index)), key, value);
+        insert(readChild(node, index), key, value);
     }
 
     private int getChildIndex(Node<U, V> node, U key) {
@@ -74,17 +74,16 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         return node.pairs.size();
     }
 
-    private synchronized void split(Node<U, V> node, int index) {
-        final Node<U, V> right = createNode();
-        final Node<U, V> left = read(node.children.get(index));
-        right.leaf = left.leaf;
+    private synchronized void split(InternalNode<U, V> node, int index) {
+        final Node<U, V> left = readChild(node, index);
+        final Node<U, V> right = createNode(left.getClass());
         rearrange(left.pairs, right.pairs, treeFactor);
-        if (!left.leaf) {
-            rearrange(left.children, right.children, treeFactor);
+        if (!isLeaf(left)) {
+            rearrange(((InternalNode<U, V>) left).children, ((InternalNode<U, V>) right).children, treeFactor);
         }
         node.pairs.add(index, left.pairs.get(left.pairs.size() - 1));
         left.pairs.remove(left.pairs.size() - 1);
-        node.children.add(index + 1, right.fileName);
+        node.children.add(index + 1, right);
         save(node);
         save(left);
         save(right);
@@ -122,33 +121,36 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
             }
             if (fully || pair.getSecond().getSecond().isEmpty()) {
                 return new Pair<>(FULLY, () -> {
-                    // Нужно по новой искать key, мог удалиться или переместиться
-                    final Pair<Integer, Pair<U, Set<V>>> innerPair = find(node.pairs, key, compareResult -> compareResult == 0);
+                    // Нужно по новой инициализировать node и искать key, мог удалиться или переместиться
+                    final boolean isLeaf = isLeaf(node);
+                    final Node<U, V> runnableNode = read(node);
+                    final Pair<Integer, Pair<U, Set<V>>> innerPair = find(runnableNode.pairs, key, compareResult -> compareResult == 0);
                     if (innerPair == null) {
                         return;
                     }
                     final int index = innerPair.getFirst();
-                    if (node.leaf) {
-                        node.pairs.remove(index);
-                        save(node);
+                    if (isLeaf) {
+                        runnableNode.pairs.remove(index);
+                        save(runnableNode);
                         return;
                     }
-                    final Node<U, V> childLeft = read(node.children.get(index));
+                    final Node<U, V> childLeft = readChild(runnableNode, index);
                     if (childLeft.pairs.size() >= treeFactor) {
-                        move(childLeft, node, childLeft.pairs.size() - 1, index);
+                        move(childLeft, runnableNode, childLeft.pairs.size() - 1, index);
                     } else {
-                        final Node<U, V> childRight = read(node.children.get(index + 1));
+                        final Node<U, V> childRight = readChild(runnableNode, index + 1);
                         if (childRight.pairs.size() >= treeFactor) {
-                            move(childRight, node, 0, index);
+                            move(childRight, runnableNode, 0, index);
                         } else {
                             childLeft.pairs.addAll(childRight.pairs);
-                            save(childLeft);
-                            node.pairs.remove(index);
-                            node.children.remove(childRight.fileName);
-                            save(node);
-                            if (node.pairs.isEmpty()) {
+                            runnableNode.pairs.remove(index);
+                            ((InternalNode<U, V>) runnableNode).children.remove(index + 1);
+                            delete(childRight);
+                            if (runnableNode.pairs.isEmpty()) {
                                 getVariables().root = childLeft;
                             }
+                            save(childLeft);
+                            save(runnableNode);
                         }
                     }
                 });
@@ -156,11 +158,15 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
             save(node);
             return new Pair<>(NOT_FULLY, null);
         }
-        final int index = getChildIndex(node, key);
-        if (node.children.size() == 0) {
+        if (isLeaf(node)) {
             return new Pair<>(NOT, null);
         }
-        final Node<U, V> child = read(node.children.get(index));
+        final InternalNode<U, V> internalNode = (InternalNode<U, V>) node;
+        if (internalNode.children.size() == 0) {
+            return new Pair<>(NOT, null);
+        }
+        final int index = getChildIndex(internalNode, key);
+        final Node<U, V> child = readChild(internalNode, index);
         final Pair<DeleteResult, Runnable> deletePair = delete(child, key, value, fully);
         boolean executed = false;
         if (deletePair.getFirst().fully) {
@@ -169,27 +175,27 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
                 Node<U, V> childRight = null;
                 boolean moved = false;
                 if (index > 0) {
-                    childLeft = read(node.children.get(index - 1));
+                    childLeft = readChild(internalNode, index - 1);
                     if (childLeft.pairs.size() >= treeFactor) {
-                        lend(node, child, childLeft, index, true);
+                        lend(internalNode, child, childLeft, index, true);
                         moved = true;
                     }
                 }
                 if (!moved) {
-                    if (index < node.children.size() - 1) {
-                        childRight = read(node.children.get(index + 1));
+                    if (index < internalNode.children.size() - 1) {
+                        childRight = readChild(internalNode, (index + 1));
                         if (childRight.pairs.size() >= treeFactor) {
-                            lend(node, child, childRight, index, false);
+                            lend(internalNode, child, childRight, index, false);
                             moved = true;
                         }
                     }
                 }
                 if (!moved && childLeft != null && childLeft.pairs.size() == treeFactor - 1) {
-                    merge(node, childLeft, child, index);
+                    merge(internalNode, childLeft, child, index);
                     moved = true;
                 }
                 if (!moved && childRight != null && childRight.pairs.size() == treeFactor - 1) {
-                    merge(node, child, childRight, index + 1);
+                    merge(internalNode, child, childRight, index + 1);
                 }
             }
             if (deletePair.getSecond() != null) {
@@ -200,18 +206,26 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         return new Pair<>(deletePair.getFirst(), executed ? deletePair.getSecond() : null);
     }
 
-    private void merge(Node<U, V> node, Node<U, V> childLeft, Node<U, V> childRight, int index) {
+    private void delete(Node<U, V> node) {
+        if (!isLeaf(node)) {
+            return;
+        }
+        new File(((LeafNode<U, V>) node).fileName).delete();
+    }
+
+    private void merge(InternalNode<U, V> node, Node<U, V> childLeft, Node<U, V> childRight, int index) {
         node.children.remove(index);
         childLeft.pairs.add(node.pairs.remove(index - 1));
         save(node);
         childLeft.pairs.addAll(childRight.pairs);
-        childLeft.children.addAll(childRight.children);
-        save(childLeft);
-        childRight.pairs.clear();
-        save(childRight);
+        if (!isLeaf(childLeft)) {
+            ((InternalNode<U, V>) childLeft).children.addAll(((InternalNode<U, V>) childRight).children);
+        }
+        delete(childRight);
         if (node.pairs.isEmpty()) {
             getVariables().root = childLeft;
         }
+        save(childLeft);
     }
 
     private Pair<Integer, Pair<U, Set<V>>> find(List<Pair<U, Set<V>>> pairs, U key, Function<Integer, Boolean> compareFunction) {
@@ -247,7 +261,7 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
 
     @Override
     public synchronized Set<V> searchNotNull(ConditionService conditionService, SimpleCondition condition) {
-        return null;
+        return Collections.emptySet();
     }
 
     @Override
@@ -282,20 +296,29 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         }
         if (pair.getFirst().compareTo(key) == 0) {
             return pair.getSecond();
-        } else if (node.leaf) {
+        } else if (isLeaf(node)) {
             return Collections.emptySet();
         }
-        return search(read(node.children.get(index)), key);
+        return search(readChild(node, index), key);
     }
 
-    protected synchronized Node<U, V> read(String fileName) {
-        Node<U, V> node = getVariables().nodeMap.get(fileName);
-        if (node == null) {
-            node = objectConverter.fromFile(Node.class, fileName);
-            node.init();
-            save(node);
+    protected synchronized Node<U, V> readChild(Node<U, V> node, int index) {
+        if (isLeaf(node)) {
+            return null;
         }
-        return node;
+        return read(((InternalNode<U, V>) node).children.get(index));
+    }
+
+    private synchronized Node<U, V> read(Node<U, V> node) {
+        if (node instanceof InternalNode) {
+            return node;
+        }
+        LeafNode<U, V> leafNode = (LeafNode<U, V>) node;
+        if (!leafNode.initialized) {
+            leafNode = objectConverter.fromFile(LeafNode.class, ((LeafNode) node).fileName);
+        }
+        leafNode.init();
+        return leafNode;
     }
 
     @Override
@@ -303,14 +326,26 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         objectConverter.toFile(getVariables(), getFileName());
     }
 
-    private Node<U, V> createNode() {
-        final Node<U, V> node = new Node<>(getFileName(getVariables() == null ? Long.MIN_VALUE : getVariables().counter.incrementAndGet()));
-        node.init();
-        return node;
+    private <T extends Node<U, V>> T createNode(Class<T> clazz) {
+        if (LeafNode.class.equals(clazz)) {
+            final LeafNode<U, V> leafNode = new LeafNode<>(getFileName(getVariables() == null ? Long.MIN_VALUE : getVariables().counter.incrementAndGet()));
+            leafNode.init();
+            return (T) leafNode;
+        }
+        return (T) new InternalNode<U, V>();
     }
 
     private void save(Node<U, V> node) {
-        getVariables().nodeMap.put(node.fileName, node);
+        if (!isLeaf(node) || node == getVariables().root) {
+            return;
+        }
+        final LeafNode<U, V> leafNode = (LeafNode<U, V>) node;
+        objectConverter.toFile(node, leafNode.fileName);
+        leafNode.destroy();
+    }
+
+    protected boolean isLeaf(Node<U, V> node) {
+        return node instanceof LeafNode;
     }
 
     /**
@@ -322,7 +357,6 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
 
     public static class BTreeVariables<U, V> extends Variables<U, V> {
         private static final long serialVersionUID = -4536650721479536430L;
-        public final Map<String, Node<U, V>> nodeMap = new ConcurrentHashMap<>();
         private final AtomicLong counter;
         public volatile Node<U, V> root;
 
@@ -332,24 +366,39 @@ public class BTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
         }
     }
 
-    public static class Node<U, V> implements Serializable {
-        public static final long serialVersionUID = -1534435787722841767L;
+    public static abstract class Node<U, V> implements Serializable {
+        public volatile List<Pair<U, Set<V>>> pairs;
+    }
+
+    public static class InternalNode<U, V> extends Node<U, V> {
+        private static final long serialVersionUID = 1083626043070239192L;
+        public final List<Node<U, V>> children = new ArrayList<>();
+
+        private InternalNode() {
+            pairs = new ArrayList<>();
+        }
+    }
+
+    public static class LeafNode<U, V> extends Node<U, V> implements Destroyable {
+        private static final long serialVersionUID = -4761087948139648759L;
         public final String fileName;
         public volatile boolean initialized = false;
-        public volatile boolean leaf = true;
-        public volatile List<Pair<U, Set<V>>> pairs;
-        public volatile List<String> children;
 
-        public Node(String fileName) {
+        private LeafNode(String fileName) {
             this.fileName = fileName;
         }
 
-        public synchronized void init() {
+        private void init() {
             if (!initialized) {
                 pairs = new ArrayList<>();
-                children = new ArrayList<>();
                 initialized = true;
             }
+        }
+
+        @Override
+        public void destroy() {
+            pairs = null;
+            initialized = false;
         }
     }
 }

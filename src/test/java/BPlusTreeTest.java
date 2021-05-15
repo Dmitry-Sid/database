@@ -2,20 +2,21 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import server.model.FieldKeeper;
 import server.model.ObjectConverter;
-import server.model.impl.BTree;
+import server.model.impl.BPlusTree;
 import server.model.impl.ObjectConverterImpl;
 import server.model.pojo.Pair;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
 @RunWith(Parameterized.class)
-public class BTreeTest extends FieldKeeperTest {
+public class BPlusTreeTest extends FieldKeeperTest {
     protected final int treeFactor;
 
-    public BTreeTest(int treeFactor) {
+    public BPlusTreeTest(int treeFactor) {
         this.treeFactor = treeFactor;
     }
 
@@ -30,11 +31,11 @@ public class BTreeTest extends FieldKeeperTest {
 
     @Override
     <T extends Comparable<T>> FieldKeeper<T, Integer> prepareFieldKeeper(Class<T> clazz, String fieldName) {
-        return new TestBTree<>(fieldName, "test", new ObjectConverterImpl(), treeFactor);
+        return new TestBPlusTree<>(fieldName, "test", new ObjectConverterImpl(), treeFactor);
     }
 
-    private static class TestBTree<U extends Comparable<U>, V> extends BTree<U, V> {
-        public TestBTree(String fieldName, String path, ObjectConverter objectConverter, int treeFactor) {
+    private static class TestBPlusTree<U extends Comparable<U>, V> extends BPlusTree<U, V> {
+        public TestBPlusTree(String fieldName, String path, ObjectConverter objectConverter, int treeFactor) {
             super(fieldName, path, objectConverter, treeFactor);
         }
 
@@ -64,16 +65,12 @@ public class BTreeTest extends FieldKeeperTest {
         private void checkNode(Node<U, V> node) {
             if (node.pairs.size() == 0) {
                 assert node == getVariables().root;
-                assert node.children.size() == 0;
+                assert isLeaf(node) || ((InternalNode<U, V>) node).children.size() == 0;
                 return;
             }
             assert node == getVariables().root || node.pairs.size() >= this.treeFactor - 1;
             assert node.pairs.size() <= 2 * this.treeFactor - 1;
-            if (node.leaf) {
-                assert node.children.size() == 0;
-            } else {
-                assert node == getVariables().root || node.children.size() == node.pairs.size() + 1;
-            }
+            assert isLeaf(node) || node == getVariables().root || ((InternalNode<U, V>) node).children.size() == node.pairs.size() + 1;
             Pair<U, Set<V>> previous = checkPair(node, 0);
             for (int i = 1; i < node.pairs.size(); i++) {
                 final Pair<U, Set<V>> pair = checkPair(node, i);
@@ -83,15 +80,19 @@ public class BTreeTest extends FieldKeeperTest {
 
         private Pair<U, Set<V>> checkPair(Node<U, V> node, int index) {
             Pair<U, Set<V>> pair = node.pairs.get(index);
-            if (node.children.size() == 0) {
+            if (isLeaf(node) || ((InternalNode<U, V>) node).children.size() == 0) {
                 return pair;
             }
 
-            final Node<U, V> childLeft = read(node.children.get(index));
+            Node<U, V> childLeft = ((InternalNode<U, V>) node).children.get(index);
+            assert !isLeaf(childLeft) || !((LeafNode<U, V>) childLeft).initialized && new File(((LeafNode<U, V>) childLeft).fileName).exists();
+            childLeft = readChild(node, index);
             assert childLeft.pairs.get(childLeft.pairs.size() - 1).getFirst().compareTo(pair.getFirst()) < 0;
             checkNode(childLeft);
 
-            final Node<U, V> childRight = read(node.children.get(index + 1));
+            Node<U, V> childRight = ((InternalNode<U, V>) node).children.get(index + 1);
+            assert !isLeaf(childRight) || !((LeafNode<U, V>) childRight).initialized && new File(((LeafNode<U, V>) childRight).fileName).exists();
+            childRight = readChild(node, index + 1);
             assert childRight.pairs.get(0).getFirst().compareTo(pair.getFirst()) > 0;
             checkNode(childRight);
 
