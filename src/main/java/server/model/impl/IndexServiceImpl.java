@@ -66,7 +66,7 @@ public class IndexServiceImpl implements IndexService {
         if (condition instanceof SimpleCondition) {
             final FieldKeeper fieldKeeper = fieldKeepers.get(((SimpleCondition) condition).getField());
             if (fieldKeeper != null) {
-                return new SearchResult(true, fieldKeeper.search(conditionService, (SimpleCondition) condition));
+                return new SearchResult(true, fieldKeeper.search((SimpleCondition) condition));
             } else {
                 return new SearchResult(false, null);
             }
@@ -136,7 +136,7 @@ public class IndexServiceImpl implements IndexService {
     }
 
     private <U extends Comparable<U>, V> FieldKeeper<U, V> createFieldKeeper(String fieldName) {
-        return new FieldMap<>(fieldName, path, objectConverter);
+        return new BPlusTree<>(fieldName, path, objectConverter, conditionService, 2000);
     }
 
     @Override

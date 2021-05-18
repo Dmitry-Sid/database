@@ -5,7 +5,6 @@ import server.model.ConditionService;
 import server.model.ObjectConverter;
 import server.model.pojo.SimpleCondition;
 
-import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -16,8 +15,8 @@ import java.util.stream.Collectors;
 
 public class FieldMap<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
 
-    public FieldMap(String fieldName, String path, ObjectConverter objectConverter) {
-        super(fieldName, path, objectConverter);
+    public FieldMap(String fieldName, String path, ObjectConverter objectConverter, ConditionService conditionService) {
+        super(fieldName, path, objectConverter, conditionService);
     }
 
     @Override
@@ -54,7 +53,7 @@ public class FieldMap<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> 
     }
 
     @Override
-    public Set<V> searchNotNull(ConditionService conditionService, SimpleCondition condition) {
+    public Set<V> searchNotNull(SimpleCondition condition) {
         return getVariables().valuesMap.entrySet().stream().filter(entry -> conditionService.check(entry.getKey(), condition))
                 .flatMap(entry -> entry.getValue().stream()).collect(Collectors.toSet());
     }
@@ -64,10 +63,6 @@ public class FieldMap<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> 
         return getVariables().valuesMap.getOrDefault(key, Collections.emptySet());
     }
 
-    @Override
-    public void destroy() {
-        objectConverter.toFile((Serializable) getVariables().valuesMap, getFileName());
-    }
 
     private MapVariables<U, V> getVariables() {
         return (MapVariables<U, V>) variables;

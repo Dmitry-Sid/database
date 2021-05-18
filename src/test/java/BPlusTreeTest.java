@@ -1,16 +1,17 @@
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import server.model.ConditionService;
 import server.model.FieldKeeper;
 import server.model.ObjectConverter;
 import server.model.impl.BPlusTree;
+import server.model.impl.ConditionServiceImpl;
 import server.model.impl.ObjectConverterImpl;
+import server.model.lock.LockService;
 import server.model.pojo.Pair;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Function;
 
 @RunWith(Parameterized.class)
 public class BPlusTreeTest extends FieldKeeperTest {
@@ -31,31 +32,60 @@ public class BPlusTreeTest extends FieldKeeperTest {
 
     @Override
     <T extends Comparable<T>> FieldKeeper<T, Integer> prepareFieldKeeper(Class<T> clazz, String fieldName) {
-        return new TestBPlusTree<>(fieldName, "test", new ObjectConverterImpl(), treeFactor);
+        return new TestBPlusTree<>(fieldName, "test", new ObjectConverterImpl(), new ConditionServiceImpl(TestUtils.mockModelService()), treeFactor);
     }
 
     private static class TestBPlusTree<U extends Comparable<U>, V> extends BPlusTree<U, V> {
-        public TestBPlusTree(String fieldName, String path, ObjectConverter objectConverter, int treeFactor) {
-            super(fieldName, path, objectConverter, treeFactor);
+        private Node<U, V> root;
+        private Map<String, LeafNode<U, V>> map;
+
+        private TestBPlusTree(String fieldName, String path, ObjectConverter objectConverter, ConditionService conditionService, int treeFactor) {
+            super(fieldName, path, objectConverter, conditionService, treeFactor);
         }
 
         @Override
         public void insert(U key, V value) {
-            super.insert(key, value);
-            checkTree();
+            LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+                super.insert(key, value);
+                checkTree();
+            });
         }
 
         @Override
         public DeleteResult delete(U key, V value) {
-            final DeleteResult deleteResult = super.delete(key, value);
-            checkTree();
-            return deleteResult;
+            return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+                if (isLeaf(getVariables().root)) {
+                    root = new LeafNode<>(((LeafNode<U, V>) getVariables().root).fileName);
+                } else {
+                    root = new InternalNode<>();
+                    ((InternalNode<U, V>) root).children.addAll(((InternalNode<U, V>) getVariables().root).children);
+                    map = new HashMap<>();
+                    fillMap((InternalNode<U, V>) root, map);
+                }
+                root.pairs = getVariables().root.pairs;
+                final DeleteResult deleteResult = super.delete(key, value);
+                checkTree();
+                return deleteResult;
+            });
+        }
+
+        private void fillMap(InternalNode<U, V> node, Map<String, LeafNode<U, V>> map) {
+            for (Node<U, V> child : node.children) {
+                if (isLeaf(child)) {
+                    final LeafNode<U, V> leafChild = (LeafNode<U, V>) child;
+                    map.put(leafChild.fileName, objectConverter.fromFile(leafChild.getClass(), leafChild.fileName));
+                } else {
+                    fillMap((InternalNode<U, V>) child, map);
+                }
+            }
         }
 
         @Override
         public void transform(U oldKey, U key, V value) {
-            super.transform(oldKey, key, value);
-            checkTree();
+            LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+                super.transform(oldKey, key, value);
+                checkTree();
+            });
         }
 
         private void checkTree() {
@@ -70,6 +100,7 @@ public class BPlusTreeTest extends FieldKeeperTest {
             }
             assert node == getVariables().root || node.pairs.size() >= this.treeFactor - 1;
             assert node.pairs.size() <= 2 * this.treeFactor - 1;
+
             assert isLeaf(node) || node == getVariables().root || ((InternalNode<U, V>) node).children.size() == node.pairs.size() + 1;
             Pair<U, Set<V>> previous = checkPair(node, 0);
             for (int i = 1; i < node.pairs.size(); i++) {
@@ -87,17 +118,23 @@ public class BPlusTreeTest extends FieldKeeperTest {
             Node<U, V> childLeft = ((InternalNode<U, V>) node).children.get(index);
             assert !isLeaf(childLeft) || !isInitialized(node) && new File(((LeafNode<U, V>) childLeft).fileName).exists();
             childLeft = readChild(node, index);
-            assert childLeft.pairs.get(childLeft.pairs.size() - 1).getFirst().compareTo(pair.getFirst()) < 0;
+            checkChildPair(pair, childLeft, result -> result < 0);
             checkNode(childLeft);
 
             Node<U, V> childRight = ((InternalNode<U, V>) node).children.get(index + 1);
             assert !isLeaf(childRight) || !isInitialized(node) && new File(((LeafNode<U, V>) childRight).fileName).exists();
             childRight = readChild(node, index + 1);
-            assert childRight.pairs.get(0).getFirst().compareTo(pair.getFirst()) > 0;
+            checkChildPair(pair, childRight, result -> result > 0);
             checkNode(childRight);
 
             return pair;
         }
-    }
 
+        private void checkChildPair(Pair<U, Set<V>> pair, Node<U, V> child, Function<Integer, Boolean> compareFunction) {
+            for (Pair<U, Set<V>> childPair : child.pairs) {
+                assert compareFunction.apply(childPair.getFirst().compareTo(pair.getFirst()));
+            }
+        }
+
+    }
 }

@@ -1,17 +1,23 @@
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import server.model.FieldKeeper;
 import server.model.impl.BPlusTree;
-import server.model.impl.ConditionServiceImpl;
 import server.model.pojo.ICondition;
 import server.model.pojo.SimpleCondition;
 
 import java.io.File;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 
 public abstract class FieldKeeperTest {
+
+    @Before
+    public void delete() {
+        new File("test.int").delete();
+    }
 
     @After
     public void after() {
@@ -23,7 +29,7 @@ public abstract class FieldKeeperTest {
         final FieldKeeper<Integer, Integer> fieldKeeper = prepareFieldKeeper(Integer.class, "int");
         final int size;
         if (fieldKeeper instanceof BPlusTree) {
-            size = ((BPlusTree<Integer, Integer>) fieldKeeper).treeFactor * 20;
+            size = Math.max(100, ((BPlusTree<Integer, Integer>) fieldKeeper).treeFactor * 20);
         } else {
             size = 1000;
         }
@@ -80,7 +86,7 @@ public abstract class FieldKeeperTest {
             assertEquals(Arrays.asList(1, 2), list);
         }
         {
-            final List<Integer> list = new ArrayList(fieldKeeper.search(null));
+            final List<Integer> list = new ArrayList(fieldKeeper.search((Integer) null));
             list.sort(Integer::compareTo);
             assertEquals(Arrays.asList(121), list);
         }
@@ -166,7 +172,7 @@ public abstract class FieldKeeperTest {
         }
         fieldKeeper.insert(null, 65);
         {
-            final List<Integer> list = new ArrayList(fieldKeeper.search(null));
+            final List<Integer> list = new ArrayList(fieldKeeper.search((Integer) null));
             list.sort(Integer::compareTo);
             assertEquals(Arrays.asList(65, 121), list);
         }
@@ -187,32 +193,32 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert(14, 8);
             fieldKeeper.insert(13, 9);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.EQ, "int", 6)));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.EQ, "int", 6)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(4), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.NOT, "int", 6)));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.NOT, "int", 6)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.GT, "int", 9)));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.GT, "int", 9)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.GTE, "int", 9)));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.GTE, "int", 9)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 3, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.LT, "int", 10)));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LT, "int", 10)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(2, 3, 4, 5), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.LTE, "int", 10)));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LTE, "int", 10)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 4, 5), list);
             }
@@ -230,37 +236,37 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert("test14", 8);
             fieldKeeper.insert("test13", 9);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.EQ, "String", "test6")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.EQ, "String", "test6")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(4), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.NOT, "String", "test6")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.NOT, "String", "test6")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.LT, "String", "test9")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LT, "String", "test9")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 4, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.LTE, "String", "test9")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LTE, "String", "test9")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.GT, "String", "test10")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.GT, "String", "test10")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(2, 3, 4, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.GTE, "String", "test10")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.GTE, "String", "test10")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new ConditionServiceImpl(TestUtils.mockModelService()), new SimpleCondition(ICondition.SimpleType.LIKE, "String", "test1")));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LIKE, "String", "test1")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 6, 7, 8, 9), list);
             }
@@ -281,7 +287,7 @@ public abstract class FieldKeeperTest {
             assertEquals(Arrays.asList(1, 2), list);
         }
         {
-            final List<Integer> list = new ArrayList(fieldKeeper.search(null));
+            final List<Integer> list = new ArrayList(fieldKeeper.search((Integer) null));
             list.sort(Integer::compareTo);
             assertEquals(Arrays.asList(65, 66), list);
         }
@@ -363,7 +369,7 @@ public abstract class FieldKeeperTest {
             assertEquals(Arrays.asList(8), list);
         }
         {
-            final List<Integer> list = new ArrayList(fieldKeeper.search(null));
+            final List<Integer> list = new ArrayList(fieldKeeper.search((Integer) null));
             list.sort(Integer::compareTo);
             assertEquals(Arrays.asList(66), list);
         }
@@ -425,7 +431,7 @@ public abstract class FieldKeeperTest {
             assertEquals(Arrays.asList(8), list);
         }
         {
-            assertEquals(Collections.emptySet(), fieldKeeper.search(null));
+            assertEquals(Collections.emptySet(), fieldKeeper.search((Integer) null));
         }
     }
 
@@ -443,7 +449,7 @@ public abstract class FieldKeeperTest {
         fieldKeeper.insert(13, 9);
         fieldKeeper.insert(null, 15);
         {
-            final List<Integer> list = new ArrayList(fieldKeeper.search(null));
+            final List<Integer> list = new ArrayList(fieldKeeper.search((Integer) null));
             list.sort(Integer::compareTo);
             assertEquals(Arrays.asList(15), list);
         }
@@ -478,7 +484,7 @@ public abstract class FieldKeeperTest {
         }
         fieldKeeper.transform(null, 21, 15);
         {
-            assertEquals(Collections.emptySet(), fieldKeeper.search(null));
+            assertEquals(Collections.emptySet(), fieldKeeper.search((Integer) null));
         }
         {
             final List<Integer> list = new ArrayList(fieldKeeper.search(21));
@@ -491,12 +497,84 @@ public abstract class FieldKeeperTest {
     public void clearTest() {
         final String fileName = "test.int";
         assertFalse(new File(fileName).exists());
-        final FieldKeeper<Integer, Integer> fieldKeeper = prepareFieldKeeper(Integer.class, "int");
-        fieldKeeper.destroy();
+        {
+            final FieldKeeper<Integer, Integer> fieldKeeper = prepareFieldKeeper(Integer.class, "int");
+            fieldKeeper.insert(1, 1);
+            assertEquals(Collections.singletonList(1), new ArrayList<>(fieldKeeper.search(1)));
+            fieldKeeper.destroy();
+        }
         assertTrue(new File(fileName).exists());
-        fieldKeeper.clear();
+        {
+            final FieldKeeper<Integer, Integer> fieldKeeper = prepareFieldKeeper(Integer.class, "int");
+            assertEquals(Collections.singletonList(1), new ArrayList<>(fieldKeeper.search(1)));
+            fieldKeeper.clear();
+        }
         for (File file : Objects.requireNonNull(new File(System.getProperty("user.dir")).listFiles((file, name) -> name.endsWith("int")))) {
             assertFalse(file.exists());
+        }
+    }
+
+    @Test
+    public void concurrentTest() {
+        final FieldKeeper<Integer, Integer> fieldKeeper = prepareFieldKeeper(Integer.class, "int");
+        final int max = fieldKeeper instanceof BPlusTree ? ((BPlusTree<Integer, Integer>) fieldKeeper).treeFactor * 20 : 100;
+        try {
+            final AtomicInteger count = new AtomicInteger();
+            final Thread thread1 = new Thread(() -> {
+                for (int i = 0; i < max; i++) {
+                    fieldKeeper.insert(i, i);
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
+            final Thread thread2 = new Thread(() -> {
+                for (int i = 0; i < 100 + max; i++) {
+                    if (i % 2 == 0) {
+                        fieldKeeper.delete(i, i);
+                    }
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
+            final Thread thread3 = new Thread(() -> {
+                for (int i = 0; i < max; i++) {
+                    if (i % 2 != 0) {
+                        fieldKeeper.transform(i, i + 1, i);
+                    }
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
+            final Thread thread4 = new Thread(() -> {
+                for (int i = 0; i < max; i++) {
+                    if (!fieldKeeper.search(i).isEmpty()) {
+                        count.incrementAndGet();
+                    }
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
+            thread1.start();
+            thread2.start();
+            thread3.start();
+            thread4.start();
+            try {
+                thread1.join();
+                thread2.join();
+                thread3.join();
+                thread4.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println("count " + count.get());
+            System.out.println();
+            count.set(0);
+            for (int i = 0; i < max; i++) {
+                if (!fieldKeeper.search(i).isEmpty()) {
+                    count.incrementAndGet();
+                }
+            }
+            System.out.println("count " + count.get());
+            System.out.println();
+            System.out.println("main thread finished");
+        } finally {
+            fieldKeeper.clear();
         }
     }
 

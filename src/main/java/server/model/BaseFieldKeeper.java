@@ -16,12 +16,14 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
     protected final String fieldName;
     protected final String path;
     protected final ObjectConverter objectConverter;
+    protected final ConditionService conditionService;
     protected final Variables<U, V> variables;
 
-    protected BaseFieldKeeper(String fieldName, String path, ObjectConverter objectConverter) {
+    protected BaseFieldKeeper(String fieldName, String path, ObjectConverter objectConverter, ConditionService conditionService) {
         this.fieldName = fieldName;
         this.path = path;
         this.objectConverter = objectConverter;
+        this.conditionService = conditionService;
         if (new File(getFileName()).exists()) {
             this.variables = objectConverter.fromFile(Variables.class, getFileName());
         } else {
@@ -33,6 +35,9 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
 
     @Override
     public void transform(U oldKey, U key, V value) {
+        if (oldKey == null && key == null) {
+            return;
+        }
         if (oldKey != null && oldKey.equals(key)) {
             return;
         }
@@ -59,8 +64,8 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
     }
 
     @Override
-    public Set<V> search(ConditionService conditionService, SimpleCondition condition) {
-        final Set<V> set = searchNotNull(conditionService, condition);
+    public Set<V> search(SimpleCondition condition) {
+        final Set<V> set = searchNotNull(condition);
         variables.nullSet.stream().filter(value -> conditionService.check(value, condition)).forEach(set::add);
         return set;
     }
@@ -77,7 +82,7 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
 
     protected abstract DeleteResult deleteNotNull(U key, V value);
 
-    protected abstract Set<V> searchNotNull(ConditionService conditionService, SimpleCondition condition);
+    protected abstract Set<V> searchNotNull(SimpleCondition condition);
 
     protected abstract Set<V> searchNotNull(U key);
 
@@ -95,6 +100,11 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
 
     protected String getFileName(Object object) {
         return path + object + "." + fieldName;
+    }
+
+    @Override
+    public void destroy() {
+        objectConverter.toFile(variables, getFileName());
     }
 
     protected abstract static class Variables<U, V> implements Serializable {

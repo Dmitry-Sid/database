@@ -1,7 +1,4 @@
-import server.model.ModelService;
-import server.model.ObjectConverter;
-import server.model.Repository;
-import server.model.RowIdRepository;
+import server.model.*;
 import server.model.impl.ObjectConverterImpl;
 import server.model.impl.RowIdRepositoryImpl;
 import server.model.lock.Lock;
@@ -152,9 +149,9 @@ public class TestUtils {
         });
     }
 
-    public static void doAndSleep(Repository repository, Runnable runnable) {
+    public static void doAndSleep(Destroyable destroyable, Runnable runnable) {
         runnable.run();
-        repository.destroy();
+        destroyable.destroy();
         try {
             Thread.sleep(3000);
         } catch (InterruptedException e) {
