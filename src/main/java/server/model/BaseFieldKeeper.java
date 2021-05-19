@@ -66,7 +66,9 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
     @Override
     public Set<V> search(SimpleCondition condition) {
         final Set<V> set = searchNotNull(condition);
-        variables.nullSet.stream().filter(value -> conditionService.check(value, condition)).forEach(set::add);
+        if (conditionService.check(null, condition)) {
+            set.addAll(variables.nullSet);
+        }
         return set;
     }
 

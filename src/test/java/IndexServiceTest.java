@@ -1,5 +1,4 @@
 import org.junit.Test;
-import server.model.ConditionService;
 import server.model.FieldKeeper;
 import server.model.IndexService;
 import server.model.impl.ConditionServiceImpl;
@@ -173,7 +172,7 @@ public class IndexServiceTest {
         final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
         final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LT, "int", 20);
         when(fieldKeeper.search(any(SimpleCondition.class))).thenAnswer(invocation -> {
-            final ICondition condition = (ICondition) invocation.getArguments()[1];
+            final ICondition condition = (ICondition) invocation.getArguments()[0];
             final Set<Integer> set = new LinkedHashSet<>();
             if (condition1.equals(condition)) {
                 for (int i = 10; i <= 60; i++) {
@@ -207,7 +206,7 @@ public class IndexServiceTest {
         final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "String", "se");
         final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LT, "String", "te");
         when(fieldKeeper.search(any(SimpleCondition.class))).thenAnswer(invocation -> {
-            final ICondition condition = (ICondition) invocation.getArguments()[1];
+            final ICondition condition = (ICondition) invocation.getArguments()[0];
             final Set<Integer> set = new LinkedHashSet<>();
             if (condition1.equals(condition)) {
                 for (int i = 20; i <= 70; i++) {

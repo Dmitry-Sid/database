@@ -46,6 +46,7 @@ public class BPlusTreeTest extends FieldKeeperTest {
         @Override
         public void insert(U key, V value) {
             LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+                setStateBefore();
                 super.insert(key, value);
                 checkTree();
             });
@@ -54,15 +55,7 @@ public class BPlusTreeTest extends FieldKeeperTest {
         @Override
         public DeleteResult delete(U key, V value) {
             return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
-                if (isLeaf(getVariables().root)) {
-                    root = new LeafNode<>(((LeafNode<U, V>) getVariables().root).fileName);
-                } else {
-                    root = new InternalNode<>();
-                    ((InternalNode<U, V>) root).children.addAll(((InternalNode<U, V>) getVariables().root).children);
-                    map = new HashMap<>();
-                    fillMap((InternalNode<U, V>) root, map);
-                }
-                root.pairs = getVariables().root.pairs;
+                setStateBefore();
                 final DeleteResult deleteResult = super.delete(key, value);
                 checkTree();
                 return deleteResult;
@@ -70,7 +63,7 @@ public class BPlusTreeTest extends FieldKeeperTest {
         }
 
         private void fillMap(InternalNode<U, V> node, Map<String, LeafNode<U, V>> map) {
-            for (Node<U, V> child : node.children) {
+            for (Node<U, V> child : getChildren(node)) {
                 if (isLeaf(child)) {
                     final LeafNode<U, V> leafChild = (LeafNode<U, V>) child;
                     map.put(leafChild.fileName, objectConverter.fromFile(leafChild.getClass(), leafChild.fileName));
@@ -83,9 +76,22 @@ public class BPlusTreeTest extends FieldKeeperTest {
         @Override
         public void transform(U oldKey, U key, V value) {
             LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+                setStateBefore();
                 super.transform(oldKey, key, value);
                 checkTree();
             });
+        }
+
+        private void setStateBefore() {
+            if (isLeaf(getVariables().root)) {
+                root = new LeafNode<>(((LeafNode<U, V>) getVariables().root).fileName);
+            } else {
+                root = new InternalNode<>();
+                getChildren(root).addAll(getChildren(getVariables().root));
+                map = new HashMap<>();
+                fillMap((InternalNode<U, V>) root, map);
+            }
+            root.pairs = getVariables().root.pairs;
         }
 
         private void checkTree() {
@@ -95,13 +101,13 @@ public class BPlusTreeTest extends FieldKeeperTest {
         private void checkNode(Node<U, V> node) {
             if (node.pairs.size() == 0) {
                 assert node == getVariables().root;
-                assert isLeaf(node) || ((InternalNode<U, V>) node).children.size() == 0;
+                assert isLeaf(node) || getChildren(node).size() == 0;
                 return;
             }
             assert node == getVariables().root || node.pairs.size() >= this.treeFactor - 1;
             assert node.pairs.size() <= 2 * this.treeFactor - 1;
 
-            assert isLeaf(node) || node == getVariables().root || ((InternalNode<U, V>) node).children.size() == node.pairs.size() + 1;
+            assert isLeaf(node) || node == getVariables().root || getChildren(node).size() == node.pairs.size() + 1;
             Pair<U, Set<V>> previous = checkPair(node, 0);
             for (int i = 1; i < node.pairs.size(); i++) {
                 final Pair<U, Set<V>> pair = checkPair(node, i);
@@ -111,17 +117,17 @@ public class BPlusTreeTest extends FieldKeeperTest {
 
         private Pair<U, Set<V>> checkPair(Node<U, V> node, int index) {
             Pair<U, Set<V>> pair = node.pairs.get(index);
-            if (isLeaf(node) || ((InternalNode<U, V>) node).children.size() == 0) {
+            if (isLeaf(node) || getChildren(node).size() == 0) {
                 return pair;
             }
 
-            Node<U, V> childLeft = ((InternalNode<U, V>) node).children.get(index);
+            Node<U, V> childLeft = getChildren(node).get(index);
             assert !isLeaf(childLeft) || !isInitialized(node) && new File(((LeafNode<U, V>) childLeft).fileName).exists();
             childLeft = readChild(node, index);
             checkChildPair(pair, childLeft, result -> result < 0);
             checkNode(childLeft);
 
-            Node<U, V> childRight = ((InternalNode<U, V>) node).children.get(index + 1);
+            Node<U, V> childRight = getChildren(node).get(index + 1);
             assert !isLeaf(childRight) || !isInitialized(node) && new File(((LeafNode<U, V>) childRight).fileName).exists();
             childRight = readChild(node, index + 1);
             checkChildPair(pair, childRight, result -> result > 0);

@@ -4,6 +4,7 @@ import server.model.BaseFieldKeeper;
 import server.model.ConditionException;
 import server.model.ConditionService;
 import server.model.ObjectConverter;
+import server.model.lock.LockService;
 import server.model.pojo.ICondition;
 import server.model.pojo.Pair;
 import server.model.pojo.SimpleCondition;
@@ -12,8 +13,11 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
+    private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     public BinaryTree(String field, String path, ObjectConverter objectConverter, ConditionService conditionService) {
         super(field, path, objectConverter, conditionService);
@@ -25,58 +29,62 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
     }
 
     @Override
-    public synchronized void insertNotNull(U key, V value) {
-        final Pair<Node<U, V>, Node<U, V>> pair;
-        pair = search(getVariables().root, key);
-        if (pair.getFirst() == null) {
-            final Node<U, V> createdNode = new Node<>(key, new HashSet<>(Collections.singletonList(value)));
-            if (getVariables().root == null) {
-                getVariables().root = createdNode;
-                return;
-            }
-            if (key.compareTo(pair.getSecond().key) > 0) {
-                pair.getSecond().right = createdNode;
+    public void insertNotNull(U key, V value) {
+        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+            final Pair<Node<U, V>, Node<U, V>> pair;
+            pair = search(getVariables().root, key);
+            if (pair.getFirst() == null) {
+                final Node<U, V> createdNode = new Node<>(key, new HashSet<>(Collections.singletonList(value)));
+                if (getVariables().root == null) {
+                    getVariables().root = createdNode;
+                    return;
+                }
+                if (key.compareTo(pair.getSecond().key) > 0) {
+                    pair.getSecond().right = createdNode;
+                } else {
+                    pair.getSecond().left = createdNode;
+                }
+                createdNode.parent = pair.getSecond();
             } else {
-                pair.getSecond().left = createdNode;
+                pair.getFirst().value.add(value);
             }
-            createdNode.parent = pair.getSecond();
-        } else {
-            pair.getFirst().value.add(value);
-        }
+        });
     }
 
     @Override
-    public synchronized DeleteResult deleteNotNull(U key, V value) {
-        if (getVariables().root == null) {
-            return NOT;
-        }
-        final Node<U, V> node = search(getVariables().root, key).getFirst();
-        if (node == null) {
-            return NOT;
-        }
-        if (!node.value.contains(value)) {
-            return NOT;
-        }
-        node.value.remove(value);
-        if (!node.value.isEmpty()) {
-            return NOT_FULLY;
-        }
-        if (node.left == null) {
-            rearrange(node, node.right);
-        } else if (node.right == null) {
-            rearrange(node, node.left);
-        } else {
-            final Node<U, V> minimum = findMinimum(node.right);
-            if (minimum.parent != node) {
-                rearrange(minimum, minimum.right);
-                minimum.right = node.right;
-                minimum.right.parent = minimum;
+    public DeleteResult deleteNotNull(U key, V value) {
+        return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+            if (getVariables().root == null) {
+                return NOT;
             }
-            rearrange(node, minimum);
-            minimum.left = node.left;
-            minimum.left.parent = minimum;
-        }
-        return FULLY;
+            final Node<U, V> node = search(getVariables().root, key).getFirst();
+            if (node == null) {
+                return NOT;
+            }
+            if (!node.value.contains(value)) {
+                return NOT;
+            }
+            node.value.remove(value);
+            if (!node.value.isEmpty()) {
+                return NOT_FULLY;
+            }
+            if (node.left == null) {
+                rearrange(node, node.right);
+            } else if (node.right == null) {
+                rearrange(node, node.left);
+            } else {
+                final Node<U, V> minimum = findMinimum(node.right);
+                if (minimum.parent != node) {
+                    rearrange(minimum, minimum.right);
+                    minimum.right = node.right;
+                    minimum.right.parent = minimum;
+                }
+                rearrange(node, minimum);
+                minimum.left = node.left;
+                minimum.left.parent = minimum;
+            }
+            return FULLY;
+        });
     }
 
     private void rearrange(Node<U, V> nodeFrom, Node<U, V> nodeTo) {
@@ -110,25 +118,29 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
     }
 
     @Override
-    public synchronized Set<V> searchNotNull(SimpleCondition condition) {
-        if (getVariables().root == null) {
-            return Collections.emptySet();
-        }
-        final ConditionSearcher conditionSearcher = new ConditionSearcher(conditionService, condition);
-        conditionSearcher.search(getVariables().root);
-        return conditionSearcher.set;
+    public Set<V> searchNotNull(SimpleCondition condition) {
+        return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
+            if (getVariables().root == null) {
+                return Collections.emptySet();
+            }
+            final ConditionSearcher conditionSearcher = new ConditionSearcher(condition);
+            conditionSearcher.search(getVariables().root);
+            return conditionSearcher.set;
+        });
     }
 
     @Override
-    public synchronized Set<V> searchNotNull(U key) {
-        if (getVariables().root == null) {
-            return Collections.emptySet();
-        }
-        final Pair<Node<U, V>, Node<U, V>> pair = search(getVariables().root, key);
-        if (pair == null || pair.getFirst() == null) {
-            return Collections.emptySet();
-        }
-        return pair.getFirst().value;
+    public Set<V> searchNotNull(U key) {
+        return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
+            if (getVariables().root == null) {
+                return Collections.emptySet();
+            }
+            final Pair<Node<U, V>, Node<U, V>> pair = search(getVariables().root, key);
+            if (pair == null || pair.getFirst() == null) {
+                return Collections.emptySet();
+            }
+            return pair.getFirst().value;
+        });
     }
 
     private Pair<Node<U, V>, Node<U, V>> search(Node<U, V> node, U key) {
@@ -154,7 +166,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
         return (BinaryTreeVariables<U, V>) variables;
     }
 
-    public enum BinarySearchDirection {
+    private enum BinarySearchDirection {
         LEFT, RIGHT, BOTH, NONE
     }
 
@@ -184,11 +196,9 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
 
     private class ConditionSearcher {
         private final Set<V> set = new HashSet<>();
-        private final ConditionService conditionService;
         private final SimpleCondition condition;
 
-        private ConditionSearcher(ConditionService conditionService, SimpleCondition condition) {
-            this.conditionService = conditionService;
+        private ConditionSearcher(SimpleCondition condition) {
             this.condition = condition;
         }
 
@@ -219,6 +229,9 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
         private BinarySearchDirection determineDirection(U value) {
             if (value == null) {
                 throw new ConditionException("unknown field " + condition.getField());
+            }
+            if (condition.getValue() == null) {
+                return SimpleCondition.SimpleType.EQ.equals(condition.getType()) ? BinarySearchDirection.NONE : BinarySearchDirection.BOTH;
             }
             if (ICondition.SimpleType.LIKE.equals(condition.getType())) {
                 if (condition.getValue() == null) {

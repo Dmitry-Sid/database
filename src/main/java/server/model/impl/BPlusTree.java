@@ -1,10 +1,8 @@
 package server.model.impl;
 
-import server.model.BaseFieldKeeper;
-import server.model.ConditionService;
-import server.model.Destroyable;
-import server.model.ObjectConverter;
+import server.model.*;
 import server.model.lock.LockService;
+import server.model.pojo.ICondition;
 import server.model.pojo.Pair;
 import server.model.pojo.SimpleCondition;
 
@@ -15,7 +13,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
     protected final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -46,13 +43,6 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
             split(created, 0);
             insert(created, key, value);
         });
-    }
-
-    private List<Node<U, V>> getChildren(Node<U, V> node) {
-        if (isLeaf(node)) {
-            throw new IllegalStateException("leaf cannot has children");
-        }
-        return ((InternalNode<U, V>) node).children;
     }
 
     private void insert(Node<U, V> node, U key, V value) {
@@ -136,7 +126,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
                 save(node);
                 return;
             }
-            Node<U, V> childLeft = readChild(node, indexPair.getFirst());
+            final Node<U, V> childLeft = readChild(node, indexPair.getFirst());
             if (childLeft.pairs.size() >= treeFactor) {
                 move(childLeft, node, findPredecessor(childLeft, key), indexPair.getFirst());
             } else {
@@ -229,9 +219,9 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
 
     private void move(Node<U, V> nodeFrom, Node<U, V> nodeTo, Pair<U, Set<V>> pair, int indexTo) {
         delete(nodeFrom, pair.getFirst());
-        final Node<U, V> readNode = read(nodeTo);
-        readNode.pairs.set(indexTo, pair);
-        save(readNode);
+        nodeTo = read(nodeTo);
+        nodeTo.pairs.set(indexTo, pair);
+        save(nodeTo);
     }
 
     private Node<U, V> lend(Node<U, V> node, Node<U, V> child, Node<U, V> donor, int index, boolean left) {
@@ -266,7 +256,11 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
 
     @Override
     public Set<V> searchNotNull(SimpleCondition condition) {
-        return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, (Supplier<Set<V>>) Collections::emptySet);
+        return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
+            final ConditionSearcher conditionSearcher = new ConditionSearcher(condition);
+            conditionSearcher.search(getVariables().root, 0);
+            return conditionSearcher.set;
+        });
     }
 
     @Override
@@ -314,13 +308,6 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         return search(readChild(node, index), key);
     }
 
-    protected Node<U, V> readChild(Node<U, V> node, int index) {
-        if (isLeaf(node)) {
-            return null;
-        }
-        return read(getChildren(node).get(index));
-    }
-
     private Node<U, V> read(Node<U, V> node) {
         if (node instanceof InternalNode) {
             return node;
@@ -355,6 +342,9 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         leafNode.destroy();
     }
 
+    /**
+     * protected Для тестов
+     */
     protected boolean isLeaf(Node<U, V> node) {
         return node instanceof LeafNode;
     }
@@ -366,9 +356,20 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         return false;
     }
 
-    /**
-     * protected Для тестов
-     */
+    protected Node<U, V> readChild(Node<U, V> node, int index) {
+        if (isLeaf(node)) {
+            return null;
+        }
+        return read(getChildren(node).get(index));
+    }
+
+    protected List<Node<U, V>> getChildren(Node<U, V> node) {
+        if (isLeaf(node)) {
+            throw new IllegalStateException("leaf cannot has children");
+        }
+        return ((InternalNode<U, V>) node).children;
+    }
+
     protected BTreeVariables<U, V> getVariables() {
         return (BTreeVariables<U, V>) variables;
     }
@@ -376,7 +377,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     public static class BTreeVariables<U, V> extends Variables<U, V> {
         private static final long serialVersionUID = -4536650721479536430L;
         private final AtomicLong counter;
-        public volatile Node<U, V> root;
+        public Node<U, V> root;
 
         private BTreeVariables(Node<U, V> root, AtomicLong counter) {
             this.root = root;
@@ -385,22 +386,22 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     }
 
     public static abstract class Node<U, V> implements Serializable {
-        public volatile List<Pair<U, Set<V>>> pairs;
+        public List<Pair<U, Set<V>>> pairs;
     }
 
     public static class InternalNode<U, V> extends Node<U, V> {
         private static final long serialVersionUID = 1083626043070239192L;
-        public final List<Node<U, V>> children = Collections.synchronizedList(new ArrayList<>());
+        private final List<Node<U, V>> children = new ArrayList<>();
 
         public InternalNode() {
-            pairs = Collections.synchronizedList(new ArrayList<>());
+            pairs = new ArrayList<>();
         }
     }
 
     public static class LeafNode<U, V> extends Node<U, V> implements Destroyable {
         private static final long serialVersionUID = -4761087948139648759L;
         public final String fileName;
-        private volatile boolean initialized = false;
+        private boolean initialized = false;
 
         public LeafNode(String fileName) {
             this.fileName = fileName;
@@ -417,6 +418,151 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         public void destroy() {
             pairs = null;
             initialized = false;
+        }
+    }
+
+    private enum SearchDirection {
+        RIGHT, RIGHT_DOWN, LEFT_DOWN, NONE,
+    }
+
+    private static final Set<SearchDirection> ALL = new HashSet<>(Arrays.asList(SearchDirection.LEFT_DOWN, SearchDirection.RIGHT, SearchDirection.RIGHT_DOWN));
+
+    private class ConditionSearcher {
+        private final Set<V> set = new HashSet<>();
+        private final SimpleCondition condition;
+
+        private ConditionSearcher(SimpleCondition condition) {
+            this.condition = condition;
+        }
+
+        private void search(Node<U, V> node, int index) {
+            if (node == null) {
+                return;
+            }
+            final Pair<U, Set<V>> pair = node.pairs.get(index);
+            if (conditionService.check(pair.getFirst(), condition)) {
+                set.addAll(pair.getSecond());
+            }
+            if (index == node.pairs.size() - 1 && isLeaf(node)) {
+                return;
+            }
+            final Set<SearchDirection> searchDirections = determineDirection(node, index);
+            if (searchDirections.contains(SearchDirection.NONE)) {
+                return;
+            }
+            if (searchDirections.contains(SearchDirection.RIGHT) && index < node.pairs.size() - 1) {
+                search(node, index + 1);
+            }
+            if (!isLeaf(node)) {
+                if (searchDirections.contains(SearchDirection.LEFT_DOWN) && index == 0) {
+                    search(read(getChildren(node).get(index)), 0);
+                }
+                if (searchDirections.contains(SearchDirection.RIGHT_DOWN) && index < node.pairs.size()) {
+                    search(read(getChildren(node).get(index + 1)), 0);
+                }
+            }
+        }
+
+        private Set<SearchDirection> determineDirection(Node<U, V> node, int index) {
+            if (condition.getValue() == null) {
+                return SimpleCondition.SimpleType.EQ.equals(condition.getType()) ? Collections.singleton(SearchDirection.NONE) : ALL;
+            }
+            if (ICondition.SimpleType.LIKE.equals(condition.getType())) {
+                if (condition.getValue() == null) {
+                    return Collections.singleton(SearchDirection.NONE);
+                }
+                return ALL;
+            }
+            final Pair<U, Set<V>> pair = node.pairs.get(index);
+            final int compareResult = pair.getFirst().compareTo((U) condition.getValue());
+            final Set<SearchDirection> set = new HashSet<>();
+            final boolean isFirst = index == 0;
+            final boolean isLast = index == node.pairs.size() - 1;
+            if (isFirst || isLast) {
+                switch (condition.getType()) {
+                    case EQ:
+                        if (compareResult == 0) {
+                            return Collections.singleton(SearchDirection.NONE);
+                        }
+                        if (compareResult > 0) {
+                            if (isFirst) {
+                                return Collections.singleton(SearchDirection.LEFT_DOWN);
+                            }
+                            return Collections.singleton(SearchDirection.NONE);
+                        }
+                        if (isLast) {
+                            return Collections.singleton(SearchDirection.RIGHT_DOWN);
+                        }
+                        return new HashSet<>(Arrays.asList(SearchDirection.RIGHT, SearchDirection.RIGHT_DOWN));
+                    case NOT:
+                        if (isFirst) {
+                            return ALL;
+                        }
+                        return Collections.singleton(SearchDirection.RIGHT_DOWN);
+                    case GT:
+                    case GTE:
+                        if (isFirst && compareResult > 0) {
+                            set.add(SearchDirection.LEFT_DOWN);
+                        }
+                        if (isLast) {
+                            set.add(SearchDirection.RIGHT_DOWN);
+                        }
+                        break;
+                    case LT:
+                    case LTE:
+                        if (isFirst) {
+                            set.add(SearchDirection.LEFT_DOWN);
+                        }
+                        if (isLast && compareResult < 0) {
+                            set.add(SearchDirection.RIGHT_DOWN);
+                        }
+                        break;
+                    default:
+                        throw new ConditionException("Unknown simple type : " + condition.getType());
+                }
+            }
+            if (index < node.pairs.size() - 1) {
+                final Pair<U, Set<V>> pairNext = node.pairs.get(index + 1);
+                final int compareResultNext = pairNext.getFirst().compareTo((U) condition.getValue());
+                switch (condition.getType()) {
+                    case EQ:
+                        if (compareResultNext == 0) {
+                            return Collections.singleton(SearchDirection.RIGHT);
+                        }
+                        if (compareResultNext > 0) {
+                            if (compareResult >= 0) {
+                                return Collections.singleton(SearchDirection.NONE);
+                            }
+                            return Collections.singleton(SearchDirection.RIGHT_DOWN);
+                        }
+                        return Collections.singleton(SearchDirection.RIGHT);
+                    case NOT:
+                        return new HashSet<>(Arrays.asList(SearchDirection.RIGHT, SearchDirection.RIGHT_DOWN));
+                    case GT:
+                    case GTE:
+                        if (compareResultNext >= 0) {
+                            set.add(SearchDirection.RIGHT_DOWN);
+                        }
+                        set.add(SearchDirection.RIGHT);
+                        break;
+                    case LT:
+                    case LTE:
+                        if (compareResultNext <= 0) {
+                            set.addAll(Arrays.asList(SearchDirection.RIGHT, SearchDirection.RIGHT_DOWN));
+                            break;
+                        }
+                        if (compareResult < 0) {
+                            set.add(SearchDirection.RIGHT_DOWN);
+                        }
+                        break;
+                    default:
+                        throw new ConditionException("Unknown simple type : " + condition.getType());
+                }
+            }
+            if (set.isEmpty()) {
+                return Collections.singleton(SearchDirection.NONE);
+            }
+            return set;
         }
     }
 }
