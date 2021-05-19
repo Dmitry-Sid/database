@@ -53,7 +53,7 @@ public class FieldMap<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> 
     }
 
     @Override
-    public Set<V> searchNotNull(SimpleCondition condition) {
+    public Set<V> conditionSearchNotNull(SimpleCondition condition) {
         return getVariables().valuesMap.entrySet().stream().filter(entry -> conditionService.check(entry.getKey(), condition))
                 .flatMap(entry -> entry.getValue().stream()).collect(Collectors.toSet());
     }

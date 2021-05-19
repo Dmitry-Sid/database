@@ -171,7 +171,7 @@ public class IndexServiceTest {
         final FieldKeeper<Integer, Integer> fieldKeeper = (FieldKeeper<Integer, Integer>) mock(FieldKeeper.class);
         final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
         final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LT, "int", 20);
-        when(fieldKeeper.search(any(SimpleCondition.class))).thenAnswer(invocation -> {
+        when(fieldKeeper.conditionSearch(any(SimpleCondition.class))).thenAnswer(invocation -> {
             final ICondition condition = (ICondition) invocation.getArguments()[0];
             final Set<Integer> set = new LinkedHashSet<>();
             if (condition1.equals(condition)) {
@@ -205,7 +205,7 @@ public class IndexServiceTest {
         final FieldKeeper<String, Integer> fieldKeeper = (FieldKeeper<String, Integer>) mock(FieldKeeper.class);
         final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "String", "se");
         final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LT, "String", "te");
-        when(fieldKeeper.search(any(SimpleCondition.class))).thenAnswer(invocation -> {
+        when(fieldKeeper.conditionSearch(any(SimpleCondition.class))).thenAnswer(invocation -> {
             final ICondition condition = (ICondition) invocation.getArguments()[0];
             final Set<Integer> set = new LinkedHashSet<>();
             if (condition1.equals(condition)) {

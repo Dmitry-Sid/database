@@ -255,7 +255,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     }
 
     @Override
-    public Set<V> searchNotNull(SimpleCondition condition) {
+    public Set<V> conditionSearchNotNull(SimpleCondition condition) {
         return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
             final ConditionSearcher conditionSearcher = new ConditionSearcher(condition);
             conditionSearcher.search(getVariables().root, 0);

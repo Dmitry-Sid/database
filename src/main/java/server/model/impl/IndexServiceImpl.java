@@ -66,7 +66,7 @@ public class IndexServiceImpl implements IndexService {
         if (condition instanceof SimpleCondition) {
             final FieldKeeper fieldKeeper = fieldKeepers.get(((SimpleCondition) condition).getField());
             if (fieldKeeper != null) {
-                return new SearchResult(true, fieldKeeper.search((SimpleCondition) condition));
+                return new SearchResult(true, fieldKeeper.conditionSearch((SimpleCondition) condition));
             } else {
                 return new SearchResult(false, null);
             }

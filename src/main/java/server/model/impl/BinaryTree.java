@@ -118,7 +118,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
     }
 
     @Override
-    public Set<V> searchNotNull(SimpleCondition condition) {
+    public Set<V> conditionSearchNotNull(SimpleCondition condition) {
         return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
             if (getVariables().root == null) {
                 return Collections.emptySet();

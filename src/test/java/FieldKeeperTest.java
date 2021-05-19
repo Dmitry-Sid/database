@@ -198,42 +198,42 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert(13, 9);
             fieldKeeper.insert(null, 18);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.EQ, "int", 6)));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.EQ, "int", 6)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(4), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.NOT, "int", 6)));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.NOT, "int", 6)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.GT, "int", 9)));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.GT, "int", 9)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.GTE, "int", 9)));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.GTE, "int", 9)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 3, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LT, "int", 10)));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.LT, "int", 10)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(2, 3, 4, 5), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LTE, "int", 10)));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.LTE, "int", 10)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 4, 5), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.EQ, "int", null)));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.EQ, "int", null)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(18), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.NOT, "int", null)));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.NOT, "int", null)));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34), list);
             }
@@ -251,37 +251,37 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert("test14", 8);
             fieldKeeper.insert("test13", 9);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.EQ, "String", "test6")));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.EQ, "String", "test6")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(4), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.NOT, "String", "test6")));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.NOT, "String", "test6")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LT, "String", "test9")));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.LT, "String", "test9")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 4, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LTE, "String", "test9")));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.LTE, "String", "test9")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.GT, "String", "test10")));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.GT, "String", "test10")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(2, 3, 4, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.GTE, "String", "test10")));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.GTE, "String", "test10")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(new SimpleCondition(ICondition.SimpleType.LIKE, "String", "test1")));
+                final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(new SimpleCondition(ICondition.SimpleType.LIKE, "String", "test1")));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 6, 7, 8, 9), list);
             }

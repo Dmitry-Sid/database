@@ -64,8 +64,8 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
     }
 
     @Override
-    public Set<V> search(SimpleCondition condition) {
-        final Set<V> set = searchNotNull(condition);
+    public Set<V> conditionSearch(SimpleCondition condition) {
+        final Set<V> set = conditionSearchNotNull(condition);
         if (conditionService.check(null, condition)) {
             set.addAll(variables.nullSet);
         }
@@ -84,7 +84,7 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
 
     protected abstract DeleteResult deleteNotNull(U key, V value);
 
-    protected abstract Set<V> searchNotNull(SimpleCondition condition);
+    protected abstract Set<V> conditionSearchNotNull(SimpleCondition condition);
 
     protected abstract Set<V> searchNotNull(U key);
 
