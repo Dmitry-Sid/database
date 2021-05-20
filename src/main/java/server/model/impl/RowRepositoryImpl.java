@@ -75,13 +75,17 @@ public class RowRepositoryImpl implements RowRepository {
     }
 
     @Override
-    public int size(ICondition iCondition) {
+    public int size(ICondition iCondition, int maxSize) {
         final Set<Integer> processedIdSet = new HashSet<>();
         final AtomicBoolean stopChecker = new AtomicBoolean(false);
         try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
             final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
                 if (conditionService.check(row, iCondition)) {
-                    processedIdSet.add(row.getId());
+                    if (maxSize >= 0 && processedIdSet.size() >= maxSize) {
+                        stopChecker.set(true);
+                    } else {
+                        processedIdSet.add(row.getId());
+                    }
                 }
             });
             final IndexService.SearchResult searchResult = indexService.search(iCondition);
@@ -92,14 +96,22 @@ public class RowRepositoryImpl implements RowRepository {
             } else {
                 rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
             }
+            if (maxSize >= 0 && processedIdSet.size() >= maxSize) {
+                return processedIdSet.size();
+            }
+            final AtomicBoolean bufferStopChecker = new AtomicBoolean(false);
             buffer.stream(rowElement -> {
                 final Row row = rowElement.getValue();
                 final boolean inSet = !searchResult.found || (searchResult.idSet != null && searchResult.idSet.contains(row.getId()));
                 if (Buffer.State.ADDED.equals(rowElement.getState()) && !processedIdSet.contains(row.getId()) &&
                         inSet && (conditionService.check(row, iCondition))) {
-                    processedIdSet.add(row.getId());
+                    if (maxSize >= 0 && processedIdSet.size() >= maxSize) {
+                        bufferStopChecker.set(true);
+                    } else {
+                        processedIdSet.add(row.getId());
+                    }
                 }
-            });
+            }, bufferStopChecker);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -172,14 +184,19 @@ public class RowRepositoryImpl implements RowRepository {
                 rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
             }
             if (rows.size() < size) {
+                final AtomicBoolean bufferStopChecker = new AtomicBoolean();
                 buffer.stream(rowElement -> {
                     final Row row = rowElement.getValue();
                     final boolean inSet = !searchResult.found || (searchResult.idSet != null && searchResult.idSet.contains(row.getId()));
                     if (Buffer.State.ADDED.equals(rowElement.getState()) && !processedIdSet.contains(row.getId()) &&
-                            rows.size() < size && inSet && (conditionService.check(row, iCondition))) {
-                        rows.add(row);
+                            inSet && (conditionService.check(row, iCondition))) {
+                        if (rows.size() >= size) {
+                            bufferStopChecker.set(true);
+                        } else {
+                            rows.add(row);
+                        }
                     }
-                });
+                }, bufferStopChecker);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -223,7 +240,6 @@ public class RowRepositoryImpl implements RowRepository {
         if (deletedFields.isEmpty()) {
             return;
         }
-        final AtomicBoolean stopChecker = new AtomicBoolean(false);
         final AtomicLong counter = new AtomicLong();
         log.info("processing deleted fields to rows");
         try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
@@ -234,7 +250,7 @@ public class RowRepositoryImpl implements RowRepository {
                     log.info("processed deleted fields " + counter.get() + " rows");
                 }
             });
-            rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
+            rowIdRepository.stream(rowAddressConsumer, null, null);
             log.info("processing deleted fields to rows done, count " + counter.get());
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -242,7 +258,6 @@ public class RowRepositoryImpl implements RowRepository {
     }
 
     private void processIndexesChanges() {
-        final AtomicBoolean stopChecker = new AtomicBoolean(false);
         final AtomicLong counter = new AtomicLong();
         log.info("processing inserted indexes to rows");
         try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
@@ -252,7 +267,7 @@ public class RowRepositoryImpl implements RowRepository {
                     log.info("processed inserted indexes " + counter.get() + " rows");
                 }
             });
-            rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
+            rowIdRepository.stream(rowAddressConsumer, null, null);
             log.info("processing inserted indexes to rows done, count " + counter.get());
         } catch (IOException e) {
             throw new RuntimeException(e);

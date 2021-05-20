@@ -382,7 +382,7 @@ public class RowIdRepositoryTest {
                             assertEquals(rowAddress, rowAddressProcessed);
                         }));
                         counter.incrementAndGet();
-                    }, new AtomicBoolean(false), null);
+                    }, null, null);
                     assertEquals(lastId, counter.get());
                 }
                 {
@@ -393,8 +393,21 @@ public class RowIdRepositoryTest {
                             assertEquals(rowAddress, rowAddressProcessed);
                         }));
                         counter.incrementAndGet();
-                    }, new AtomicBoolean(false), idSet);
+                    }, null, idSet);
                     assertEquals(idSet.size() - 1, counter.get());
+                }
+                {
+                    final AtomicBoolean stopChecker = new AtomicBoolean();
+                    final AtomicInteger counter = new AtomicInteger();
+                    rowIdRepository.stream(rowAddress -> {
+                        assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> {
+                            assertEquals(rowAddress, rowAddressProcessed);
+                        }));
+                        if (counter.incrementAndGet() == 500) {
+                            stopChecker.set(true);
+                        }
+                    }, stopChecker, null);
+                    assertEquals(500, counter.get());
                 }
             });
         } finally {

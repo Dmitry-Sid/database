@@ -5,6 +5,7 @@ import server.model.pojo.Row;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
@@ -42,7 +43,7 @@ public class BufferTest {
             assertFalse(value.isFlushed());
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
-        });
+        }, null);
         assertEquals(maxSize - 1, counter.get());
         assertEquals(maxSize - 1, buffer.size());
         assertEquals(0, flushedConsumerCounter.get());
@@ -58,7 +59,7 @@ public class BufferTest {
             assertTrue(value.isFlushed());
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
-        });
+        }, null);
         assertEquals(maxSize - 2, counter.get());
         assertEquals(maxSize - 2, buffer.size());
         {
@@ -79,7 +80,7 @@ public class BufferTest {
             }
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
-        });
+        }, null);
         assertEquals(maxSize - 1, counter.get());
         assertEquals(maxSize - 1, buffer.size());
         assertEquals(maxSize - 2, flushed.get());
@@ -103,7 +104,7 @@ public class BufferTest {
             }
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
-        });
+        }, null);
         assertEquals(maxSize, counter.get());
         assertEquals(maxSize, buffer.size());
         assertEquals(maxSize - 2, flushed.get());
@@ -129,7 +130,7 @@ public class BufferTest {
             }
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
-        });
+        }, null);
         assertEquals(maxSize + 1, counter.get());
         assertEquals(maxSize + 1, buffer.size());
         assertEquals(maxSize - 2, flushed.get());
@@ -149,9 +150,21 @@ public class BufferTest {
             assertTrue(value.isFlushed());
             assertTrue(previous.get() <= value.getValue().getId());
             previous.set(value.getValue().getId());
-        });
+        }, null);
         assertEquals(maxSize, counter.get());
         assertEquals(maxSize, buffer.size());
         assertEquals(maxSize + 2, flushedConsumerCounter.get());
+
+        counter.set(0);
+        final AtomicBoolean stopChecker = new AtomicBoolean();
+        buffer.stream(value -> {
+            counter.incrementAndGet();
+            assertEquals(value, buffer.get(value.getValue().getId()));
+            assertTrue(value.isFlushed());
+            if (counter.get() >= Math.ceil(maxSize / 2)) {
+                stopChecker.set(true);
+            }
+        }, stopChecker);
+        assertEquals((int) Math.ceil(maxSize / 2), counter.get());
     }
 }

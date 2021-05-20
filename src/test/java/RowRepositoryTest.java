@@ -469,21 +469,21 @@ public class RowRepositoryTest {
             createFiles(lastId);
             final RowRepository rowRepository = prepareRepository(bufferSize);
             TestUtils.doAndSleep(rowRepository, () -> {
-                assertEquals(750, rowRepository.size(ICondition.empty));
-                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test")));
-                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3")));
-                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2")));
-                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4")));
+                assertEquals(750, rowRepository.size(ICondition.empty, -1));
+                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test"), -1));
+                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3"), -1));
+                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2"), -1));
+                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4"), -1));
                 for (int i = 70; i < 120; i++) {
                     final Map<String, Comparable> map = new HashMap<>();
                     map.put("testField1", "test");
                     rowRepository.add(new Row(i, map));
                 }
-                assertEquals(750, rowRepository.size(ICondition.empty));
-                assertEquals(50, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test")));
-                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2")));
-                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3")));
-                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4")));
+                assertEquals(750, rowRepository.size(ICondition.empty, -1));
+                assertEquals(50, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test"), -1));
+                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2"), -1));
+                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3"), -1));
+                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4"), -1));
                 {
                     final Map<String, Comparable> map = new HashMap<>();
                     map.put("testField1", "test");
@@ -494,21 +494,21 @@ public class RowRepositoryTest {
                     map.put("testField1", "test3");
                     rowRepository.add(new Row(0, map));
                 }
-                assertEquals(752, rowRepository.size(ICondition.empty));
-                assertEquals(51, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test")));
-                assertEquals(1, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3")));
-                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2")));
-                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4")));
+                assertEquals(752, rowRepository.size(ICondition.empty, -1));
+                assertEquals(51, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test"), -1));
+                assertEquals(1, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3"), -1));
+                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2"), -1));
+                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4"), -1));
                 for (int i = 130; i < 180; i++) {
                     final Map<String, Comparable> map = new HashMap<>();
                     map.put("testField2", "test2");
                     rowRepository.add(new Row(i, map));
                 }
-                assertEquals(752, rowRepository.size(ICondition.empty));
-                assertEquals(51, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test")));
-                assertEquals(1, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3")));
-                assertEquals(50, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2")));
-                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4")));
+                assertEquals(752, rowRepository.size(ICondition.empty, -1));
+                assertEquals(51, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test"), -1));
+                assertEquals(1, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3"), -1));
+                assertEquals(50, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2"), -1));
+                assertEquals(0, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4"), -1));
                 {
                     final Map<String, Comparable> map = new HashMap<>();
                     map.put("testField2", "test2");
@@ -519,11 +519,13 @@ public class RowRepositoryTest {
                     map.put("testField2", "test4");
                     rowRepository.add(new Row(0, map));
                 }
-                assertEquals(754, rowRepository.size(ICondition.empty));
-                assertEquals(51, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test")));
-                assertEquals(1, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3")));
-                assertEquals(51, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2")));
-                assertEquals(1, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4")));
+                assertEquals(754, rowRepository.size(ICondition.empty, -1));
+                assertEquals(51, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test"), -1));
+                assertEquals(1, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test3"), -1));
+                assertEquals(51, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test2"), -1));
+                assertEquals(1, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField2", "test4"), -1));
+                assertEquals(18, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test"), 18));
+                assertEquals(40, rowRepository.size(new SimpleCondition(ICondition.SimpleType.EQ, "testField1", "test"), 40));
             });
         } finally {
             for (Integer value : TestUtils.prepareBoundsBatch(lastId + 1, maxIdSize)) {

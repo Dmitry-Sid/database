@@ -137,7 +137,7 @@ public class RowIdRepositoryImpl implements RowIdRepository {
                     rowReadWriteLock.readLock().lock(filesRowPath + (compressSize * (value - 1) + i));
                 }
                 try {
-                    if (stopChecker.get()) {
+                    if (stopChecker != null && stopChecker.get()) {
                         return;
                     }
                     processRowAddresses(filesIdPath + value, cachedRowAddresses -> stream(cachedRowAddresses.rowAddressMap, rowAddressConsumer, stopChecker));
@@ -158,7 +158,7 @@ public class RowIdRepositoryImpl implements RowIdRepository {
     private void stream(Map<Integer, RowAddress> rowAddressMap, Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker) {
         for (Map.Entry<Integer, RowAddress> entry : rowAddressMap.entrySet().stream().sorted(Comparator.comparing(Map.Entry::getKey))
                 .collect(Collectors.toCollection(LinkedHashSet::new))) {
-            if (stopChecker.get()) {
+            if (stopChecker != null && stopChecker.get()) {
                 return;
             }
             rowAddressConsumer.accept(objectConverter.clone(entry.getValue()));
