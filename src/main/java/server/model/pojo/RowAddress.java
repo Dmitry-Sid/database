@@ -8,8 +8,8 @@ public class RowAddress extends TableType {
     private final int id;
     private long position;
     private int size;
-    private RowAddress previous;
-    private RowAddress next;
+    private int previous = -1;
+    private int next = -1;
 
     public RowAddress(String filePath, int id, long position, int size) {
         this.filePath = filePath;
@@ -38,19 +38,19 @@ public class RowAddress extends TableType {
         this.size = size;
     }
 
-    public RowAddress getPrevious() {
+    public int getPrevious() {
         return previous;
     }
 
-    public void setPrevious(RowAddress previous) {
+    public void setPrevious(int previous) {
         this.previous = previous;
     }
 
-    public RowAddress getNext() {
+    public int getNext() {
         return next;
     }
 
-    public void setNext(RowAddress next) {
+    public void setNext(int next) {
         this.next = next;
     }
 

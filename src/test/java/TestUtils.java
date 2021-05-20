@@ -70,8 +70,8 @@ public class TestUtils {
                 rowAddress = new RowAddress(filesRowPath + getRowFileNumber(id, maxRowSize), id, lastEndPosition, rowMap == null ? rowAddressSize : rowMap.get(id).length);
                 lastEndPosition += rowAddress.getSize();
                 if (rowAddressPrevious != null) {
-                    rowAddressPrevious.setNext(rowAddress);
-                    rowAddress.setPrevious(rowAddressPrevious);
+                    rowAddressPrevious.setNext(rowAddress.getId());
+                    rowAddress.setPrevious(rowAddressPrevious.getId());
                 }
                 rowAddressPrevious = rowAddress;
                 rowAddressMap.put(id, rowAddress);

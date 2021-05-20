@@ -1,7 +1,7 @@
 package server.model.impl;
 
-import com.sun.org.slf4j.internal.Logger;
-import com.sun.org.slf4j.internal.LoggerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import server.model.FileHelper;
 import server.model.lock.Lock;
 import server.model.lock.LockService;
@@ -12,6 +12,7 @@ import server.model.pojo.RowAddress;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 public class FileHelperImpl implements FileHelper {
@@ -127,6 +128,8 @@ public class FileHelperImpl implements FileHelper {
         final List<Runnable> runnableList = new ArrayList<>();
         try (ChainStream<InputStream> chainInputStream = getChainInputStream();
              ChainStream<OutputStream> chainOutputStream = getChainOutputStream()) {
+            log.info("processing saved rows");
+            final AtomicLong counter = new AtomicLong();
             for (CollectBean collectBean : list) {
                 final RowAddress rowAddress = collectBean.rowAddress;
                 if (inputFileName == null) {
@@ -167,8 +170,12 @@ public class FileHelperImpl implements FileHelper {
                     collectBean.inputOutputConsumer.accept(chainInputStream.getStream(), chainOutputStream.getStream());
                 }
                 runnableList.add(collectBean.runnable);
+                if (counter.incrementAndGet() % 1000 == 0) {
+                    log.info("processed " + counter.get() + " saved rows");
+                }
             }
             writeToEnd(chainInputStream, chainOutputStream);
+            log.info("processing saved rows done, count " + counter.get());
         } catch (IOException e) {
             delete(new File(tempFileName));
             throw new RuntimeException(e);

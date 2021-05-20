@@ -1,7 +1,7 @@
 package server.model.impl;
 
-import com.sun.org.slf4j.internal.Logger;
-import com.sun.org.slf4j.internal.LoggerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import server.model.ObjectConverter;
 import server.model.ProducerConsumer;
 import server.model.RowIdRepository;
@@ -92,9 +92,9 @@ public class RowIdRepositoryImpl implements RowIdRepository {
                     rowAddress = createRowAddress(id);
                     if (cachedRowAddresses.lastRowAddress != null && cachedRowAddresses.lastRowAddress.getFilePath().equals(getRowFileName(id))) {
                         final RowAddress lastRowAddress = cachedRowAddresses.lastRowAddress;
-                        lastRowAddress.setNext(rowAddress);
+                        lastRowAddress.setNext(rowAddress.getId());
                         rowAddress.setPosition(lastRowAddress.getPosition() + lastRowAddress.getSize());
-                        rowAddress.setPrevious(lastRowAddress);
+                        rowAddress.setPrevious(lastRowAddress.getId());
                     }
                     rowAddressConsumer.accept(rowAddress);
                     cachedRowAddresses.lastRowAddress = rowAddress;
@@ -123,7 +123,7 @@ public class RowIdRepositoryImpl implements RowIdRepository {
                 throw new RuntimeException("cannot find rowAddress with id : " + id);
             }
             rowAddressNext.setSize(sizeAfter);
-            while ((rowAddressNext = rowAddressNext.getNext()) != null) {
+            while ((rowAddressNext = cachedRowAddresses.rowAddressMap.get(rowAddressNext.getNext())) != null) {
                 rowAddressNext.setPosition(rowAddressNext.getPosition() + (sizeAfter - sizeBefore));
             }
         });
@@ -174,11 +174,11 @@ public class RowIdRepositoryImpl implements RowIdRepository {
                 return;
             }
             transform(id, rowAddress.getSize(), 0);
-            if (rowAddress.getPrevious() != null) {
-                rowAddress.getPrevious().setNext(rowAddress.getNext());
+            if (cachedRowAddresses.rowAddressMap.get(rowAddress.getPrevious()) != null) {
+                cachedRowAddresses.rowAddressMap.get(rowAddress.getPrevious()).setNext(rowAddress.getNext());
             }
-            if (rowAddress.getNext() != null) {
-                rowAddress.getNext().setPrevious(rowAddress.getPrevious());
+            if (cachedRowAddresses.rowAddressMap.get(rowAddress.getNext()) != null) {
+                cachedRowAddresses.rowAddressMap.get(rowAddress.getNext()).setPrevious(rowAddress.getPrevious());
             }
             cachedRowAddresses.rowAddressMap.remove(id);
             if (cachedRowAddresses.rowAddressMap.isEmpty()) {

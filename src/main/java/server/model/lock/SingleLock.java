@@ -1,10 +1,10 @@
 package server.model.lock;
 
-import com.sun.org.slf4j.internal.Logger;
-import com.sun.org.slf4j.internal.LoggerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Этото лок предназначен для пропуска потоков с захваченным значением
+ * Этот лок предназначен для пропуска потоков с захваченным значением
  *
  * @param <T>
  */

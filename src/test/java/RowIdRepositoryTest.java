@@ -58,14 +58,14 @@ public class RowIdRepositoryTest {
                     assertEquals(0, rowAddress.getPosition());
                     assertEquals(rowAddressSize, rowAddress.getSize());
                     final RowAddress rowAddressNext = new RowAddress(filesRowPath + 1, 2, 5, rowAddressSize);
-                    assertEquals(rowAddressNext, rowAddress.getNext());
+                    assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                 }));
                 assertTrue(rowIdRepository.process(250, rowAddress -> {
                     assertEquals(filesRowPath + 1, rowAddress.getFilePath());
                     assertEquals(250, rowAddress.getId());
                     assertEquals(1245, rowAddress.getPosition());
                     assertEquals(rowAddressSize, rowAddress.getSize());
-                    assertNull(rowAddress.getNext());
+                    assertEquals(-1, rowAddress.getNext());
                 }));
                 assertTrue(rowIdRepository.process(499, rowAddress -> {
                     assertEquals(filesRowPath + 2, rowAddress.getFilePath());
@@ -73,14 +73,14 @@ public class RowIdRepositoryTest {
                     assertEquals(1240, rowAddress.getPosition());
                     assertEquals(rowAddressSize, rowAddress.getSize());
                     final RowAddress rowAddressNext = new RowAddress(filesRowPath + 2, 500, 1245, rowAddressSize);
-                    assertEquals(rowAddressNext, rowAddress.getNext());
+                    assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                 }));
                 assertTrue(rowIdRepository.process(500, rowAddress -> {
                     assertEquals(filesRowPath + 2, rowAddress.getFilePath());
                     assertEquals(500, rowAddress.getId());
                     assertEquals(1245, rowAddress.getPosition());
                     assertEquals(rowAddressSize, rowAddress.getSize());
-                    assertNull(rowAddress.getNext());
+                    assertEquals(-1, rowAddress.getNext());
                 }));
                 assertTrue(rowIdRepository.process(501, rowAddress -> {
                     assertEquals(filesRowPath + 3, rowAddress.getFilePath());
@@ -88,7 +88,7 @@ public class RowIdRepositoryTest {
                     assertEquals(0, rowAddress.getPosition());
                     assertEquals(rowAddressSize, rowAddress.getSize());
                     final RowAddress rowAddressNext = new RowAddress(filesRowPath + 3, 502, 5, rowAddressSize);
-                    assertEquals(rowAddressNext, rowAddress.getNext());
+                    assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                 }));
                 assertTrue(rowIdRepository.process(749, rowAddress -> {
                     assertEquals(filesRowPath + 3, rowAddress.getFilePath());
@@ -96,14 +96,14 @@ public class RowIdRepositoryTest {
                     assertEquals(1240, rowAddress.getPosition());
                     assertEquals(rowAddressSize, rowAddress.getSize());
                     final RowAddress rowAddressNext = new RowAddress(filesRowPath + 3, 750, 1245, rowAddressSize);
-                    assertEquals(rowAddressNext, rowAddress.getNext());
+                    assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                 }));
                 assertTrue(rowIdRepository.process(750, rowAddress -> {
                     assertEquals(filesRowPath + 3, rowAddress.getFilePath());
                     assertEquals(750, rowAddress.getId());
                     assertEquals(1245, rowAddress.getPosition());
                     assertEquals(rowAddressSize, rowAddress.getSize());
-                    assertNull(rowAddress.getNext());
+                    assertEquals(-1, rowAddress.getNext());
                 }));
                 assertFalse(rowIdRepository.process(751, rowAddress -> {
                 }));
@@ -131,29 +131,29 @@ public class RowIdRepositoryTest {
                         assertEquals(250, rowAddress.getId());
                         assertEquals(1245, rowAddress.getPosition());
                         assertEquals(rowAddressSize, rowAddress.getSize());
-                        assertNull(rowAddress.getNext());
+                        assertEquals(-1, rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(750, rowAddress -> {
                         assertEquals(filesRowPath + 3, rowAddress.getFilePath());
                         assertEquals(750, rowAddress.getId());
                         assertEquals(1245, rowAddress.getPosition());
                         assertEquals(rowAddressSize, rowAddress.getSize());
-                        assertNull(rowAddress.getNext());
+                        assertEquals(-1, rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(751, rowAddress -> {
                         assertEquals(filesRowPath + 4, rowAddress.getFilePath());
                         assertEquals(751, rowAddress.getId());
                         assertEquals(0, rowAddress.getPosition());
                         assertEquals(10, rowAddress.getSize());
-                        assertNull(rowAddress.getPrevious());
-                        assertNull(rowAddress.getNext());
+                        assertEquals(-1, rowAddress.getPrevious());
+                        assertEquals(-1, rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(250, rowAddress -> {
                         assertEquals(filesRowPath + 1, rowAddress.getFilePath());
                         assertEquals(250, rowAddress.getId());
                         assertEquals(1245, rowAddress.getPosition());
                         assertEquals(rowAddressSize, rowAddress.getSize());
-                        assertNull(rowAddress.getNext());
+                        assertEquals(-1, rowAddress.getNext());
                     }));
                     rowIdRepository.add(rowIdRepository.newId(), rowAddress -> {
                         rowAddress.setSize(67);
@@ -163,23 +163,23 @@ public class RowIdRepositoryTest {
                         assertEquals(250, rowAddress.getId());
                         assertEquals(1245, rowAddress.getPosition());
                         assertEquals(rowAddressSize, rowAddress.getSize());
-                        assertNull(rowAddress.getNext());
+                        assertEquals(-1, rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(750, rowAddress -> {
                         assertEquals(filesRowPath + 3, rowAddress.getFilePath());
                         assertEquals(750, rowAddress.getId());
                         assertEquals(1245, rowAddress.getPosition());
                         assertEquals(rowAddressSize, rowAddress.getSize());
-                        assertNull(rowAddress.getNext());
+                        assertEquals(-1, rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(751, rowAddress -> {
                         assertEquals(filesRowPath + 4, rowAddress.getFilePath());
                         assertEquals(751, rowAddress.getId());
                         assertEquals(0, rowAddress.getPosition());
                         assertEquals(10, rowAddress.getSize());
-                        assertNull(rowAddress.getPrevious());
+                        assertEquals(-1, rowAddress.getPrevious());
                         final RowAddress rowAddressNext = new RowAddress(filesRowPath + 4, 752, 10, 67);
-                        assertEquals(rowAddressNext, rowAddress.getNext());
+                        assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(752, rowAddress -> {
                         assertEquals(filesRowPath + 4, rowAddress.getFilePath());
@@ -187,15 +187,15 @@ public class RowIdRepositoryTest {
                         assertEquals(10, rowAddress.getPosition());
                         assertEquals(67, rowAddress.getSize());
                         final RowAddress rowAddressPrevious = new RowAddress(filesRowPath + 4, 751, 0, 10);
-                        assertEquals(rowAddressPrevious, rowAddress.getPrevious());
-                        assertNull(rowAddress.getNext());
+                        assertEquals(rowAddressPrevious.getId(), rowAddress.getPrevious());
+                        assertEquals(-1, rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(250, rowAddress -> {
                         assertEquals(filesRowPath + 1, rowAddress.getFilePath());
                         assertEquals(250, rowAddress.getId());
                         assertEquals(1245, rowAddress.getPosition());
                         assertEquals(rowAddressSize, rowAddress.getSize());
-                        assertNull(rowAddress.getNext());
+                        assertEquals(-1, rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(752, rowAddress -> {
                         assertEquals(filesRowPath + 4, rowAddress.getFilePath());
@@ -203,8 +203,8 @@ public class RowIdRepositoryTest {
                         assertEquals(10, rowAddress.getPosition());
                         assertEquals(67, rowAddress.getSize());
                         final RowAddress rowAddressPrevious = new RowAddress(filesRowPath + 4, 751, 0, 10);
-                        assertEquals(rowAddressPrevious, rowAddress.getPrevious());
-                        assertNull(rowAddress.getNext());
+                        assertEquals(rowAddressPrevious.getId(), rowAddress.getPrevious());
+                        assertEquals(-1, rowAddress.getNext());
                     }));
                 });
             }
@@ -222,7 +222,7 @@ public class RowIdRepositoryTest {
                         assertEquals(0, rowAddress.getPosition());
                         assertEquals(14, rowAddress.getSize());
                         final RowAddress rowAddressNext = new RowAddress(filesRowPath + 3, 502, 14, rowAddressSize);
-                        assertEquals(rowAddressNext, rowAddress.getNext());
+                        assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(650, rowAddress -> {
                         assertEquals(filesRowPath + 3, rowAddress.getFilePath());
@@ -230,14 +230,14 @@ public class RowIdRepositoryTest {
                         assertEquals(754, rowAddress.getPosition());
                         assertEquals(rowAddressSize, rowAddress.getSize());
                         final RowAddress rowAddressNext = new RowAddress(filesRowPath + 3, 651, 759, rowAddressSize);
-                        assertEquals(rowAddressNext, rowAddress.getNext());
+                        assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(750, rowAddress -> {
                         assertEquals(filesRowPath + 3, rowAddress.getFilePath());
                         assertEquals(750, rowAddress.getId());
                         assertEquals(1254, rowAddress.getPosition());
                         assertEquals(rowAddressSize, rowAddress.getSize());
-                        assertNull(rowAddress.getNext());
+                        assertEquals(-1, rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(1, rowAddress -> {
                         assertEquals(filesRowPath + 1, rowAddress.getFilePath());
@@ -245,14 +245,14 @@ public class RowIdRepositoryTest {
                         assertEquals(0, rowAddress.getPosition());
                         assertEquals(rowAddressSize, rowAddress.getSize());
                         final RowAddress rowAddressNext = new RowAddress(filesRowPath + 1, 2, 5, rowAddressSize);
-                        assertEquals(rowAddressNext, rowAddress.getNext());
+                        assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(250, rowAddress -> {
                         assertEquals(filesRowPath + 1, rowAddress.getFilePath());
                         assertEquals(250, rowAddress.getId());
                         assertEquals(1245, rowAddress.getPosition());
                         assertEquals(7, rowAddress.getSize());
-                        assertNull(rowAddress.getNext());
+                        assertEquals(-1, rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(499, rowAddress -> {
                         assertEquals(filesRowPath + 2, rowAddress.getFilePath());
@@ -260,7 +260,7 @@ public class RowIdRepositoryTest {
                         assertEquals(1240, rowAddress.getPosition());
                         assertEquals(rowAddressSize, rowAddress.getSize());
                         final RowAddress rowAddressNext = new RowAddress(filesRowPath + 2, 500, 1245, rowAddressSize);
-                        assertEquals(rowAddressNext, rowAddress.getNext());
+                        assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                     }));
                     rowIdRepository.add(100, rowAddress -> {
                         rowAddress.setSize(15);
@@ -271,7 +271,7 @@ public class RowIdRepositoryTest {
                         assertEquals(490, rowAddress.getPosition());
                         assertEquals(rowAddressSize, rowAddress.getSize());
                         final RowAddress rowAddressNext = new RowAddress(filesRowPath + 1, 100, 495, 15);
-                        assertEquals(rowAddressNext, rowAddress.getNext());
+                        assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(100, rowAddress -> {
                         assertEquals(filesRowPath + 1, rowAddress.getFilePath());
@@ -279,23 +279,23 @@ public class RowIdRepositoryTest {
                         assertEquals(495, rowAddress.getPosition());
                         assertEquals(15, rowAddress.getSize());
                         final RowAddress rowAddressNext = new RowAddress(filesRowPath + 1, 101, 510, rowAddressSize);
-                        assertEquals(rowAddressNext, rowAddress.getNext());
+                        assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(250, rowAddress -> {
                         assertEquals(filesRowPath + 1, rowAddress.getFilePath());
                         assertEquals(250, rowAddress.getId());
                         assertEquals(1255, rowAddress.getPosition());
                         assertEquals(7, rowAddress.getSize());
-                        assertNull(rowAddress.getNext());
+                        assertEquals(-1, rowAddress.getNext());
                     }));
                     assertTrue(rowIdRepository.process(251, rowAddress -> {
                         assertEquals(filesRowPath + 2, rowAddress.getFilePath());
                         assertEquals(251, rowAddress.getId());
                         assertEquals(0, rowAddress.getPosition());
                         assertEquals(rowAddressSize, rowAddress.getSize());
-                        assertNull(rowAddress.getPrevious());
+                        assertEquals(-1, rowAddress.getPrevious());
                         final RowAddress rowAddressNext = new RowAddress(filesRowPath + 2, 252, 5, rowAddressSize);
-                        assertEquals(rowAddressNext, rowAddress.getNext());
+                        assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                     }));
                 });
             }
@@ -319,9 +319,9 @@ public class RowIdRepositoryTest {
                     assertEquals(245, rowAddress.getPosition());
                     assertEquals(rowAddressSize, rowAddress.getSize());
                     final RowAddress rowAddressPrevious = new RowAddress(filesRowPath + 2, 299, 240, rowAddressSize);
-                    assertEquals(rowAddressPrevious, rowAddress.getPrevious());
+                    assertEquals(rowAddressPrevious.getId(), rowAddress.getPrevious());
                     final RowAddress rowAddressNext = new RowAddress(filesRowPath + 2, 301, 250, rowAddressSize);
-                    assertEquals(rowAddressNext, rowAddress.getNext());
+                    assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                 }));
                 rowIdRepository.delete(300);
                 assertFalse(rowIdRepository.process(300, rowAddress -> {
@@ -332,7 +332,7 @@ public class RowIdRepositoryTest {
                     assertEquals(750, rowAddress.getId());
                     assertEquals(1245, rowAddress.getPosition());
                     assertEquals(rowAddressSize, rowAddress.getSize());
-                    assertNull(rowAddress.getNext());
+                    assertEquals(-1, rowAddress.getNext());
                 }));
                 assertTrue(rowIdRepository.process(299, rowAddress -> {
                     assertEquals(filesRowPath + 2, rowAddress.getFilePath());
@@ -340,9 +340,9 @@ public class RowIdRepositoryTest {
                     assertEquals(240, rowAddress.getPosition());
                     assertEquals(rowAddressSize, rowAddress.getSize());
                     final RowAddress rowAddressPrevious = new RowAddress(filesRowPath + 2, 298, 235, rowAddressSize);
-                    assertEquals(rowAddressPrevious, rowAddress.getPrevious());
+                    assertEquals(rowAddressPrevious.getId(), rowAddress.getPrevious());
                     final RowAddress rowAddressNext = new RowAddress(filesRowPath + 2, 301, 245, rowAddressSize);
-                    assertEquals(rowAddressNext, rowAddress.getNext());
+                    assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                 }));
                 assertTrue(rowIdRepository.process(301, rowAddress -> {
                     assertEquals(filesRowPath + 2, rowAddress.getFilePath());
@@ -350,9 +350,9 @@ public class RowIdRepositoryTest {
                     assertEquals(245, rowAddress.getPosition());
                     assertEquals(rowAddressSize, rowAddress.getSize());
                     final RowAddress rowAddressPrevious = new RowAddress(filesRowPath + 2, 299, 240, rowAddressSize);
-                    assertEquals(rowAddressPrevious, rowAddress.getPrevious());
+                    assertEquals(rowAddressPrevious.getId(), rowAddress.getPrevious());
                     final RowAddress rowAddressNext = new RowAddress(filesRowPath + 2, 302, 250, rowAddressSize);
-                    assertEquals(rowAddressNext, rowAddress.getNext());
+                    assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                 }));
                 rowIdRepository.delete(750);
                 final int[] id = new int[1];
@@ -405,7 +405,7 @@ public class RowIdRepositoryTest {
     }
 
     @Test
-    public void concurrentTest() throws InterruptedException {
+    public void concurrentTest() {
         final int lastId = 750;
         final int max = 5000;
         createFiles(lastId);

@@ -31,8 +31,8 @@ public class ObjectConverterImpl implements ObjectConverter {
 
     @Override
     public void toFile(Serializable serializable, String file) {
-        try (FileOutputStream fous = new FileOutputStream(file); ObjectOutputStream ous = new ObjectOutputStream(fous)) {
-            ous.writeObject(serializable);
+        try (FileOutputStream fous = new FileOutputStream(file)) {
+            fous.write(SerializationUtils.serialize(serializable));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

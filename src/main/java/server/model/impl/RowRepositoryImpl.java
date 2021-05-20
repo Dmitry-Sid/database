@@ -1,5 +1,7 @@
 package server.model.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import server.model.*;
 import server.model.pojo.ICondition;
 import server.model.pojo.Row;
@@ -16,6 +18,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class RowRepositoryImpl implements RowRepository {
+    private static final Logger log = LoggerFactory.getLogger(RowRepositoryImpl.class);
     protected final RowIdRepository rowIdRepository;
     private final ObjectConverter objectConverter;
     private final FileHelper fileHelper;
@@ -24,7 +27,7 @@ public class RowRepositoryImpl implements RowRepository {
     private final Buffer<Row> buffer;
     private final Set<String> fields = Collections.synchronizedSet(new HashSet<>());
     private final ProducerConsumer<Runnable> producerConsumer = new ProducerConsumerImpl<>(1000);
-    private volatile boolean destroyed = true;
+    private volatile boolean destroyed;
 
     public RowRepositoryImpl(ObjectConverter objectConverter, RowIdRepository rowIdRepository, FileHelper fileHelper, IndexService indexService, ConditionService conditionService, ModelService modelService, int bufferSize, long sleepTime) {
         this.objectConverter = objectConverter;
@@ -221,12 +224,18 @@ public class RowRepositoryImpl implements RowRepository {
             return;
         }
         final AtomicBoolean stopChecker = new AtomicBoolean(false);
+        final AtomicLong counter = new AtomicLong();
+        log.info("processing deleted fields to rows");
         try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
             final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
                 deletedFields.forEach(field -> row.getFields().remove(field));
                 add(row);
+                if (counter.incrementAndGet() % 1000 == 0) {
+                    log.info("processed deleted fields " + counter.get() + " rows");
+                }
             });
             rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
+            log.info("processing deleted fields to rows done, count " + counter.get());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -234,9 +243,17 @@ public class RowRepositoryImpl implements RowRepository {
 
     private void processIndexesChanges() {
         final AtomicBoolean stopChecker = new AtomicBoolean(false);
+        final AtomicLong counter = new AtomicLong();
+        log.info("processing inserted indexes to rows");
         try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
-            final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, indexService::insert);
+            final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
+                indexService.insert(row);
+                if (counter.incrementAndGet() % 1000 == 0) {
+                    log.info("processed inserted indexes " + counter.get() + " rows");
+                }
+            });
             rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
+            log.info("processing inserted indexes to rows done, count " + counter.get());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
