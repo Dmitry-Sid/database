@@ -7,7 +7,7 @@ import java.util.Set;
 
 public interface IndexService extends Destroyable {
 
-    SearchResult search(ICondition condition);
+    SearchResult search(ICondition condition, int size);
 
     void transform(Row oldRow, Row row);
 

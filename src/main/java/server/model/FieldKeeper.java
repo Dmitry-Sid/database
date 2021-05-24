@@ -12,7 +12,7 @@ public interface FieldKeeper<U extends Comparable<U>, V> extends Destroyable {
 
     DeleteResult delete(U key, V value);
 
-    Set<V> conditionSearch(SimpleCondition condition);
+    Set<V> conditionSearch(SimpleCondition condition, int size);
 
     Set<V> search(U key);
 

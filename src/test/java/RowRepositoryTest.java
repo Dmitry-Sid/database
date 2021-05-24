@@ -558,7 +558,7 @@ public class RowRepositoryTest {
         final IndexService indexService = mock(IndexService.class);
         final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
         final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LIKE, "String", "es");
-        when(indexService.search(any(ICondition.class))).thenAnswer(invocation -> {
+        when(indexService.search(any(ICondition.class), -1)).thenAnswer(invocation -> {
             final ICondition condition = (ICondition) invocation.getArguments()[0];
             final Set<Integer> set = new HashSet<>();
             boolean found = false;

@@ -9,7 +9,7 @@ import server.model.pojo.ICondition;
 import server.model.pojo.SimpleCondition;
 
 import java.util.HashMap;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -28,19 +28,30 @@ public class IndexServiceTest {
     @Test
     public void searchTest() {
         {
-            final IndexService.SearchResult searchResult = indexService.search(null);
+            final IndexService.SearchResult searchResult = indexService.search(null, -1);
             assertFalse(searchResult.found);
         }
         {
-            final IndexService.SearchResult searchResult = indexService.search(new EmptyCondition());
+            final IndexService.SearchResult searchResult = indexService.search(new EmptyCondition(), -1);
             assertFalse(searchResult.found);
         }
         {
             final ICondition condition = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
-            final IndexService.SearchResult searchResult = indexService.search(condition);
+            final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(51, searchResult.idSet.size());
-            AtomicInteger i = new AtomicInteger(10);
+            final AtomicInteger i = new AtomicInteger(10);
+            searchResult.idSet.stream().sorted().forEach(id -> {
+                assertEquals((Integer) i.get(), id);
+                i.getAndIncrement();
+            });
+        }
+        {
+            final ICondition condition = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
+            final IndexService.SearchResult searchResult = indexService.search(condition, 10);
+            assertTrue(searchResult.found);
+            assertEquals(10, searchResult.idSet.size());
+            final AtomicInteger i = new AtomicInteger(10);
             searchResult.idSet.stream().sorted().forEach(id -> {
                 assertEquals((Integer) i.get(), id);
                 i.getAndIncrement();
@@ -48,10 +59,21 @@ public class IndexServiceTest {
         }
         {
             final ICondition condition = new SimpleCondition(ICondition.SimpleType.LT, "int", 20);
-            final IndexService.SearchResult searchResult = indexService.search(condition);
+            final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(51, searchResult.idSet.size());
-            AtomicInteger i = new AtomicInteger(70);
+            final AtomicInteger i = new AtomicInteger(70);
+            searchResult.idSet.stream().sorted().forEach(id -> {
+                assertEquals((Integer) i.get(), id);
+                i.getAndIncrement();
+            });
+        }
+        {
+            final ICondition condition = new SimpleCondition(ICondition.SimpleType.LT, "int", 20);
+            final IndexService.SearchResult searchResult = indexService.search(condition, 30);
+            assertTrue(searchResult.found);
+            assertEquals(30, searchResult.idSet.size());
+            final AtomicInteger i = new AtomicInteger(70);
             searchResult.idSet.stream().sorted().forEach(id -> {
                 assertEquals((Integer) i.get(), id);
                 i.getAndIncrement();
@@ -59,10 +81,21 @@ public class IndexServiceTest {
         }
         {
             final ICondition condition = new SimpleCondition(ICondition.SimpleType.GT, "String", "se");
-            final IndexService.SearchResult searchResult = indexService.search(condition);
+            final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(51, searchResult.idSet.size());
-            AtomicInteger i = new AtomicInteger(20);
+            final AtomicInteger i = new AtomicInteger(20);
+            searchResult.idSet.stream().sorted().forEach(id -> {
+                assertEquals((Integer) i.get(), id);
+                i.getAndIncrement();
+            });
+        }
+        {
+            final ICondition condition = new SimpleCondition(ICondition.SimpleType.GT, "String", "se");
+            final IndexService.SearchResult searchResult = indexService.search(condition, 29);
+            assertTrue(searchResult.found);
+            assertEquals(29, searchResult.idSet.size());
+            final AtomicInteger i = new AtomicInteger(20);
             searchResult.idSet.stream().sorted().forEach(id -> {
                 assertEquals((Integer) i.get(), id);
                 i.getAndIncrement();
@@ -70,10 +103,21 @@ public class IndexServiceTest {
         }
         {
             final ICondition condition = new SimpleCondition(ICondition.SimpleType.LT, "String", "te");
-            final IndexService.SearchResult searchResult = indexService.search(condition);
+            final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(51, searchResult.idSet.size());
-            AtomicInteger i = new AtomicInteger(80);
+            final AtomicInteger i = new AtomicInteger(80);
+            searchResult.idSet.stream().sorted().forEach(id -> {
+                assertEquals((Integer) i.get(), id);
+                i.getAndIncrement();
+            });
+        }
+        {
+            final ICondition condition = new SimpleCondition(ICondition.SimpleType.LT, "String", "te");
+            final IndexService.SearchResult searchResult = indexService.search(condition, 18);
+            assertTrue(searchResult.found);
+            assertEquals(18, searchResult.idSet.size());
+            final AtomicInteger i = new AtomicInteger(80);
             searchResult.idSet.stream().sorted().forEach(id -> {
                 assertEquals((Integer) i.get(), id);
                 i.getAndIncrement();
@@ -83,10 +127,31 @@ public class IndexServiceTest {
             final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
                     new SimpleCondition(ICondition.SimpleType.GT, "int", 20),
                     new SimpleCondition(ICondition.SimpleType.GT, "String", "se"));
-            final IndexService.SearchResult searchResult = indexService.search(condition);
+            final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(61, searchResult.idSet.size());
-            AtomicInteger i = new AtomicInteger(10);
+            final AtomicInteger i = new AtomicInteger(10);
+            searchResult.idSet.stream().sorted().forEach(id -> {
+                assertEquals((Integer) i.get(), id);
+                i.getAndIncrement();
+            });
+        }
+        {
+            final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
+                    new SimpleCondition(ICondition.SimpleType.GT, "int", 20),
+                    new SimpleCondition(ICondition.SimpleType.GT, "String", "se"));
+            final IndexService.SearchResult searchResult = indexService.search(condition, 44);
+            assertTrue(searchResult.found);
+            assertEquals(44, searchResult.idSet.size());
+        }
+        {
+            final ICondition condition = new ComplexCondition(ICondition.ComplexType.AND,
+                    new SimpleCondition(ICondition.SimpleType.GT, "int", 20),
+                    new SimpleCondition(ICondition.SimpleType.GT, "String", "se"));
+            final IndexService.SearchResult searchResult = indexService.search(condition, -1);
+            assertTrue(searchResult.found);
+            assertEquals(41, searchResult.idSet.size());
+            final AtomicInteger i = new AtomicInteger(20);
             searchResult.idSet.stream().sorted().forEach(id -> {
                 assertEquals((Integer) i.get(), id);
                 i.getAndIncrement();
@@ -96,23 +161,19 @@ public class IndexServiceTest {
             final ICondition condition = new ComplexCondition(ICondition.ComplexType.AND,
                     new SimpleCondition(ICondition.SimpleType.GT, "int", 20),
                     new SimpleCondition(ICondition.SimpleType.GT, "String", "se"));
-            final IndexService.SearchResult searchResult = indexService.search(condition);
+            final IndexService.SearchResult searchResult = indexService.search(condition, 25);
             assertTrue(searchResult.found);
-            assertEquals(41, searchResult.idSet.size());
-            AtomicInteger i = new AtomicInteger(20);
-            searchResult.idSet.stream().sorted().forEach(id -> {
-                assertEquals((Integer) i.get(), id);
-                i.getAndIncrement();
-            });
+            assertEquals(25, searchResult.idSet.size());
+            final AtomicInteger i = new AtomicInteger();
         }
         {
             final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
                     new SimpleCondition(ICondition.SimpleType.LT, "int", 20),
                     new SimpleCondition(ICondition.SimpleType.GT, "String", "se"));
-            final IndexService.SearchResult searchResult = indexService.search(condition);
+            final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(101, searchResult.idSet.size());
-            AtomicInteger i = new AtomicInteger(20);
+            final AtomicInteger i = new AtomicInteger(20);
             searchResult.idSet.stream().sorted().forEach(id -> {
                 assertEquals((Integer) i.get(), id);
                 i.getAndIncrement();
@@ -122,10 +183,10 @@ public class IndexServiceTest {
             final ICondition condition = new ComplexCondition(ICondition.ComplexType.AND,
                     new SimpleCondition(ICondition.SimpleType.LT, "int", 20),
                     new SimpleCondition(ICondition.SimpleType.LT, "String", "te"));
-            final IndexService.SearchResult searchResult = indexService.search(condition);
+            final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(41, searchResult.idSet.size());
-            AtomicInteger i = new AtomicInteger(80);
+            final AtomicInteger i = new AtomicInteger(80);
             searchResult.idSet.stream().sorted().forEach(id -> {
                 assertEquals((Integer) i.get(), id);
                 i.getAndIncrement();
@@ -171,16 +232,18 @@ public class IndexServiceTest {
         final FieldKeeper<Integer, Integer> fieldKeeper = (FieldKeeper<Integer, Integer>) mock(FieldKeeper.class);
         final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
         final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LT, "int", 20);
-        when(fieldKeeper.conditionSearch(any(SimpleCondition.class))).thenAnswer(invocation -> {
+        when(fieldKeeper.conditionSearch(any(SimpleCondition.class), anyInt())).thenAnswer(invocation -> {
             final ICondition condition = (ICondition) invocation.getArguments()[0];
-            final Set<Integer> set = new LinkedHashSet<>();
+            final int size = (int) invocation.getArguments()[1];
+            final Set<Integer> set = new HashSet<>();
+            int bound = size > -1 ? Math.min(50, size - 1) : 50;
             if (condition1.equals(condition)) {
-                for (int i = 10; i <= 60; i++) {
-                    set.add(i);
+                for (int i = 0; i <= bound; i++) {
+                    set.add(i + 10);
                 }
             } else if (condition2.equals(condition)) {
-                for (int i = 70; i <= 120; i++) {
-                    set.add(i);
+                for (int i = 0; i <= bound; i++) {
+                    set.add(i + 70);
                 }
             }
             return set;
@@ -205,16 +268,18 @@ public class IndexServiceTest {
         final FieldKeeper<String, Integer> fieldKeeper = (FieldKeeper<String, Integer>) mock(FieldKeeper.class);
         final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "String", "se");
         final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LT, "String", "te");
-        when(fieldKeeper.conditionSearch(any(SimpleCondition.class))).thenAnswer(invocation -> {
+        when(fieldKeeper.conditionSearch(any(SimpleCondition.class), anyInt())).thenAnswer(invocation -> {
             final ICondition condition = (ICondition) invocation.getArguments()[0];
-            final Set<Integer> set = new LinkedHashSet<>();
+            final int size = (int) invocation.getArguments()[1];
+            final Set<Integer> set = new HashSet<>();
+            int bound = size > -1 ? Math.min(50, size - 1) : 50;
             if (condition1.equals(condition)) {
-                for (int i = 20; i <= 70; i++) {
-                    set.add(i);
+                for (int i = 0; i <= bound; i++) {
+                    set.add(i + 20);
                 }
             } else if (condition2.equals(condition)) {
-                for (int i = 80; i <= 130; i++) {
-                    set.add(i);
+                for (int i = 0; i <= bound; i++) {
+                    set.add(i + 80);
                 }
             }
             return set;

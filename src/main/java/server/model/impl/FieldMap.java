@@ -3,6 +3,7 @@ package server.model.impl;
 import server.model.BaseFieldKeeper;
 import server.model.ConditionService;
 import server.model.ObjectConverter;
+import server.model.Utils;
 import server.model.pojo.SimpleCondition;
 
 import java.util.Collections;
@@ -11,7 +12,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 public class FieldMap<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
 
@@ -53,9 +53,14 @@ public class FieldMap<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> 
     }
 
     @Override
-    public Set<V> conditionSearchNotNull(SimpleCondition condition) {
-        return getVariables().valuesMap.entrySet().stream().filter(entry -> conditionService.check(entry.getKey(), condition))
-                .flatMap(entry -> entry.getValue().stream()).collect(Collectors.toSet());
+    public void conditionSearchNotNull(SimpleCondition condition, Set<V> set, int size) {
+        for (Map.Entry<U, Set<V>> entry : getVariables().valuesMap.entrySet()) {
+            if (conditionService.check(entry.getKey(), condition)) {
+                if (Utils.fillToFull(set, size, entry.getValue())) {
+                    return;
+                }
+            }
+        }
     }
 
     @Override

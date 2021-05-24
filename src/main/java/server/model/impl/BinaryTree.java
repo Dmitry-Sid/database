@@ -1,9 +1,6 @@
 package server.model.impl;
 
-import server.model.BaseFieldKeeper;
-import server.model.ConditionException;
-import server.model.ConditionService;
-import server.model.ObjectConverter;
+import server.model.*;
 import server.model.lock.LockService;
 import server.model.pojo.ICondition;
 import server.model.pojo.Pair;
@@ -118,14 +115,12 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
     }
 
     @Override
-    public Set<V> conditionSearchNotNull(SimpleCondition condition) {
-        return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
+    public void conditionSearchNotNull(SimpleCondition condition, Set<V> set, int size) {
+        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
             if (getVariables().root == null) {
-                return Collections.emptySet();
+                return;
             }
-            final ConditionSearcher conditionSearcher = new ConditionSearcher(condition);
-            conditionSearcher.search(getVariables().root);
-            return conditionSearcher.set;
+            new ConditionSearcher(condition, set, size).search(getVariables().root);
         });
     }
 
@@ -195,19 +190,24 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
     }
 
     private class ConditionSearcher {
-        private final Set<V> set = new HashSet<>();
         private final SimpleCondition condition;
+        private final Set<V> set;
+        private final int size;
 
-        private ConditionSearcher(SimpleCondition condition) {
+        private ConditionSearcher(SimpleCondition condition, Set<V> set, int size) {
             this.condition = condition;
+            this.set = set;
+            this.size = size;
         }
 
         private void search(Node<U, V> node) {
-            if (node == null) {
+            if (node == null || Utils.isFull(set, size)) {
                 return;
             }
             if (conditionService.check(node.key, condition)) {
-                set.addAll(node.value);
+                if (Utils.fillToFull(set, size, node.value)) {
+                    return;
+                }
             }
             if (node.left == null && node.right == null) {
                 return;

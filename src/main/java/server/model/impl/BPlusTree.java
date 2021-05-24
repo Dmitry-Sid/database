@@ -15,8 +15,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
 public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
-    protected final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    private static final Set<SearchDirection> ALL = new HashSet<>(Arrays.asList(SearchDirection.LEFT_DOWN, SearchDirection.RIGHT, SearchDirection.RIGHT_DOWN));
     public final int treeFactor;
+    protected final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     public BPlusTree(String fieldName, String path, ObjectConverter objectConverter, ConditionService conditionService, int treeFactor) {
         super(fieldName, path, objectConverter, conditionService);
@@ -255,11 +256,9 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     }
 
     @Override
-    public Set<V> conditionSearchNotNull(SimpleCondition condition) {
-        return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
-            final ConditionSearcher conditionSearcher = new ConditionSearcher(condition);
-            conditionSearcher.search(getVariables().root, 0);
-            return conditionSearcher.set;
+    public void conditionSearchNotNull(SimpleCondition condition, Set<V> set, int size) {
+        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
+            new ConditionSearcher(condition, set, size).search(getVariables().root, 0);
         });
     }
 
@@ -374,6 +373,10 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         return (BTreeVariables<U, V>) variables;
     }
 
+    private enum SearchDirection {
+        RIGHT, RIGHT_DOWN, LEFT_DOWN, NONE,
+    }
+
     public static class BTreeVariables<U, V> extends Variables<U, V> {
         private static final long serialVersionUID = -4536650721479536430L;
         private final AtomicLong counter;
@@ -421,27 +424,26 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         }
     }
 
-    private enum SearchDirection {
-        RIGHT, RIGHT_DOWN, LEFT_DOWN, NONE,
-    }
-
-    private static final Set<SearchDirection> ALL = new HashSet<>(Arrays.asList(SearchDirection.LEFT_DOWN, SearchDirection.RIGHT, SearchDirection.RIGHT_DOWN));
-
     private class ConditionSearcher {
-        private final Set<V> set = new HashSet<>();
         private final SimpleCondition condition;
+        private final Set<V> set;
+        private final int size;
 
-        private ConditionSearcher(SimpleCondition condition) {
+        private ConditionSearcher(SimpleCondition condition, Set<V> set, int size) {
             this.condition = condition;
+            this.set = set;
+            this.size = size;
         }
 
         private void search(Node<U, V> node, int index) {
-            if (node == null) {
+            if (node == null || Utils.isFull(set, size) || node.pairs.size() <= index) {
                 return;
             }
             final Pair<U, Set<V>> pair = node.pairs.get(index);
             if (conditionService.check(pair.getFirst(), condition)) {
-                set.addAll(pair.getSecond());
+                if (Utils.fillToFull(set, size, pair.getSecond())) {
+                    return;
+                }
             }
             if (index == node.pairs.size() - 1 && isLeaf(node)) {
                 return;

@@ -88,7 +88,7 @@ public class RowRepositoryImpl implements RowRepository {
                     }
                 }
             });
-            final IndexService.SearchResult searchResult = indexService.search(iCondition);
+            final IndexService.SearchResult searchResult = indexService.search(iCondition, maxSize);
             if (searchResult.found) {
                 if (searchResult.idSet != null && searchResult.idSet.size() > 0) {
                     rowIdRepository.stream(rowAddressConsumer, stopChecker, searchResult.idSet);
@@ -175,7 +175,7 @@ public class RowRepositoryImpl implements RowRepository {
                     stopChecker.set(true);
                 }
             });
-            final IndexService.SearchResult searchResult = indexService.search(iCondition);
+            final IndexService.SearchResult searchResult = indexService.search(iCondition, size);
             if (searchResult.found) {
                 if (searchResult.idSet != null && searchResult.idSet.size() > 0) {
                     rowIdRepository.stream(rowAddressConsumer, stopChecker, searchResult.idSet);

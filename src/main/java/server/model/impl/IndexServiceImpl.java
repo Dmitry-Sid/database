@@ -30,8 +30,8 @@ public class IndexServiceImpl implements IndexService {
         this.objectConverter = objectConverter;
         this.conditionService = conditionService;
         this.fieldKeepers = new ConcurrentHashMap<>();
-        if (new File(path).exists()) {
-            final Set<String> fields = objectConverter.fromFile(HashSet.class, path);
+        if (new File(getFullPath()).exists()) {
+            final Set<String> fields = objectConverter.fromFile(HashSet.class, getFullPath());
             fields.forEach(field -> fieldKeepers.put(field, createFieldKeeper(field)));
         }
         modelService.subscribeOnIndexesChanges(fields -> {
@@ -54,64 +54,62 @@ public class IndexServiceImpl implements IndexService {
         });
     }
 
+    private String getFullPath() {
+        return path + "indexes";
+    }
+
     @Override
-    public SearchResult search(ICondition condition) {
+    public SearchResult search(ICondition condition, int size) {
         if (condition == null || condition instanceof EmptyCondition) {
             return EMPTY;
         }
-        return searchResult(condition);
+        return searchResult(condition, size);
     }
 
-    private SearchResult searchResult(ICondition condition) {
+    private SearchResult searchResult(ICondition condition, int size) {
         if (condition instanceof SimpleCondition) {
             final FieldKeeper fieldKeeper = fieldKeepers.get(((SimpleCondition) condition).getField());
             if (fieldKeeper != null) {
-                return new SearchResult(true, fieldKeeper.conditionSearch((SimpleCondition) condition));
+                return new SearchResult(true, fieldKeeper.conditionSearch((SimpleCondition) condition, size));
             } else {
                 return new SearchResult(false, null);
             }
         } else if (condition instanceof ComplexCondition) {
-            return searchResult((ComplexCondition) condition);
+            return searchResult((ComplexCondition) condition, size);
         } else if (condition instanceof EmptyCondition) {
             return new SearchResult(true, Collections.emptySet());
         }
         throw new ConditionException("Unknown condition class : " + condition.getClass());
     }
 
-    private SearchResult searchResult(ComplexCondition condition) {
-        boolean found = true;
-        Set<Integer> result = null;
+    private SearchResult searchResult(ComplexCondition condition, int size) {
+        SearchResult searchResult = null;
         for (ICondition innerCondition : condition.getConditions()) {
-            if (!found) {
-                break;
+            final SearchResult searchResultInner = searchResult(innerCondition, -1);
+            if (!searchResultInner.found) {
+                return new SearchResult(false, null);
             }
-            if (result == null) {
-                final SearchResult searchResult = searchResult(innerCondition);
-                if (searchResult.found) {
-                    result = searchResult.idSet;
-                }
+            if (searchResult == null) {
+                searchResult = searchResultInner;
                 continue;
             }
-            final SearchResult searchResult = searchResult(innerCondition);
             switch (condition.getType()) {
                 case OR:
-                    if (!searchResult.found) {
-                        found = false;
-                        result = null;
-                        break;
+                    if (Utils.fillToFull(searchResult.idSet, size, searchResultInner.idSet)) {
+                        return searchResult;
                     }
-                    result.addAll(searchResult(innerCondition).idSet);
                     break;
                 case AND:
-                    if (searchResult.found) {
-                        result.retainAll(searchResult(innerCondition).idSet);
-                    }
+                    searchResult.idSet.retainAll(searchResultInner.idSet);
                     break;
                 default:
                     throw new ConditionException("Unknown complex type : " + condition.getType());
             }
         }
-        return new SearchResult(found, result);
+        if (searchResult == null) {
+            return new SearchResult(false, null);
+        }
+        return new SearchResult(true, size > -1 ? new HashSet<>(new ArrayList<>(searchResult.idSet).subList(0, Math.min(size, searchResult.idSet.size()))) : searchResult.idSet);
     }
 
     @Override
@@ -141,7 +139,7 @@ public class IndexServiceImpl implements IndexService {
 
     @Override
     public void destroy() {
-        objectConverter.toFile(new HashSet<>(fieldKeepers.keySet()), path);
+        objectConverter.toFile(new HashSet<>(fieldKeepers.keySet()), getFullPath());
         fieldKeepers.values().forEach(FieldKeeper::destroy);
     }
 }
