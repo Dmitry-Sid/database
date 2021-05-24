@@ -9,7 +9,6 @@ import server.model.impl.ObjectConverterImpl;
 import server.model.lock.LockService;
 import server.model.pojo.Pair;
 
-import java.io.File;
 import java.util.*;
 import java.util.function.Function;
 
@@ -40,7 +39,7 @@ public class BPlusTreeTest extends FieldKeeperTest {
         private Map<String, LeafNode<U, V>> map;
 
         private TestBPlusTree(String fieldName, String path, ObjectConverter objectConverter, ConditionService conditionService, int treeFactor) {
-            super(fieldName, path, objectConverter, conditionService, treeFactor);
+            super(fieldName, path, objectConverter, conditionService, treeFactor, 10, 50);
         }
 
         @Override
@@ -121,15 +120,11 @@ public class BPlusTreeTest extends FieldKeeperTest {
                 return pair;
             }
 
-            Node<U, V> childLeft = getChildren(node).get(index);
-            assert !isLeaf(childLeft) || !isInitialized(node) && new File(((LeafNode<U, V>) childLeft).fileName).exists();
-            childLeft = readChild(node, index);
+            Node<U, V> childLeft  = readChild(node, index);
             checkChildPair(pair, childLeft, result -> result < 0);
             checkNode(childLeft);
 
-            Node<U, V> childRight = getChildren(node).get(index + 1);
-            assert !isLeaf(childRight) || !isInitialized(node) && new File(((LeafNode<U, V>) childRight).fileName).exists();
-            childRight = readChild(node, index + 1);
+            Node<U, V> childRight = readChild(node, index + 1);
             checkChildPair(pair, childRight, result -> result > 0);
             checkNode(childRight);
 

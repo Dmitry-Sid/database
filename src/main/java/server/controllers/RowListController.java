@@ -1,6 +1,8 @@
 package server.controllers;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,6 +26,7 @@ import java.util.stream.IntStream;
 @Controller
 @RequestMapping(value = "/", produces = "text/plain;charset=UTF-8")
 public class RowListController {
+    private static final Logger log = LoggerFactory.getLogger(RowListController.class);
     private static final int ROWS_PER_PAGE = 25;
     private static final int MAX_SIZE = 500;
     private final RowRepository rowRepository;
@@ -34,10 +37,15 @@ public class RowListController {
         this.rowRepository = rowRepository;
         this.modelService = modelService;
         this.conditionService = conditionService;
+        log.info("created info");
+        log.debug("created debug");
+        log.error("created error");
+        log.warn("created warn");
     }
 
     @GetMapping("/")
     public String searchRows(Model model, HttpServletRequest request, @RequestParam(defaultValue = "") String searchRequest, @RequestParam(defaultValue = "1") int page) throws UnsupportedEncodingException {
+        long start = System.currentTimeMillis();
         if (StringUtils.isBlank(searchRequest)) {
             searchRequest = (String) request.getSession().getAttribute("searchRequest");
             if (StringUtils.isNotBlank(searchRequest)) {
@@ -47,12 +55,15 @@ public class RowListController {
         model.addAttribute("searchRequest", searchRequest);
         model.addAttribute("page", page);
         try {
-            final ICondition condition = conditionService.parse(searchRequest);
+            final ICondition condition;
             final int totalPages;
             if (request.getSession().getAttribute("totalPages:" + searchRequest) != null) {
+                condition = null;
                 totalPages = (int) request.getSession().getAttribute("totalPages:" + searchRequest);
             } else {
-                totalPages = (int) Math.ceil((double) rowRepository.size(condition, MAX_SIZE) / ROWS_PER_PAGE);
+                condition = conditionService.parse(searchRequest);
+                final int pages = (int) Math.ceil((double) rowRepository.size(condition, MAX_SIZE) / ROWS_PER_PAGE);
+                totalPages = pages == 0 ? 1 : pages;
                 request.getSession().setAttribute("totalPages:" + searchRequest, totalPages);
             }
             model.addAttribute("totalPages", totalPages);
@@ -64,10 +75,11 @@ public class RowListController {
                 rows = rowRepository.getList(condition, 0, ROWS_PER_PAGE * totalPages);
                 request.getSession().setAttribute("rows:" + searchRequest, rows);
             }
-            model.addAttribute("rows", rows.subList((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE));
+            model.addAttribute("rows", rows.size() > 0 ? rows.subList((page - 1) * ROWS_PER_PAGE, Math.min(rows.size(), page * ROWS_PER_PAGE)) : rows);
             model.addAttribute("fields", modelService.getFields());
         } catch (ConditionException e) {
         }
+        log.info("time " + (System.currentTimeMillis() - start));
         return "index";
     }
 

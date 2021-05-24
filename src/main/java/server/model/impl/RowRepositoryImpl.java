@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class RowRepositoryImpl implements RowRepository {
+public class RowRepositoryImpl extends AsyncDestroyable implements RowRepository {
     private static final Logger log = LoggerFactory.getLogger(RowRepositoryImpl.class);
     protected final RowIdRepository rowIdRepository;
     private final ObjectConverter objectConverter;
@@ -26,8 +26,6 @@ public class RowRepositoryImpl implements RowRepository {
     private final ConditionService conditionService;
     private final Buffer<Row> buffer;
     private final Set<String> fields = Collections.synchronizedSet(new HashSet<>());
-    private final ProducerConsumer<Runnable> producerConsumer = new ProducerConsumerImpl<>(1000);
-    private volatile boolean destroyed;
 
     public RowRepositoryImpl(ObjectConverter objectConverter, RowIdRepository rowIdRepository, FileHelper fileHelper, IndexService indexService, ConditionService conditionService, ModelService modelService, int bufferSize, long sleepTime) {
         this.objectConverter = objectConverter;
@@ -39,24 +37,7 @@ public class RowRepositoryImpl implements RowRepository {
         this.fields.addAll(modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         modelService.subscribeOnFieldsChanges(fields -> processDeletedFields(RowRepositoryImpl.this.fields.stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet())));
         indexService.subscribeOnIndexesChanges(this::processIndexesChanges);
-        new Thread(() -> {
-            while (!destroyed && !Thread.currentThread().isInterrupted()) {
-                try {
-                    Thread.sleep(sleepTime);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-                if (destroyed || Thread.currentThread().isInterrupted()) {
-                    break;
-                }
-                producerConsumer.put(buffer::flush);
-            }
-        }).start();
-        new Thread(() -> {
-            while (true) {
-                producerConsumer.take().run();
-            }
-        }).start();
+        startDestroy(buffer::flush, sleepTime);
     }
 
     @Override
@@ -313,11 +294,5 @@ public class RowRepositoryImpl implements RowRepository {
             rowAddress.setSize(rowBytes.length);
             fileHelperList.add(new FileHelper.CollectBean(rowAddress, (inputStream, outputStream) -> outputStream.write(rowBytes), null));
         });
-    }
-
-    @Override
-    public void destroy() {
-        producerConsumer.put(buffer::flush);
-        destroyed = true;
     }
 }

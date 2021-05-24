@@ -6,8 +6,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import server.model.ModelService;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Controller
 @RequestMapping(value = "/model", produces = "text/plain;charset=UTF-8")
@@ -33,19 +33,17 @@ public class ModelController {
 
     @PostMapping("/")
     public String saveFields(@ModelAttribute FieldsForm fieldsForm) {
-        final List<ModelService.FieldInfo> fieldsFromModelService = modelService.getFields();
+        final List<String> deletedIndexes = new ArrayList<>();
+        final List<String> addedIndexes = new ArrayList<>();
         for (ModelService.FieldInfo fieldInfo : fieldsForm.fields) {
-            final Optional<ModelService.FieldInfo> optional = fieldsFromModelService.stream()
-                    .filter(fieldInfoFromModel -> fieldInfoFromModel.getName().equals(fieldInfo.getName())).findAny();
-            if (!optional.isPresent()) {
-                continue;
-            }
-            if (optional.get().isIndex() && !fieldInfo.isIndex()) {
-                modelService.deleteIndex(fieldInfo.getName());
-            } else if (!optional.get().isIndex() && fieldInfo.isIndex()) {
-                modelService.addIndex(fieldInfo.getName());
+            if (!fieldInfo.isIndex()) {
+                deletedIndexes.add(fieldInfo.getName());
+            } else {
+                addedIndexes.add(fieldInfo.getName());
             }
         }
+        modelService.deleteIndex(deletedIndexes.toArray(new String[0]));
+        modelService.addIndex(addedIndexes.toArray(new String[0]));
         return "redirect:/model/";
     }
 

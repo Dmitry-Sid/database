@@ -16,11 +16,11 @@ public interface ModelService extends Destroyable {
 
     void add(String field, Class<?> type);
 
-    void delete(String field);
+    void delete(String... fields);
 
-    void addIndex(String field);
+    void addIndex(String... fields);
 
-    void deleteIndex(String field);
+    void deleteIndex(String... fields);
 
     List<FieldInfo> getFields();
 

@@ -2,8 +2,8 @@ package server.model.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import server.model.AsyncDestroyable;
 import server.model.ObjectConverter;
-import server.model.ProducerConsumer;
 import server.model.RowIdRepository;
 import server.model.lock.Lock;
 import server.model.lock.LockService;
@@ -19,12 +19,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class RowIdRepositoryImpl implements RowIdRepository {
+public class RowIdRepositoryImpl extends AsyncDestroyable implements RowIdRepository {
     private static final Logger log = LoggerFactory.getLogger(RowIdRepositoryImpl.class);
     private final ReadWriteLock<String> rowReadWriteLock = LockService.getFileReadWriteLock();
     private final ReadWriteLock<String> rowIdReadWriteLock = LockService.createReadWriteLock(String.class);
     private final Lock<String> rowIdLock = LockService.createLock(String.class);
-    private final ProducerConsumer<Runnable> producerConsumer = new ProducerConsumerImpl<>(1000);
     private final ObjectConverter objectConverter;
     private final Variables variables;
     private final String variablesFileName;
@@ -32,7 +31,6 @@ public class RowIdRepositoryImpl implements RowIdRepository {
     private final String filesRowPath;
     private final int maxIdSize;
     private final int compressSize;
-    private volatile boolean destroyed;
 
     public RowIdRepositoryImpl(ObjectConverter objectConverter, String variablesFileName, String filesIdPath, String filesRowPath, int maxIdSize, int compressSize) {
         this.objectConverter = objectConverter;
@@ -46,24 +44,7 @@ public class RowIdRepositoryImpl implements RowIdRepository {
         }
         this.filesIdPath = filesIdPath;
         this.maxIdSize = maxIdSize;
-        new Thread(() -> {
-            while (!destroyed && !Thread.currentThread().isInterrupted()) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-                if (destroyed || Thread.currentThread().isInterrupted()) {
-                    break;
-                }
-                producerConsumer.put(this::saveAndClearMap);
-            }
-        }).start();
-        new Thread(() -> {
-            while (true) {
-                producerConsumer.take().run();
-            }
-        }).start();
+        startDestroy(this::saveAndClearMap, 1000);
     }
 
     @Override
@@ -266,8 +247,7 @@ public class RowIdRepositoryImpl implements RowIdRepository {
     @Override
     public void destroy() {
         objectConverter.toFile(variables, variablesFileName);
-        producerConsumer.put(this::saveAndClearMap);
-        destroyed = true;
+        super.destroy();
     }
 
     public static class Variables implements Serializable {

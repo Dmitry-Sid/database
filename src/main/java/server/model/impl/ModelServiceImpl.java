@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -83,28 +84,59 @@ public class ModelServiceImpl implements ModelService {
     }
 
     @Override
-    public void delete(String field) {
-        fields.remove(field);
-        fieldsChangesSubscribers.forEach(consumer -> consumer.accept(getFields().stream().map(FieldInfo::getName).collect(Collectors.toSet())));
-        indexesChangesSubscribers.forEach(consumer -> consumer.accept(getIndexedFields()));
+    public void delete(String... fields) {
+        final Set<String> indexed = getIndexedFields();
+        boolean deleted = false;
+        boolean deletedIndex = false;
+        for (String field : fields) {
+            if (this.fields.containsKey(field)) {
+                deleted = true;
+            }
+            this.fields.remove(field);
+            if (indexed.contains(field)) {
+                deletedIndex = true;
+            }
+        }
+        if (deleted) {
+            fieldsChangesSubscribers.forEach(consumer -> consumer.accept(getFields().stream().map(FieldInfo::getName).collect(Collectors.toSet())));
+        }
+        if (deletedIndex) {
+            indexesChangesSubscribers.forEach(consumer -> consumer.accept(getIndexedFields()));
+        }
     }
 
     @Override
-    public void addIndex(String field) {
-        fields.computeIfPresent(field, (key, info) -> {
-            info.setIndex(true);
-            return info;
-        });
-        indexesChangesSubscribers.forEach(consumer -> consumer.accept(getIndexedFields()));
+    public void addIndex(String... fields) {
+        final AtomicBoolean added = new AtomicBoolean(false);
+        for (String field : fields) {
+            this.fields.computeIfPresent(field, (key, info) -> {
+                if (!info.isIndex()) {
+                    added.set(true);
+                }
+                info.setIndex(true);
+                return info;
+            });
+        }
+        if (added.get()) {
+            indexesChangesSubscribers.forEach(consumer -> consumer.accept(getIndexedFields()));
+        }
     }
 
     @Override
-    public void deleteIndex(String field) {
-        fields.computeIfPresent(field, (key, info) -> {
-            info.setIndex(false);
-            return info;
-        });
-        indexesChangesSubscribers.forEach(consumer -> consumer.accept(getIndexedFields()));
+    public void deleteIndex(String... fields) {
+        final AtomicBoolean deleted = new AtomicBoolean(false);
+        for (String field : fields) {
+            this.fields.computeIfPresent(field, (key, info) -> {
+                if (info.isIndex()) {
+                    deleted.set(true);
+                }
+                info.setIndex(false);
+                return info;
+            });
+        }
+        if (deleted.get()) {
+            indexesChangesSubscribers.forEach(consumer -> consumer.accept(getIndexedFields()));
+        }
     }
 
     @Override

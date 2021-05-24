@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -558,7 +559,7 @@ public class RowRepositoryTest {
         final IndexService indexService = mock(IndexService.class);
         final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
         final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LIKE, "String", "es");
-        when(indexService.search(any(ICondition.class), -1)).thenAnswer(invocation -> {
+        when(indexService.search(any(ICondition.class), anyInt())).thenAnswer(invocation -> {
             final ICondition condition = (ICondition) invocation.getArguments()[0];
             final Set<Integer> set = new HashSet<>();
             boolean found = false;

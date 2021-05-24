@@ -9,6 +9,7 @@ import server.model.pojo.SimpleCondition;
 import java.io.File;
 import java.io.Serializable;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -18,10 +19,32 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     private static final Set<SearchDirection> ALL = new HashSet<>(Arrays.asList(SearchDirection.LEFT_DOWN, SearchDirection.RIGHT, SearchDirection.RIGHT_DOWN));
     public final int treeFactor;
     protected final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    private final Map<String, LeafNode<U, V>> map = new ConcurrentHashMap<>();
+    private final int maxLeafPairsSize;
 
-    public BPlusTree(String fieldName, String path, ObjectConverter objectConverter, ConditionService conditionService, int treeFactor) {
+    public BPlusTree(String fieldName, String path, ObjectConverter objectConverter, ConditionService conditionService, int treeFactor, int maxLeafPairsSize, long sleepTime) {
         super(fieldName, path, objectConverter, conditionService);
         this.treeFactor = treeFactor;
+        this.maxLeafPairsSize = maxLeafPairsSize;
+        startDestroy(() -> saveLeaves(false), sleepTime);
+    }
+
+    private void saveLeaves(boolean fully) {
+        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+            final int[] leafPairs = {map.size() * treeFactor};
+            for (Iterator<LeafNode<U, V>> iterator = map.values().iterator(); iterator.hasNext(); ) {
+                if (!fully && maxLeafPairsSize >= leafPairs[0]) {
+                    break;
+                }
+                final LeafNode<U, V> leafNode = iterator.next();
+                objectConverter.toFile(leafNode, leafNode.fileName);
+                if (leafNode != getVariables().root) {
+                    leafNode.destroy();
+                    iterator.remove();
+                }
+                leafPairs[0] = leafPairs[0] - treeFactor;
+            }
+        });
     }
 
     @Override
@@ -284,7 +307,9 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
 
     @Override
     public void destroy() {
+        producerConsumer.put(() -> saveLeaves(true));
         LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, super::destroy);
+        destroyed = true;
     }
 
     private Pair<Node<U, V>, Pair<U, Set<V>>> search(Node<U, V> node, U key) {
@@ -313,7 +338,11 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         }
         LeafNode<U, V> leafNode = (LeafNode<U, V>) node;
         if (!isInitialized(leafNode)) {
-            leafNode = objectConverter.fromFile(LeafNode.class, ((LeafNode) node).fileName);
+            leafNode = map.get(leafNode.fileName);
+            if (leafNode == null) {
+                leafNode = objectConverter.fromFile(LeafNode.class, ((LeafNode) node).fileName);
+                map.put(leafNode.fileName, leafNode);
+            }
         }
         leafNode.init();
         return leafNode;
@@ -329,16 +358,16 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     }
 
     private void save(Node<U, V> node) {
-        if (node == null || !isLeaf(node) || node == getVariables().root) {
+        if (node == null || !isLeaf(node)) {
             return;
         }
         final LeafNode<U, V> leafNode = (LeafNode<U, V>) node;
-        if (leafNode.pairs.isEmpty()) {
+        if (leafNode.pairs.isEmpty() && leafNode != getVariables().root) {
+            map.remove(leafNode.fileName);
             delete(leafNode);
             return;
         }
-        objectConverter.toFile(node, leafNode.fileName);
-        leafNode.destroy();
+        map.put(leafNode.fileName, leafNode);
     }
 
     /**

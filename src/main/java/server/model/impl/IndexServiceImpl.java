@@ -134,7 +134,7 @@ public class IndexServiceImpl implements IndexService {
     }
 
     private <U extends Comparable<U>, V> FieldKeeper<U, V> createFieldKeeper(String fieldName) {
-        return new BPlusTree<>(fieldName, path, objectConverter, conditionService, 50);
+        return new BPlusTree<>(fieldName, path, objectConverter, conditionService, 2000, 1_000_000, 1000);
     }
 
     @Override
