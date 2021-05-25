@@ -74,4 +74,5 @@
     </bean>
     <bean id="fileHelper" class="server.model.impl.FileHelperImpl"/>
     <bean id="objectConverter" class="server.model.impl.ObjectConverterImpl"/>
+    <bean id="exceptionFilter" class="server.model.impl.ExceptionFilter"/>
 </beans>

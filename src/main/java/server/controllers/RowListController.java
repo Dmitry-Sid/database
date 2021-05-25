@@ -37,10 +37,6 @@ public class RowListController {
         this.rowRepository = rowRepository;
         this.modelService = modelService;
         this.conditionService = conditionService;
-        log.info("created info");
-        log.debug("created debug");
-        log.error("created error");
-        log.warn("created warn");
     }
 
     @GetMapping("/")
@@ -79,7 +75,7 @@ public class RowListController {
             model.addAttribute("fields", modelService.getFields());
         } catch (ConditionException e) {
         }
-        log.info("time " + (System.currentTimeMillis() - start));
+        log.info("search time " + (System.currentTimeMillis() - start));
         return "index";
     }
 
