@@ -1,6 +1,8 @@
 import org.junit.After;
 import org.junit.Test;
 import server.model.RowIdRepository;
+import server.model.impl.DestroyServiceImpl;
+import server.model.impl.ObjectConverterImpl;
 import server.model.pojo.RowAddress;
 
 import java.io.File;
@@ -481,7 +483,7 @@ public class RowIdRepositoryTest {
     }
 
     private RowIdRepository prepareRowIdRepository() {
-        return TestUtils.prepareRowIdRepository(fileName, filesIdPath, filesRowPath, maxIdSize, compressSize);
+        return TestUtils.prepareRowIdRepository(new ObjectConverterImpl(), new DestroyServiceImpl(1000), filesRowPath, maxIdSize, compressSize, fileName, filesIdPath);
     }
 
 }

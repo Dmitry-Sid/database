@@ -10,7 +10,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-public class IndexServiceImpl implements IndexService {
+public class IndexServiceImpl extends BaseDestroyable implements IndexService {
     private static final SearchResult EMPTY = new SearchResult(false, Collections.emptySet());
     private final Map<String, FieldKeeper> fieldKeepers;
     private final String path;
@@ -18,14 +18,22 @@ public class IndexServiceImpl implements IndexService {
     private final ConditionService conditionService;
     private List<Runnable> runnableList = new CopyOnWriteArrayList<>();
 
+    /**
+     * Для тестов
+     *
+     * @param fieldKeepers
+     * @param conditionService
+     */
     public IndexServiceImpl(Map<String, FieldKeeper> fieldKeepers, ConditionService conditionService) {
+        super(null);
         this.fieldKeepers = fieldKeepers;
         this.conditionService = conditionService;
         this.path = null;
         this.objectConverter = null;
     }
 
-    public IndexServiceImpl(String path, ObjectConverter objectConverter, ModelService modelService, ConditionService conditionService) {
+    public IndexServiceImpl(String path, ObjectConverter objectConverter, ModelService modelService, ConditionService conditionService, DestroyService destroyService) {
+        super(destroyService);
         this.path = path;
         this.objectConverter = objectConverter;
         this.conditionService = conditionService;
@@ -134,7 +142,7 @@ public class IndexServiceImpl implements IndexService {
     }
 
     private <U extends Comparable<U>, V> FieldKeeper<U, V> createFieldKeeper(String fieldName) {
-        return new BPlusTree<>(fieldName, path, objectConverter, conditionService, 2000, 1_000_000, 1000);
+        return new BPlusTree<>(fieldName, path, objectConverter, conditionService, 2000, 1_000_000);
     }
 
     @Override

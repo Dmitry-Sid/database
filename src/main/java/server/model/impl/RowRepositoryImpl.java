@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class RowRepositoryImpl extends AsyncDestroyable implements RowRepository {
+public class RowRepositoryImpl extends BaseDestroyable implements RowRepository {
     private static final Logger log = LoggerFactory.getLogger(RowRepositoryImpl.class);
     protected final RowIdRepository rowIdRepository;
     private final ObjectConverter objectConverter;
@@ -27,7 +27,8 @@ public class RowRepositoryImpl extends AsyncDestroyable implements RowRepository
     private final Buffer<Row> buffer;
     private final Set<String> fields = Collections.synchronizedSet(new HashSet<>());
 
-    public RowRepositoryImpl(ObjectConverter objectConverter, RowIdRepository rowIdRepository, FileHelper fileHelper, IndexService indexService, ConditionService conditionService, ModelService modelService, int bufferSize, long sleepTime) {
+    public RowRepositoryImpl(ObjectConverter objectConverter, RowIdRepository rowIdRepository, FileHelper fileHelper, IndexService indexService, ConditionService conditionService, ModelService modelService, DestroyService destroyService, int bufferSize) {
+        super(destroyService);
         this.objectConverter = objectConverter;
         this.rowIdRepository = rowIdRepository;
         this.fileHelper = fileHelper;
@@ -37,7 +38,6 @@ public class RowRepositoryImpl extends AsyncDestroyable implements RowRepository
         this.fields.addAll(modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         modelService.subscribeOnFieldsChanges(fields -> processDeletedFields(RowRepositoryImpl.this.fields.stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet())));
         indexService.subscribeOnIndexesChanges(this::processIndexesChanges);
-        startDestroy(buffer::flush, sleepTime);
     }
 
     @Override
@@ -294,5 +294,10 @@ public class RowRepositoryImpl extends AsyncDestroyable implements RowRepository
             rowAddress.setSize(rowBytes.length);
             fileHelperList.add(new FileHelper.CollectBean(rowAddress, (inputStream, outputStream) -> outputStream.write(rowBytes), null));
         });
+    }
+
+    @Override
+    public void destroy() {
+        buffer.flush();
     }
 }

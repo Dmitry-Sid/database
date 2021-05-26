@@ -1,7 +1,5 @@
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import server.model.Destroyable;
 import server.model.FieldKeeper;
 import server.model.impl.BPlusTree;
 import server.model.pojo.ICondition;
@@ -14,16 +12,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.Assert.*;
 
 public abstract class FieldKeeperTest {
+    protected static final long sleepTime = 50;
 
     @Before
     public void delete() {
         new File("test.int").delete();
-    }
-
-    @After
-    public void after() {
-        prepareFieldKeeper(Integer.class, "int").clear();
-        prepareFieldKeeper(Integer.class, "String").clear();
     }
 
     @Test
@@ -74,7 +67,7 @@ public abstract class FieldKeeperTest {
                     assertEquals(Collections.emptySet(), fieldKeeper.search(i));
                 }
             }
-        });
+        }, true);
     }
 
     @Test
@@ -91,7 +84,7 @@ public abstract class FieldKeeperTest {
                 assertEquals(Arrays.asList(1, 2), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search((Integer) null));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(null));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(121), list);
             }
@@ -177,19 +170,18 @@ public abstract class FieldKeeperTest {
             }
             fieldKeeper.insert(null, 65);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search((Integer) null));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(null));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(65, 121), list);
             }
-        });
+        }, true);
     }
 
-    private void doAndSleep(Destroyable destroyable, Runnable runnable) {
-        if (destroyable instanceof BPlusTree) {
-            TestUtils.doAndSleep(destroyable, runnable);
-            return;
+    private void doAndSleep(FieldKeeper fieldKeeper, Runnable runnable, boolean clear) {
+        TestUtils.doAndSleep(fieldKeeper, runnable, sleepTime * 3);
+        if (clear) {
+            fieldKeeper.clear();
         }
-        runnable.run();
     }
 
     @Test
@@ -282,7 +274,7 @@ public abstract class FieldKeeperTest {
                     list.sort(Integer::compareTo);
                     assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34), list);
                 }
-            });
+            }, true);
         }
         {
             final FieldKeeper<String, Integer> fieldKeeper = prepareFieldKeeper(String.class, "String");
@@ -340,7 +332,7 @@ public abstract class FieldKeeperTest {
                     list.sort(Integer::compareTo);
                     assertEquals(Arrays.asList(1, 6, 7, 8, 9), list);
                 }
-            });
+            }, true);
         }
     }
 
@@ -359,7 +351,7 @@ public abstract class FieldKeeperTest {
                 assertEquals(Arrays.asList(1, 2), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search((Integer) null));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(null));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(65, 66), list);
             }
@@ -441,7 +433,7 @@ public abstract class FieldKeeperTest {
                 assertEquals(Arrays.asList(8), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search((Integer) null));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(null));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(66), list);
             }
@@ -503,9 +495,9 @@ public abstract class FieldKeeperTest {
                 assertEquals(Arrays.asList(8), list);
             }
             {
-                assertEquals(Collections.emptySet(), fieldKeeper.search((Integer) null));
+                assertEquals(Collections.emptySet(), fieldKeeper.search(null));
             }
-        });
+        }, true);
     }
 
     @Test
@@ -523,7 +515,7 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert(13, 9);
             fieldKeeper.insert(null, 15);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search((Integer) null));
+                final List<Integer> list = new ArrayList(fieldKeeper.search(null));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(15), list);
             }
@@ -558,14 +550,14 @@ public abstract class FieldKeeperTest {
             }
             fieldKeeper.transform(null, 21, 15);
             {
-                assertEquals(Collections.emptySet(), fieldKeeper.search((Integer) null));
+                assertEquals(Collections.emptySet(), fieldKeeper.search(null));
             }
             {
                 final List<Integer> list = new ArrayList(fieldKeeper.search(21));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(15), list);
             }
-        });
+        }, true);
     }
 
     @Test
@@ -577,15 +569,17 @@ public abstract class FieldKeeperTest {
             doAndSleep(fieldKeeper, () -> {
                 fieldKeeper.insert(1, 1);
                 assertEquals(Collections.singletonList(1), new ArrayList<>(fieldKeeper.search(1)));
-                fieldKeeper.destroy();
-            });
+            }, false);
         }
         assertTrue(new File(fileName).exists());
+        for (File file : Objects.requireNonNull(new File(System.getProperty("user.dir")).listFiles((file, name) -> name.endsWith("int")))) {
+            assertTrue(file.exists());
+        }
         {
             final FieldKeeper<Integer, Integer> fieldKeeper = prepareFieldKeeper(Integer.class, "int");
             doAndSleep(fieldKeeper, () -> {
                 assertEquals(Collections.singletonList(1), new ArrayList<>(fieldKeeper.search(1)));
-            });
+            }, false);
             fieldKeeper.clear();
         }
         for (File file : Objects.requireNonNull(new File(System.getProperty("user.dir")).listFiles((file, name) -> name.endsWith("int")))) {
@@ -664,7 +658,7 @@ public abstract class FieldKeeperTest {
             } finally {
                 fieldKeeper.clear();
             }
-        });
+        }, true);
     }
 
     abstract <T extends Comparable<T>> FieldKeeper<T, Integer> prepareFieldKeeper(Class<T> clazz, String fieldName);

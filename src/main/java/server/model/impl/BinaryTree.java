@@ -138,6 +138,11 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
         });
     }
 
+    @Override
+    public void destroy() {
+        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, super::destroy);
+    }
+
     private Pair<Node<U, V>, Node<U, V>> search(Node<U, V> node, U key) {
         if (node == null) {
             return new Pair<>(null, null);

@@ -2,7 +2,8 @@ package server.model.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import server.model.AsyncDestroyable;
+import server.model.BaseDestroyable;
+import server.model.DestroyService;
 import server.model.ObjectConverter;
 import server.model.RowIdRepository;
 import server.model.lock.Lock;
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class RowIdRepositoryImpl extends AsyncDestroyable implements RowIdRepository {
+public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdRepository {
     private static final Logger log = LoggerFactory.getLogger(RowIdRepositoryImpl.class);
     private final ReadWriteLock<String> rowReadWriteLock = LockService.getFileReadWriteLock();
     private final ReadWriteLock<String> rowIdReadWriteLock = LockService.createReadWriteLock(String.class);
@@ -32,7 +33,8 @@ public class RowIdRepositoryImpl extends AsyncDestroyable implements RowIdReposi
     private final int maxIdSize;
     private final int compressSize;
 
-    public RowIdRepositoryImpl(ObjectConverter objectConverter, String variablesFileName, String filesIdPath, String filesRowPath, int maxIdSize, int compressSize) {
+    public RowIdRepositoryImpl(ObjectConverter objectConverter, DestroyService destroyService, String filesIdPath, String filesRowPath, int maxIdSize, int compressSize, String variablesFileName) {
+        super(destroyService);
         this.objectConverter = objectConverter;
         this.filesRowPath = filesRowPath;
         this.compressSize = compressSize;
@@ -44,7 +46,6 @@ public class RowIdRepositoryImpl extends AsyncDestroyable implements RowIdReposi
         }
         this.filesIdPath = filesIdPath;
         this.maxIdSize = maxIdSize;
-        startDestroy(this::saveAndClearMap, 1000);
     }
 
     @Override
@@ -247,7 +248,7 @@ public class RowIdRepositoryImpl extends AsyncDestroyable implements RowIdReposi
     @Override
     public void destroy() {
         objectConverter.toFile(variables, variablesFileName);
-        super.destroy();
+        saveAndClearMap();
     }
 
     public static class Variables implements Serializable {

@@ -22,29 +22,10 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     private final Map<String, LeafNode<U, V>> map = new ConcurrentHashMap<>();
     private final int maxLeafPairsSize;
 
-    public BPlusTree(String fieldName, String path, ObjectConverter objectConverter, ConditionService conditionService, int treeFactor, int maxLeafPairsSize, long sleepTime) {
+    public BPlusTree(String fieldName, String path, ObjectConverter objectConverter, ConditionService conditionService, int treeFactor, int maxLeafPairsSize) {
         super(fieldName, path, objectConverter, conditionService);
         this.treeFactor = treeFactor;
         this.maxLeafPairsSize = maxLeafPairsSize;
-        startDestroy(() -> saveLeaves(false), sleepTime);
-    }
-
-    private void saveLeaves(boolean fully) {
-        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
-            final int[] leafPairs = {map.size() * treeFactor};
-            for (Iterator<LeafNode<U, V>> iterator = map.values().iterator(); iterator.hasNext(); ) {
-                if (!fully && maxLeafPairsSize >= leafPairs[0]) {
-                    break;
-                }
-                final LeafNode<U, V> leafNode = iterator.next();
-                objectConverter.toFile(leafNode, leafNode.fileName);
-                if (leafNode != getVariables().root) {
-                    leafNode.destroy();
-                    iterator.remove();
-                }
-                leafPairs[0] = leafPairs[0] - treeFactor;
-            }
-        });
     }
 
     @Override
@@ -307,9 +288,22 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
 
     @Override
     public void destroy() {
-        producerConsumer.put(() -> saveLeaves(true));
-        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, super::destroy);
-        destroyed = true;
+        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+            super.destroy();
+            saveLeaves();
+        });
+    }
+
+    private void saveLeaves() {
+        final int[] leafPairs = {map.size() * treeFactor};
+        for (Iterator<LeafNode<U, V>> iterator = map.values().iterator(); iterator.hasNext(); leafPairs[0] = leafPairs[0] - treeFactor) {
+            final LeafNode<U, V> leafNode = iterator.next();
+            objectConverter.toFile(leafNode, leafNode.fileName);
+            if (maxLeafPairsSize < leafPairs[0] && leafNode != getVariables().root) {
+                leafNode.destroy();
+                iterator.remove();
+            }
+        }
     }
 
     private Pair<Node<U, V>, Pair<U, Set<V>>> search(Node<U, V> node, U key) {

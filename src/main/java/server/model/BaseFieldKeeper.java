@@ -8,7 +8,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
-public abstract class BaseFieldKeeper<U extends Comparable<U>, V> extends AsyncDestroyable implements FieldKeeper<U, V> {
+public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements FieldKeeper<U, V>, Destroyable {
     protected static DeleteResult NOT = new DeleteResult(false, false);
     protected static DeleteResult NOT_FULLY = new DeleteResult(true, false);
     protected static DeleteResult FULLY = new DeleteResult(true, true);

@@ -39,7 +39,7 @@ public class BPlusTreeTest extends FieldKeeperTest {
         private Map<String, LeafNode<U, V>> map;
 
         private TestBPlusTree(String fieldName, String path, ObjectConverter objectConverter, ConditionService conditionService, int treeFactor) {
-            super(fieldName, path, objectConverter, conditionService, treeFactor, 10, 50);
+            super(fieldName, path, objectConverter, conditionService, 10, treeFactor);
         }
 
         @Override
@@ -120,7 +120,7 @@ public class BPlusTreeTest extends FieldKeeperTest {
                 return pair;
             }
 
-            Node<U, V> childLeft  = readChild(node, index);
+            Node<U, V> childLeft = readChild(node, index);
             checkChildPair(pair, childLeft, result -> result < 0);
             checkNode(childLeft);
 

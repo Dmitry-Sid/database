@@ -3,9 +3,7 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import server.model.IndexService;
-import server.model.ModelService;
-import server.model.RowRepository;
+import server.model.*;
 import server.model.impl.*;
 import server.model.pojo.ICondition;
 import server.model.pojo.Row;
@@ -32,6 +30,30 @@ public class RowRepositoryTest {
     @Parameterized.Parameters
     public static Object[][] data() {
         return new Object[1][0];
+    }
+
+    private static IndexService mockIndexService() {
+        final IndexService indexService = mock(IndexService.class);
+        final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
+        final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LIKE, "String", "es");
+        when(indexService.search(any(ICondition.class), anyInt())).thenAnswer(invocation -> {
+            final ICondition condition = (ICondition) invocation.getArguments()[0];
+            final Set<Integer> set = new HashSet<>();
+            boolean found = false;
+            if (condition1.equals(condition)) {
+                for (int i = 10; i <= 60; i++) {
+                    set.add(i);
+                }
+                found = true;
+            } else if (condition2.equals(condition)) {
+                for (int i = 230; i <= 280; i++) {
+                    set.add(i);
+                }
+                found = true;
+            }
+            return new IndexService.SearchResult(found, set);
+        });
+        return indexService;
     }
 
     @After
@@ -548,35 +570,11 @@ public class RowRepositoryTest {
     }
 
     private RowRepository prepareRepository(int bufferSize) {
-        return new TestRowRepository(bufferSize);
+        return prepareRepository(TestUtils.mockModelService(), bufferSize);
     }
 
     private RowRepository prepareRepository(ModelService modelService, int bufferSize) {
-        return new TestRowRepository(bufferSize, modelService);
-    }
-
-    private static IndexService mockIndexService() {
-        final IndexService indexService = mock(IndexService.class);
-        final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
-        final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LIKE, "String", "es");
-        when(indexService.search(any(ICondition.class), anyInt())).thenAnswer(invocation -> {
-            final ICondition condition = (ICondition) invocation.getArguments()[0];
-            final Set<Integer> set = new HashSet<>();
-            boolean found = false;
-            if (condition1.equals(condition)) {
-                for (int i = 10; i <= 60; i++) {
-                    set.add(i);
-                }
-                found = true;
-            } else if (condition2.equals(condition)) {
-                for (int i = 230; i <= 280; i++) {
-                    set.add(i);
-                }
-                found = true;
-            }
-            return new IndexService.SearchResult(found, set);
-        });
-        return indexService;
+        return new TestRowRepository(bufferSize, new ObjectConverterImpl(), new DestroyServiceImpl(1000), modelService);
     }
 
     private void createFiles(int lastId) {
@@ -586,19 +584,20 @@ public class RowRepositoryTest {
     }
 
     private static class TestRowRepository extends RowRepositoryImpl {
-
-        TestRowRepository(int bufferSize) {
-            super(new ObjectConverterImpl(), TestUtils.prepareRowIdRepository(fileVariablesName, filesIdPath, filesRowPath, maxIdSize, compressSize), new FileHelperImpl(), mockIndexService(), new ConditionServiceImpl(TestUtils.mockModelService()), TestUtils.mockModelService(), bufferSize, 1000);
-        }
-
-        TestRowRepository(int bufferSize, ModelService modelService) {
-            super(new ObjectConverterImpl(), TestUtils.prepareRowIdRepository(fileVariablesName, filesIdPath, filesRowPath, maxIdSize, compressSize), new FileHelperImpl(), mockIndexService(), new ConditionServiceImpl(TestUtils.mockModelService()), modelService, bufferSize, 1000);
+        TestRowRepository(int bufferSize, ObjectConverter objectConverter, DestroyService destroyService, ModelService modelService) {
+            super(new ObjectConverterImpl(), TestUtils.prepareRowIdRepository(objectConverter, destroyService, filesRowPath, maxIdSize, compressSize, fileVariablesName, filesIdPath), new FileHelperImpl(), mockIndexService(), new ConditionServiceImpl(TestUtils.mockModelService()), modelService, destroyService, bufferSize);
         }
 
         @Override
         public void destroy() {
             super.destroy();
             rowIdRepository.destroy();
+        }
+
+        @Override
+        public void stop() {
+            super.stop();
+            rowIdRepository.stop();
         }
     }
 }

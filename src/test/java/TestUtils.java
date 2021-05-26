@@ -22,8 +22,8 @@ public class TestUtils {
         }});
     }
 
-    public static RowIdRepository prepareRowIdRepository(String fileName, String filesIdPath, String filesRowPath, int maxIdSize, int compressSize) {
-        return new RowIdRepositoryImpl(new ObjectConverterImpl(), fileName, filesIdPath, filesRowPath, maxIdSize, compressSize);
+    public static RowIdRepository prepareRowIdRepository(ObjectConverter objectConverter, DestroyService destroyService, String filesRowPath, int maxIdSize, int compressSize, String fileName, String filesIdPath) {
+        return new RowIdRepositoryImpl(objectConverter, destroyService, filesIdPath, filesRowPath, maxIdSize, compressSize, fileName);
     }
 
     public static ModelService mockModelService() {
@@ -150,12 +150,19 @@ public class TestUtils {
     }
 
     public static void doAndSleep(Destroyable destroyable, Runnable runnable) {
+        doAndSleep(destroyable, runnable, 3000);
+    }
+
+    public static void doAndSleep(Destroyable destroyable, Runnable runnable, long sleepTime) {
         runnable.run();
-        destroyable.destroy();
-        try {
-            Thread.sleep(3000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        if (destroyable instanceof BaseDestroyable) {
+            destroyable.stop();
+            try {
+                Thread.sleep(sleepTime);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
+        destroyable.destroy();
     }
 }
