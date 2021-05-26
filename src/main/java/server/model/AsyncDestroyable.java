@@ -10,9 +10,6 @@ public abstract class AsyncDestroyable implements Destroyable {
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
-                if (Thread.currentThread().isInterrupted()) {
-                    break;
-                }
                 destroy();
             }
         }).start();
