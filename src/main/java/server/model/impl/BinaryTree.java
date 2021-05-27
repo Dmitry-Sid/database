@@ -31,6 +31,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
             final Pair<Node<U, V>, Node<U, V>> pair;
             pair = search(getVariables().root, key);
             if (pair.getFirst() == null) {
+                changed = true;
                 final Node<U, V> createdNode = new Node<>(key, new HashSet<>(Collections.singletonList(value)));
                 if (getVariables().root == null) {
                     getVariables().root = createdNode;
@@ -43,7 +44,11 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
                 }
                 createdNode.parent = pair.getSecond();
             } else {
+                final int size = pair.getFirst().value.size();
                 pair.getFirst().value.add(value);
+                if (size != pair.getFirst().value.size()) {
+                    changed = true;
+                }
             }
         });
     }

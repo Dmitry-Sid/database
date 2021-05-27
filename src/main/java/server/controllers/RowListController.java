@@ -37,6 +37,16 @@ public class RowListController {
         this.rowRepository = rowRepository;
         this.modelService = modelService;
         this.conditionService = conditionService;
+      /*  for (int i = 0; i < 10; i++) {
+            for (int j = 0; j < 100_000; j++) {
+                final Map<String, Comparable> map = new HashMap<>();
+                map.put("firstName", "firstName" + j);
+                map.put("lastName", "lastName" + j);
+                map.put("age", j);
+                map.put("money", j + 0.5);
+                rowRepository.add(new Row(0, map));
+            }
+        }*/
     }
 
     @GetMapping("/")
@@ -74,6 +84,7 @@ public class RowListController {
             model.addAttribute("rows", rows.size() > 0 ? rows.subList((page - 1) * ROWS_PER_PAGE, Math.min(rows.size(), page * ROWS_PER_PAGE)) : rows);
             model.addAttribute("fields", modelService.getFields());
         } catch (ConditionException e) {
+            ServletUtils.makeError(request, e.getMessage());
         }
         log.info("search time " + (System.currentTimeMillis() - start));
         return "index";

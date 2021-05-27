@@ -32,6 +32,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     private final String filesRowPath;
     private final int maxIdSize;
     private final int compressSize;
+    private volatile boolean changed;
 
     public RowIdRepositoryImpl(ObjectConverter objectConverter, DestroyService destroyService, String filesIdPath, String filesRowPath, int maxIdSize, int compressSize, String variablesFileName) {
         super(destroyService);
@@ -50,11 +51,13 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
 
     @Override
     public int newId() {
+        changed = true;
         return variables.lastId.incrementAndGet();
     }
 
     @Override
     public void add(int id, Consumer<RowAddress> rowAddressConsumer) {
+        changed = true;
         final String fileName = getRowIdFileName(id);
         final boolean created = !variables.idBatches.contains(getRowIdFileNumber(id));
         if (created) {
@@ -149,6 +152,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
 
     @Override
     public void delete(int id) {
+        changed = true;
         processRowAddresses(getRowIdFileName(id), cachedRowAddresses -> {
             final RowAddress rowAddress = cachedRowAddresses.rowAddressMap.get(id);
             if (rowAddress == null) {
@@ -228,13 +232,16 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     }
 
     private void saveAndClearMap() {
+        if (variables.cachedRowAddressesMap == null) {
+            return;
+        }
         final Set<Map.Entry<String, CachedRowAddresses>> entrySet = variables.cachedRowAddressesMap.entrySet();
         final AtomicInteger mapSize = new AtomicInteger(entrySet.size());
         for (Iterator<Map.Entry<String, CachedRowAddresses>> iterator = entrySet.iterator(); iterator.hasNext(); ) {
             final Map.Entry<String, CachedRowAddresses> entry = iterator.next();
             LockService.doInLock(rowIdReadWriteLock.writeLock(), entry.getKey(), () -> {
                 final CachedRowAddresses cachedRowAddresses = entry.getValue();
-                if (!cachedRowAddresses.rowAddressMap.isEmpty()) {
+                if (!cachedRowAddresses.rowAddressMap.isEmpty() && changed) {
                     objectConverter.toFile(entry.getValue(), entry.getKey());
                 }
                 if (mapSize.get() > 1 || cachedRowAddresses.rowAddressMap.isEmpty()) {
@@ -247,8 +254,11 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
 
     @Override
     public void destroy() {
-        objectConverter.toFile(variables, variablesFileName);
         saveAndClearMap();
+        if (changed) {
+            objectConverter.toFile(variables, variablesFileName);
+            changed = false;
+        }
     }
 
     public static class Variables implements Serializable {

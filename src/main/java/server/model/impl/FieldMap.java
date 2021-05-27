@@ -27,10 +27,18 @@ public class FieldMap<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> 
     @Override
     public void insertNotNull(U key, V value) {
         getVariables().valuesMap.computeIfPresent(key, (mapKey, set) -> {
+            final int size = set.size();
             set.add(value);
+            if (size != set.size()) {
+                changed = true;
+            }
             return set;
         });
+        final int size = getVariables().valuesMap.size();
         getVariables().valuesMap.putIfAbsent(key, new HashSet<>(Collections.singletonList(value)));
+        if (size != getVariables().valuesMap.size()) {
+            changed = true;
+        }
     }
 
     @Override

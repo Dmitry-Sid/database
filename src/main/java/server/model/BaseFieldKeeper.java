@@ -18,6 +18,7 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
     protected final ObjectConverter objectConverter;
     protected final ConditionService conditionService;
     protected final Variables<U, V> variables;
+    protected volatile boolean changed;
 
     protected BaseFieldKeeper(String fieldName, String path, ObjectConverter objectConverter, ConditionService conditionService) {
         this.fieldName = fieldName;
@@ -49,7 +50,11 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
     @Override
     public void insert(U key, V value) {
         if (key == null) {
+            final int size = variables.nullSet.size();
             variables.nullSet.add(value);
+            if (size != variables.nullSet.size()) {
+                changed = true;
+            }
             return;
         }
         insertNotNull(key, value);
@@ -57,10 +62,16 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
 
     @Override
     public DeleteResult delete(U key, V value) {
+        final DeleteResult deleteResult;
         if (key == null) {
-            return new DeleteResult(variables.nullSet.remove(value), variables.nullSet.isEmpty());
+            deleteResult = new DeleteResult(variables.nullSet.remove(value), variables.nullSet.isEmpty());
+        } else {
+            deleteResult = deleteNotNull(key, value);
         }
-        return deleteNotNull(key, value);
+        if (deleteResult.deleted) {
+            changed = true;
+        }
+        return deleteResult;
     }
 
     @Override
@@ -107,7 +118,10 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
 
     @Override
     public void destroy() {
-        objectConverter.toFile(variables, getFileName());
+        if (changed) {
+            objectConverter.toFile(variables, getFileName());
+            changed = false;
+        }
     }
 
     protected abstract static class Variables<U, V> implements Serializable {
