@@ -1,6 +1,8 @@
 package server.model.impl;
 
 import org.apache.commons.lang3.StringUtils;
+import server.model.BaseDestroyable;
+import server.model.DestroyService;
 import server.model.ModelService;
 import server.model.ObjectConverter;
 
@@ -16,14 +18,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class ModelServiceImpl implements ModelService {
+public class ModelServiceImpl extends BaseDestroyable implements ModelService {
     private final List<Consumer<Set<String>>> fieldsChangesSubscribers = new CopyOnWriteArrayList<>();
     private final List<Consumer<Set<String>>> indexesChangesSubscribers = new CopyOnWriteArrayList<>();
     private final Map<String, FieldInfo> fields;
     private final String fileName;
     private final ObjectConverter objectConverter;
+    private volatile boolean changed;
 
-    public ModelServiceImpl(String fileName, ObjectConverter objectConverter) {
+    public ModelServiceImpl(String fileName, ObjectConverter objectConverter, DestroyService destroyService) {
+        super(destroyService);
         this.fileName = fileName;
         this.objectConverter = objectConverter;
         if (new File(fileName).exists()) {
@@ -79,8 +83,12 @@ public class ModelServiceImpl implements ModelService {
         if (!types.contains(type)) {
             throw new RuntimeException("unknown type " + type);
         }
+        final int size = fields.size();
         fields.putIfAbsent(field, new FieldInfo(field, type, false));
         fieldsChangesSubscribers.forEach(consumer -> consumer.accept(getFields().stream().map(FieldInfo::getName).collect(Collectors.toSet())));
+        if (size != fields.size()) {
+            changed = true;
+        }
     }
 
     @Override
@@ -99,9 +107,11 @@ public class ModelServiceImpl implements ModelService {
         }
         if (deleted) {
             fieldsChangesSubscribers.forEach(consumer -> consumer.accept(getFields().stream().map(FieldInfo::getName).collect(Collectors.toSet())));
+            changed = true;
         }
         if (deletedIndex) {
             indexesChangesSubscribers.forEach(consumer -> consumer.accept(getIndexedFields()));
+            changed = true;
         }
     }
 
@@ -119,6 +129,7 @@ public class ModelServiceImpl implements ModelService {
         }
         if (added.get()) {
             indexesChangesSubscribers.forEach(consumer -> consumer.accept(getIndexedFields()));
+            changed = true;
         }
     }
 
@@ -136,6 +147,7 @@ public class ModelServiceImpl implements ModelService {
         }
         if (deleted.get()) {
             indexesChangesSubscribers.forEach(consumer -> consumer.accept(getIndexedFields()));
+            changed = true;
         }
     }
 
@@ -161,6 +173,9 @@ public class ModelServiceImpl implements ModelService {
 
     @Override
     public void destroy() {
-        objectConverter.toFile((Serializable) fields, fileName);
+        if (changed) {
+            objectConverter.toFile((Serializable) fields, fileName);
+            changed = false;
+        }
     }
 }

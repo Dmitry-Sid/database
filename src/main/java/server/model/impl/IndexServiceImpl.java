@@ -17,6 +17,7 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
     private final ObjectConverter objectConverter;
     private final ConditionService conditionService;
     private List<Runnable> runnableList = new CopyOnWriteArrayList<>();
+    private volatile boolean changed;
 
     /**
      * Для тестов
@@ -46,6 +47,7 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
             final AtomicBoolean added = new AtomicBoolean(false);
             fields.forEach(field -> {
                 if (!fieldKeepers.containsKey(field)) {
+                    changed = true;
                     added.set(true);
                     fieldKeepers.putIfAbsent(field, createFieldKeeper(field));
                 }
@@ -55,6 +57,7 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
                 final FieldKeeper fieldKeeper = fieldKeepers.get(field);
                 fieldKeeper.clear();
                 fieldKeepers.remove(field);
+                changed = true;
             });
             if (added.get()) {
                 runnableList.forEach(Runnable::run);
@@ -147,7 +150,10 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
 
     @Override
     public void destroy() {
-        objectConverter.toFile(new HashSet<>(fieldKeepers.keySet()), getFullPath());
+        if (changed) {
+            objectConverter.toFile(new HashSet<>(fieldKeepers.keySet()), getFullPath());
+            changed = false;
+        }
         fieldKeepers.values().forEach(FieldKeeper::destroy);
     }
 }

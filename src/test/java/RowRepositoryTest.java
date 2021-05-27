@@ -333,7 +333,7 @@ public class RowRepositoryTest {
         int lastId = 750;
         try {
             createFiles(lastId);
-            final ModelService modelService = new ModelServiceImpl("test", new ObjectConverterImpl());
+            final ModelService modelService = new ModelServiceImpl("test", new ObjectConverterImpl(), null);
             modelService.add("field1", String.class);
             modelService.add("field2", String.class);
             modelService.add("field3", String.class);

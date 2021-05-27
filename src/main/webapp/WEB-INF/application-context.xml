@@ -73,6 +73,7 @@
     <bean id="modelService" class="server.model.impl.ModelServiceImpl">
         <constructor-arg index="0" value="C:\database\model\model"/>
         <constructor-arg index="1" ref="objectConverter"/>
+        <constructor-arg index="2" ref="destroyableService"/>
     </bean>
     <bean id="fileHelper" class="server.model.impl.FileHelperImpl"/>
     <bean id="objectConverter" class="server.model.impl.ObjectConverterImpl"/>

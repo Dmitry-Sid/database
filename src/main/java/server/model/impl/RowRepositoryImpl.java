@@ -225,9 +225,17 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         log.info("processing deleted fields to rows");
         try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
             final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
-                deletedFields.forEach(field -> row.getFields().remove(field));
-                add(row);
-                if (counter.incrementAndGet() % 1000 == 0) {
+                final boolean[] deleted = {false};
+                deletedFields.forEach(field -> {
+                    if (!deleted[0] && row.getFields().containsKey(field)) {
+                        deleted[0] = true;
+                    }
+                    row.getFields().remove(field);
+                });
+                if (deleted[0]) {
+                    add(row);
+                }
+                if (deleted[0] && counter.incrementAndGet() % 1000 == 0) {
                     log.info("processed deleted fields " + counter.get() + " rows");
                 }
             });
