@@ -1,6 +1,5 @@
 package server.controllers;
 
-import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import server.model.ModelService;
@@ -12,7 +11,6 @@ import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 
-@Controller
 @RequestMapping(value = "/row", produces = "text/plain;charset=UTF-8")
 public class RowController {
     private final RowRepository rowRepository;

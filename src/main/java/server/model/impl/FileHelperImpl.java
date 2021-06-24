@@ -85,30 +85,24 @@ public class FileHelperImpl implements FileHelper {
     @Override
     public void collect(CollectBean collectBean) {
         actionWithRollBack(collectBean.rowAddress.getFilePath(), (pair) -> {
-            try (InputStream input = new FileInputStream(pair.getFirst());
-                 OutputStream output = new BufferedOutputStream(new FileOutputStream(pair.getSecond()), 10000)) {
-                int bit;
-                if (collectBean.rowAddress.getPosition() == 0) {
-                    collectBean.inputOutputConsumer.accept(input, output);
-                    if (collectBean.runnable != null) {
-                        collectBean.runnable.run();
-                    }
-                    while ((bit = input.read()) != -1) {
-                        output.write(bit);
-                    }
-                } else {
-                    long position = 0;
-                    while ((bit = input.read()) != -1) {
-                        if (position == collectBean.rowAddress.getPosition() - 1) {
-                            collectBean.inputOutputConsumer.accept(input, output);
-                            if (collectBean.runnable != null) {
-                                collectBean.runnable.run();
-                            }
-                        } else {
-                            output.write(bit);
+            try (ChainStream<InputStream> chainInputStream = getChainInputStream();
+                 ChainStream<OutputStream> chainOutputStream = getChainOutputStream()) {
+                chainInputStream.init(pair.getFirst().getAbsolutePath());
+                chainOutputStream.init(pair.getSecond().getAbsolutePath());
+                long position = 0;
+                while (true) {
+                    if (position == collectBean.rowAddress.getPosition()) {
+                        collectBean.inputOutputConsumer.accept(chainInputStream.getStream(), chainOutputStream.getStream());
+                        if (collectBean.runnable != null) {
+                            collectBean.runnable.run();
                         }
-                        position++;
                     }
+                    final int bit = chainInputStream.getStream().read();
+                    if (bit == -1) {
+                        break;
+                    }
+                    chainOutputStream.getStream().write(bit);
+                    position++;
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -124,7 +118,6 @@ public class FileHelperImpl implements FileHelper {
         String inputFileName = null;
         String tempFileName = null;
         long inputLastPosition = 0;
-        int bit;
         final List<Runnable> runnableList = new ArrayList<>();
         try (ChainStream<InputStream> chainInputStream = getChainInputStream();
              ChainStream<OutputStream> chainOutputStream = getChainOutputStream()) {
@@ -148,25 +141,22 @@ public class FileHelperImpl implements FileHelper {
                 }
                 boolean found = false;
                 if (chainInputStream.getStream() != null) {
-                    chainInputStream.getStream().mark(1);
-                    while ((bit = chainInputStream.getStream().read()) != -1) {
+                    while (true) {
                         if (inputLastPosition == rowAddress.getPosition()) {
-                            chainInputStream.getStream().reset();
                             collectBean.inputOutputConsumer.accept(chainInputStream.getStream(), chainOutputStream.getStream());
                             inputLastPosition = rowAddress.getPosition() + rowAddress.getSize();
                             found = true;
                             break;
-                        } else {
-                            chainOutputStream.getStream().write(bit);
                         }
-                        chainInputStream.getStream().mark(1);
+                        final int bit = chainInputStream.getStream().read();
+                        if (bit == -1) {
+                            break;
+                        }
+                        chainOutputStream.getStream().write(bit);
                         inputLastPosition++;
                     }
                 }
                 if (!found) {
-                    if (chainInputStream.getStream() != null) {
-                        chainInputStream.getStream().reset();
-                    }
                     collectBean.inputOutputConsumer.accept(chainInputStream.getStream(), chainOutputStream.getStream());
                 }
                 runnableList.add(collectBean.runnable);

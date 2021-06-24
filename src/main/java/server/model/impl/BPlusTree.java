@@ -301,13 +301,12 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     }
 
     private void saveLeaves() {
-        final int[] leafPairs = {map.size() * treeFactor};
-        for (Iterator<LeafNode<U, V>> iterator = map.values().iterator(); iterator.hasNext(); leafPairs[0] = leafPairs[0] - treeFactor) {
+        for (Iterator<LeafNode<U, V>> iterator = map.values().iterator(); iterator.hasNext(); ) {
             final LeafNode<U, V> leafNode = iterator.next();
             if (changed) {
                 objectConverter.toFile(leafNode, leafNode.fileName);
             }
-            if (maxLeafPairsSize < leafPairs[0] && leafNode != getVariables().root) {
+            if (maxLeafPairsSize < map.size() * treeFactor && leafNode != getVariables().root) {
                 leafNode.destroy();
                 iterator.remove();
             }
@@ -405,7 +404,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     }
 
     private enum SearchDirection {
-        RIGHT, RIGHT_DOWN, LEFT_DOWN, NONE,
+        RIGHT, RIGHT_DOWN, LEFT_DOWN, NONE
     }
 
     public static class BTreeVariables<U, V> extends Variables<U, V> {

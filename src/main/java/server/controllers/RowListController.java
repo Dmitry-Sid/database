@@ -3,7 +3,6 @@ package server.controllers;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,7 +22,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-@Controller
 @RequestMapping(value = "/", produces = "text/plain;charset=UTF-8")
 public class RowListController {
     private static final Logger log = LoggerFactory.getLogger(RowListController.class);

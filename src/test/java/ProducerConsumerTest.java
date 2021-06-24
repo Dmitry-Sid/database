@@ -40,7 +40,7 @@ public class ProducerConsumerTest {
             producerConsumer.put("test1");
         }).start();
         assertEquals("test1", producerConsumer.take());
-        assertTrue(System.currentTimeMillis() - begin > 1000);
+        assertTrue(System.currentTimeMillis() - begin >= 1000);
     }
 
     @Test
@@ -59,7 +59,7 @@ public class ProducerConsumerTest {
         producerConsumer.put("test2");
         producerConsumer.put("test3");
         producerConsumer.put("test4");
-        assertTrue(System.currentTimeMillis() - begin > 1000);
+        assertTrue(System.currentTimeMillis() - begin >= 1000);
         assertEquals("test2", producerConsumer.take());
         assertEquals("test3", producerConsumer.take());
         assertEquals("test4", producerConsumer.take());

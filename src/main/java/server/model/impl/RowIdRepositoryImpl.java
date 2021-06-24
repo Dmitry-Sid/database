@@ -236,7 +236,6 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
             return;
         }
         final Set<Map.Entry<String, CachedRowAddresses>> entrySet = variables.cachedRowAddressesMap.entrySet();
-        final AtomicInteger mapSize = new AtomicInteger(entrySet.size());
         for (Iterator<Map.Entry<String, CachedRowAddresses>> iterator = entrySet.iterator(); iterator.hasNext(); ) {
             final Map.Entry<String, CachedRowAddresses> entry = iterator.next();
             LockService.doInLock(rowIdReadWriteLock.writeLock(), entry.getKey(), () -> {
@@ -244,11 +243,10 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
                 if (!cachedRowAddresses.rowAddressMap.isEmpty() && changed) {
                     objectConverter.toFile(entry.getValue(), entry.getKey());
                 }
-                if (mapSize.get() > 1 || cachedRowAddresses.rowAddressMap.isEmpty()) {
+                if (entrySet.size() > 1 || cachedRowAddresses.rowAddressMap.isEmpty()) {
                     iterator.remove();
                 }
             });
-            mapSize.decrementAndGet();
         }
     }
 

@@ -1,7 +1,6 @@
 package server.controllers;
 
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import server.model.ModelService;
@@ -9,7 +8,6 @@ import server.model.ModelService;
 import java.util.ArrayList;
 import java.util.List;
 
-@Controller
 @RequestMapping(value = "/model", produces = "text/plain;charset=UTF-8")
 public class ModelController {
     private final ModelService modelService;

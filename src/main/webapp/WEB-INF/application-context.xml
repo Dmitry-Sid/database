@@ -40,7 +40,6 @@
         <property name="contentType" value="text/html;charset=UTF-8"/>
     </bean>
 
-
     <bean id="rowRepository" class="server.model.impl.RowRepositoryImpl">
         <constructor-arg index="0" ref="objectConverter"/>
         <constructor-arg index="1" ref="rowIdRepository"/>
@@ -51,6 +50,7 @@
         <constructor-arg index="6" ref="destroyableService"/>
         <constructor-arg index="7" value="10000"/>
     </bean>
+
     <bean id="rowIdRepository" class="server.model.impl.RowIdRepositoryImpl">
         <constructor-arg index="0" ref="objectConverter"/>
         <constructor-arg index="1" ref="destroyableService"/>
@@ -60,6 +60,7 @@
         <constructor-arg index="5" value="2"/>
         <constructor-arg index="6" value="C:\database\rowId\rowIdVariables"/>
     </bean>
+
     <bean id="indexService" class="server.model.impl.IndexServiceImpl">
         <constructor-arg index="0" value="C:\database\indexes\"/>
         <constructor-arg index="1" ref="objectConverter"/>
@@ -67,18 +68,39 @@
         <constructor-arg index="3" ref="conditionService"/>
         <constructor-arg index="4" ref="destroyableService"/>
     </bean>
+
     <bean id="conditionService" class="server.model.impl.ConditionServiceImpl">
         <constructor-arg ref="modelService"/>
     </bean>
+
     <bean id="modelService" class="server.model.impl.ModelServiceImpl">
         <constructor-arg index="0" value="C:\database\model\model"/>
         <constructor-arg index="1" ref="objectConverter"/>
         <constructor-arg index="2" ref="destroyableService"/>
     </bean>
+
     <bean id="fileHelper" class="server.model.impl.FileHelperImpl"/>
+
     <bean id="objectConverter" class="server.model.impl.ObjectConverterImpl"/>
+
     <bean id="exceptionFilter" class="server.model.impl.ExceptionFilter"/>
+
     <bean id="destroyableService" class="server.model.impl.DestroyServiceImpl" destroy-method="destroy">
         <constructor-arg value="1000"/>
+    </bean>
+
+    <bean class="server.controllers.ModelController">
+        <constructor-arg index="0" ref="modelService"/>
+    </bean>
+
+    <bean class="server.controllers.RowController">
+        <constructor-arg index="0" ref="rowRepository"/>
+        <constructor-arg index="1" ref="modelService"/>
+    </bean>
+
+    <bean class="server.controllers.RowListController">
+        <constructor-arg index="0" ref="rowRepository"/>
+        <constructor-arg index="1" ref="modelService"/>
+        <constructor-arg index="2" ref="conditionService"/>
     </bean>
 </beans>
