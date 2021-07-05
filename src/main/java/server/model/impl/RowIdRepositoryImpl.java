@@ -153,7 +153,8 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     @Override
     public void delete(int id) {
         changed = true;
-        processRowAddresses(getRowIdFileName(id), cachedRowAddresses -> {
+        final String rowIdFileName = getRowIdFileName(id);
+        processRowAddresses(rowIdFileName, cachedRowAddresses -> {
             final RowAddress rowAddress = cachedRowAddresses.rowAddressMap.get(id);
             if (rowAddress == null) {
                 log.warn("rowAddress not found, id : " + id);
@@ -169,6 +170,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
             cachedRowAddresses.rowAddressMap.remove(id);
             if (cachedRowAddresses.rowAddressMap.isEmpty()) {
                 variables.idBatches.remove(getRowIdFileNumber(id));
+                new File(rowIdFileName).delete();
             }
         });
     }
