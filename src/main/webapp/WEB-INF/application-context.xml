@@ -40,6 +40,10 @@
         <property name="contentType" value="text/html;charset=UTF-8"/>
     </bean>
 
+    <bean class="org.springframework.context.support.PropertySourcesPlaceholderConfigurer">
+        <property name="locations" value="classpath:application.properties"/>
+    </bean>
+
     <bean id="rowRepository" class="server.model.impl.RowRepositoryImpl">
         <constructor-arg index="0" ref="objectConverter"/>
         <constructor-arg index="1" ref="rowIdRepository"/>
@@ -54,15 +58,15 @@
     <bean id="rowIdRepository" class="server.model.impl.RowIdRepositoryImpl">
         <constructor-arg index="0" ref="objectConverter"/>
         <constructor-arg index="1" ref="destroyableService"/>
-        <constructor-arg index="2" value="C:\database\rowId\rowId"/>
-        <constructor-arg index="3" value="C:\database\row\row"/>
+        <constructor-arg index="2" value="${projectPath}\rowId\rowId"/>
+        <constructor-arg index="3" value="${projectPath}\row\row"/>
         <constructor-arg index="4" value="20000"/>
         <constructor-arg index="5" value="2"/>
-        <constructor-arg index="6" value="C:\database\rowId\rowIdVariables"/>
+        <constructor-arg index="6" value="${projectPath}\rowId\rowIdVariables"/>
     </bean>
 
     <bean id="indexService" class="server.model.impl.IndexServiceImpl">
-        <constructor-arg index="0" value="C:\database\indexes\"/>
+        <constructor-arg index="0" value="${projectPath}\indexes\"/>
         <constructor-arg index="1" ref="objectConverter"/>
         <constructor-arg index="2" ref="modelService"/>
         <constructor-arg index="3" ref="conditionService"/>
@@ -74,7 +78,7 @@
     </bean>
 
     <bean id="modelService" class="server.model.impl.ModelServiceImpl">
-        <constructor-arg index="0" value="C:\database\model\model"/>
+        <constructor-arg index="0" value="${projectPath}\model\model"/>
         <constructor-arg index="1" ref="objectConverter"/>
         <constructor-arg index="2" ref="destroyableService"/>
     </bean>
