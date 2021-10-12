@@ -1,5 +1,6 @@
 package server.model;
 
+import java.io.File;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,6 +25,12 @@ public class Utils {
             mainCollection.add(value);
         }
         return false;
+    }
+
+    public static void createDirectoryTree(File file) {
+        if (!file.exists()) {
+            file.mkdirs();
+        }
     }
 
 }

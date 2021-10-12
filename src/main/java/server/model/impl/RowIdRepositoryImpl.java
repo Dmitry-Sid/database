@@ -22,6 +22,10 @@ import java.util.stream.Collectors;
 
 public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdRepository {
     private static final Logger log = LoggerFactory.getLogger(RowIdRepositoryImpl.class);
+    private static final String ROW_NAME = "row";
+    private static final String ROW_ID_NAME = "rowId";
+    private static final String VARIABLES_NAME = "rowIdVariables";
+
     private final ReadWriteLock<String> rowReadWriteLock = LockService.getFileReadWriteLock();
     private final ReadWriteLock<String> rowIdReadWriteLock = LockService.createReadWriteLock(String.class);
     private final Lock<String> rowIdLock = LockService.createLock(String.class);
@@ -35,17 +39,18 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     private volatile boolean changed;
 
     public RowIdRepositoryImpl(ObjectConverter objectConverter, DestroyService destroyService, String filesIdPath, String filesRowPath, int maxIdSize, int compressSize, String variablesFileName) {
-        super(destroyService);
+        super(destroyService, filesRowPath, filesIdPath, variablesFileName);
         this.objectConverter = objectConverter;
-        this.filesRowPath = filesRowPath;
+        this.filesRowPath = filesRowPath + ROW_NAME;
         this.compressSize = compressSize;
-        this.variablesFileName = variablesFileName;
-        if (new File(variablesFileName).exists()) {
-            this.variables = objectConverter.fromFile(Variables.class, variablesFileName);
+        this.variablesFileName = variablesFileName + VARIABLES_NAME;
+        final File file = new File(this.variablesFileName);
+        if (file.exists()) {
+            this.variables = objectConverter.fromFile(Variables.class, this.variablesFileName);
         } else {
             this.variables = new Variables(new AtomicInteger(0), Collections.synchronizedSet(new LinkedHashSet<>()), new ConcurrentHashMap<>());
         }
-        this.filesIdPath = filesIdPath;
+        this.filesIdPath = filesIdPath + ROW_ID_NAME;
         this.maxIdSize = maxIdSize;
     }
 

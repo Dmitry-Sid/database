@@ -34,7 +34,7 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
     }
 
     public IndexServiceImpl(String path, ObjectConverter objectConverter, ModelService modelService, ConditionService conditionService, DestroyService destroyService) {
-        super(destroyService);
+        super(destroyService, path);
         this.path = path;
         this.objectConverter = objectConverter;
         this.conditionService = conditionService;
@@ -65,8 +65,12 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
         });
     }
 
-    private String getFullPath() {
+    private static String getFullPath(String path) {
         return path + "indexes";
+    }
+
+    private String getFullPath() {
+        return getFullPath(path);
     }
 
     @Override

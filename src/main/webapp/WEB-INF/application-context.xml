@@ -58,15 +58,15 @@
     <bean id="rowIdRepository" class="server.model.impl.RowIdRepositoryImpl">
         <constructor-arg index="0" ref="objectConverter"/>
         <constructor-arg index="1" ref="destroyableService"/>
-        <constructor-arg index="2" value="${projectPath}\rowId\rowId"/>
-        <constructor-arg index="3" value="${projectPath}\row\row"/>
+        <constructor-arg index="2" value="#{systemProperties.projectPath}\rowId\"/>
+        <constructor-arg index="3" value="#{systemProperties.projectPath}\row\"/>
         <constructor-arg index="4" value="20000"/>
         <constructor-arg index="5" value="2"/>
-        <constructor-arg index="6" value="${projectPath}\rowId\rowIdVariables"/>
+        <constructor-arg index="6" value="#{systemProperties.projectPath}\rowId\"/>
     </bean>
 
     <bean id="indexService" class="server.model.impl.IndexServiceImpl">
-        <constructor-arg index="0" value="${projectPath}\indexes\"/>
+        <constructor-arg index="0" value="#{systemProperties.projectPath}\indexes\"/>
         <constructor-arg index="1" ref="objectConverter"/>
         <constructor-arg index="2" ref="modelService"/>
         <constructor-arg index="3" ref="conditionService"/>
@@ -78,7 +78,7 @@
     </bean>
 
     <bean id="modelService" class="server.model.impl.ModelServiceImpl">
-        <constructor-arg index="0" value="${projectPath}\model\model"/>
+        <constructor-arg index="0" value="#{systemProperties.projectPath}\model\"/>
         <constructor-arg index="1" ref="objectConverter"/>
         <constructor-arg index="2" ref="destroyableService"/>
     </bean>

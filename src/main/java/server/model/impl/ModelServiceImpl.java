@@ -19,6 +19,8 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class ModelServiceImpl extends BaseDestroyable implements ModelService {
+    private static final String FILE_NAME = "model";
+
     private final List<Consumer<Set<String>>> fieldsChangesSubscribers = new CopyOnWriteArrayList<>();
     private final List<Consumer<Set<String>>> indexesChangesSubscribers = new CopyOnWriteArrayList<>();
     private final Map<String, FieldInfo> fields;
@@ -26,12 +28,12 @@ public class ModelServiceImpl extends BaseDestroyable implements ModelService {
     private final ObjectConverter objectConverter;
     private volatile boolean changed;
 
-    public ModelServiceImpl(String fileName, ObjectConverter objectConverter, DestroyService destroyService) {
-        super(destroyService);
-        this.fileName = fileName;
+    public ModelServiceImpl(String filePath, ObjectConverter objectConverter, DestroyService destroyService) {
+        super(destroyService, filePath);
+        this.fileName = filePath + FILE_NAME;
         this.objectConverter = objectConverter;
-        if (new File(fileName).exists()) {
-            this.fields = objectConverter.fromFile(ConcurrentHashMap.class, fileName);
+        if (new File(this.fileName).exists()) {
+            this.fields = objectConverter.fromFile(ConcurrentHashMap.class, this.fileName);
             checkFields(this.fields);
             return;
         }

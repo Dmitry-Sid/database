@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.Assert.*;
 
 public class RowIdRepositoryTest {
-    private static final String fileName = "rowIdVariables.test";
+    private static final String fileName = "rowIdVariables";
     private static final String filesIdPath = "rowId";
     private static final String filesRowPath = "row";
     private static final int maxIdSize = 500;
@@ -483,7 +483,7 @@ public class RowIdRepositoryTest {
     }
 
     private RowIdRepository prepareRowIdRepository() {
-        return TestUtils.prepareRowIdRepository(new ObjectConverterImpl(), new DestroyServiceImpl(1000), filesRowPath, maxIdSize, compressSize, fileName, filesIdPath);
+        return TestUtils.prepareRowIdRepository(new ObjectConverterImpl(), new DestroyServiceImpl(1000), "", maxIdSize, compressSize, "", "");
     }
 
 }
