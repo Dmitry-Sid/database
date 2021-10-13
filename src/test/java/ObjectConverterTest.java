@@ -1,5 +1,6 @@
 import org.junit.Test;
 import server.model.ObjectConverter;
+import server.model.impl.DataCompressorImpl;
 import server.model.impl.ObjectConverterImpl;
 import server.model.pojo.Row;
 
@@ -11,7 +12,7 @@ import java.util.Map;
 import static org.junit.Assert.*;
 
 public class ObjectConverterTest {
-    private final ObjectConverter objectConverter = new ObjectConverterImpl();
+    private final ObjectConverter objectConverter = new ObjectConverterImpl(new DataCompressorImpl());
 
     @Test
     public void bytesTest() {

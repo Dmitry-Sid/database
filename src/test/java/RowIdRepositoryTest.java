@@ -1,6 +1,7 @@
 import org.junit.After;
 import org.junit.Test;
 import server.model.RowIdRepository;
+import server.model.impl.DataCompressorImpl;
 import server.model.impl.DestroyServiceImpl;
 import server.model.impl.ObjectConverterImpl;
 import server.model.pojo.RowAddress;
@@ -483,7 +484,7 @@ public class RowIdRepositoryTest {
     }
 
     private RowIdRepository prepareRowIdRepository() {
-        return TestUtils.prepareRowIdRepository(new ObjectConverterImpl(), new DestroyServiceImpl(1000), "", maxIdSize, compressSize, "", "");
+        return TestUtils.prepareRowIdRepository(new ObjectConverterImpl(new DataCompressorImpl()), new DestroyServiceImpl(1000), "", maxIdSize, compressSize, "", "");
     }
 
 }

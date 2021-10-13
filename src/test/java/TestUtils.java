@@ -1,4 +1,5 @@
 import server.model.*;
+import server.model.impl.DataCompressorImpl;
 import server.model.impl.ObjectConverterImpl;
 import server.model.impl.RowIdRepositoryImpl;
 import server.model.lock.Lock;
@@ -13,6 +14,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
 
 public class TestUtils {
@@ -50,7 +52,7 @@ public class TestUtils {
     public static void createRowIdFiles(int lastId, int maxIdSize, int compressSize, String fileName, String filesIdPath, String filesRowPath, int rowAddressSize, Map<Integer, byte[]> rowMap) {
         final int maxRowSize = maxIdSize / compressSize;
         final Set<Integer> boundsBatch = prepareBoundsBatch(lastId, maxIdSize);
-        final ObjectConverter objectConverter = new ObjectConverterImpl();
+        final ObjectConverter objectConverter = new ObjectConverterImpl(new DataCompressorImpl());
         RowIdRepositoryImpl.CachedRowAddresses cachedRowAddresses = null;
         int id = 1;
         int lastRowFileNumber = 1;
@@ -101,7 +103,7 @@ public class TestUtils {
     }
 
     public static Map<Integer, byte[]> createRowMap(int lastId) {
-        final ObjectConverter objectConverter = new ObjectConverterImpl();
+        final ObjectConverter objectConverter = new ObjectConverterImpl(new DataCompressorImpl());
         final Map<Integer, byte[]> map = new HashMap<>();
         for (int i = 1; i <= lastId; i++) {
             map.put(i, objectConverter.toBytes(generateRow(i, i)));
@@ -164,5 +166,12 @@ public class TestUtils {
             }
         }
         destroyable.destroy();
+    }
+
+    public static void assertBytes(byte[] expected, byte[] actual) {
+        assertEquals(expected.length, actual.length);
+        for (int i = 0; i < expected.length; i++) {
+            assertEquals(expected[i], actual[i]);
+        }
     }
 }

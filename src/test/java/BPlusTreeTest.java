@@ -5,6 +5,7 @@ import server.model.FieldKeeper;
 import server.model.ObjectConverter;
 import server.model.impl.BPlusTree;
 import server.model.impl.ConditionServiceImpl;
+import server.model.impl.DataCompressorImpl;
 import server.model.impl.ObjectConverterImpl;
 import server.model.lock.LockService;
 import server.model.pojo.Pair;
@@ -31,7 +32,7 @@ public class BPlusTreeTest extends FieldKeeperTest {
 
     @Override
     <T extends Comparable<T>> FieldKeeper<T, Integer> prepareFieldKeeper(Class<T> clazz, String fieldName) {
-        return new TestBPlusTree<>(fieldName, "test", new ObjectConverterImpl(), new ConditionServiceImpl(TestUtils.mockModelService()), treeFactor);
+        return new TestBPlusTree<>(fieldName, "test", new ObjectConverterImpl(new DataCompressorImpl()), new ConditionServiceImpl(TestUtils.mockModelService()), treeFactor);
     }
 
     private static class TestBPlusTree<U extends Comparable<U>, V> extends BPlusTree<U, V> {

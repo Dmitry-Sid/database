@@ -85,7 +85,9 @@
 
     <bean id="fileHelper" class="server.model.impl.FileHelperImpl"/>
 
-    <bean id="objectConverter" class="server.model.impl.ObjectConverterImpl"/>
+    <bean id="objectConverter" class="server.model.impl.ObjectConverterImpl">
+        <constructor-arg ref="dataCompressor"/>
+    </bean>
 
     <bean id="exceptionFilter" class="server.model.impl.ExceptionFilter"/>
 
@@ -107,4 +109,5 @@
         <constructor-arg index="1" ref="modelService"/>
         <constructor-arg index="2" ref="conditionService"/>
     </bean>
+    <bean id="dataCompressor" class="server.model.impl.DataCompressorImpl"/>
 </beans>

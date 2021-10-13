@@ -1,6 +1,7 @@
 import org.junit.Test;
 import server.model.FileHelper;
 import server.model.ObjectConverter;
+import server.model.impl.DataCompressorImpl;
 import server.model.impl.FileHelperImpl;
 import server.model.impl.ObjectConverterImpl;
 import server.model.pojo.Row;
@@ -15,7 +16,7 @@ import static org.junit.Assert.*;
 public class FileHelperTest {
 
     private final FileHelper fileHelper = new FileHelperImpl();
-    private final ObjectConverter objectConverter = new ObjectConverterImpl();
+    private final ObjectConverter objectConverter = new ObjectConverterImpl(new DataCompressorImpl());
 
     @Test
     public void writeTest() throws IOException {
@@ -36,7 +37,7 @@ public class FileHelperTest {
                 }
             }
             assertEquals(6, index);
-            assertBytes(new byte[]{1, 5, 10, 2, 6, 11}, result);
+            TestUtils.assertBytes(new byte[]{1, 5, 10, 2, 6, 11}, result);
         } finally {
             new File("test").delete();
         }
@@ -57,7 +58,7 @@ public class FileHelperTest {
                 }
             }
             assertEquals(3, index);
-            assertBytes(new byte[]{2, 6, 11}, result);
+            TestUtils.assertBytes(new byte[]{2, 6, 11}, result);
         } finally {
             new File("test").delete();
         }
@@ -77,17 +78,10 @@ public class FileHelperTest {
                 fileHelper.write("test", bytes, true);
             }
             for (int i = 0; i < 3; i++) {
-                assertBytes(objectConverter.toBytes(rowList.get(i)), fileHelper.read(rowAddressList.get(i)));
+                TestUtils.assertBytes(objectConverter.toBytes(rowList.get(i)), fileHelper.read(rowAddressList.get(i)));
             }
         } finally {
             new File("test").delete();
-        }
-    }
-
-    private void assertBytes(byte[] expected, byte[] actual) {
-        assertEquals(expected.length, actual.length);
-        for (int i = 0; i < expected.length; i++) {
-            assertEquals(expected[i], actual[i]);
         }
     }
 
@@ -103,8 +97,8 @@ public class FileHelperTest {
                 inputStream.read(bytes3);
                 outputStream.write(bytes2);
             }, null));
-            assertBytes(bytes1, bytes3);
-            assertBytes(bytes2, fileHelper.read(rowAddress));
+            TestUtils.assertBytes(bytes1, bytes3);
+            TestUtils.assertBytes(bytes2, fileHelper.read(rowAddress));
         } finally {
             new File("test").delete();
         }
@@ -118,29 +112,29 @@ public class FileHelperTest {
             fileHelper.write("test", bytes1, true);
             fileHelper.write("test", bytes2, true);
             fileHelper.write("test", bytes3, true);
-            assertBytes(bytes1, fileHelper.read(rowAddress1));
-            assertBytes(bytes2, fileHelper.read(rowAddress2));
-            assertBytes(bytes3, fileHelper.read(rowAddress3));
+            TestUtils.assertBytes(bytes1, fileHelper.read(rowAddress1));
+            TestUtils.assertBytes(bytes2, fileHelper.read(rowAddress2));
+            TestUtils.assertBytes(bytes3, fileHelper.read(rowAddress3));
             final byte[] bytes6 = new byte[5];
             fileHelper.collect(new FileHelper.CollectBean(rowAddress1, (inputStream, outputStream) -> {
                 inputStream.read(bytes6);
             }, null));
-            assertBytes(bytes1, bytes6);
-            assertBytes(new byte[5], fileHelper.read(rowAddress3));
+            TestUtils.assertBytes(bytes1, bytes6);
+            TestUtils.assertBytes(new byte[5], fileHelper.read(rowAddress3));
             final byte[] bytes7 = new byte[5];
             fileHelper.collect(new FileHelper.CollectBean(rowAddress1, (inputStream, outputStream) -> {
                 inputStream.read(bytes7);
                 outputStream.write(bytes7);
             }, null));
-            assertBytes(bytes2, bytes7);
-            assertBytes(bytes2, fileHelper.read(rowAddress1));
-            assertBytes(bytes3, fileHelper.read(rowAddress2));
+            TestUtils.assertBytes(bytes2, bytes7);
+            TestUtils.assertBytes(bytes2, fileHelper.read(rowAddress1));
+            TestUtils.assertBytes(bytes3, fileHelper.read(rowAddress2));
             final byte[] bytes8 = new byte[5];
             fileHelper.collect(new FileHelper.CollectBean(rowAddress1, (inputStream, outputStream) -> {
                 inputStream.skip(5);
                 outputStream.write(bytes8);
             }, null));
-            assertBytes(bytes8, fileHelper.read(rowAddress1));
+            TestUtils.assertBytes(bytes8, fileHelper.read(rowAddress1));
         } finally {
             new File("test").delete();
         }
@@ -159,12 +153,12 @@ public class FileHelperTest {
             assertFalse(chainInputStream.isClosed());
             final byte[] bytes3 = new byte[5];
             chainInputStream.getStream().read(bytes3);
-            assertBytes(bytes1, bytes3);
+            TestUtils.assertBytes(bytes1, bytes3);
             assertFalse(chainInputStream.isClosed());
             chainInputStream.init("test2");
             final byte[] bytes4 = new byte[5];
             chainInputStream.getStream().read(bytes4);
-            assertBytes(bytes2, bytes4);
+            TestUtils.assertBytes(bytes2, bytes4);
             chainInputStream.close();
             assertTrue(chainInputStream.isClosed());
         } finally {
@@ -191,12 +185,12 @@ public class FileHelperTest {
             final byte[] bytes3 = new byte[5];
             try (InputStream inputStream = new FileInputStream("test1")) {
                 inputStream.read(bytes3);
-                assertBytes(bytes1, bytes3);
+                TestUtils.assertBytes(bytes1, bytes3);
             }
             final byte[] bytes4 = new byte[5];
             try (InputStream inputStream = new FileInputStream("test2")) {
                 inputStream.read(bytes4);
-                assertBytes(bytes2, bytes4);
+                TestUtils.assertBytes(bytes2, bytes4);
             }
         } finally {
             new File("test1").delete();
@@ -243,7 +237,7 @@ public class FileHelperTest {
                 final FileHelper.InputOutputConsumer inputOutputConsumer = (inputStream, outputStream) -> {
                     final byte[] oldBytes = new byte[rowAddress.getSize()];
                     inputStream.read(oldBytes);
-                    assertBytes(bytesAdded, oldBytes);
+                    TestUtils.assertBytes(bytesAdded, oldBytes);
                     processed[0] = true;
                     final byte[] bytes = new byte[rowAddress.getSize() + 2];
                     for (int i = 0; i < bytes.length; i++) {
@@ -267,7 +261,7 @@ public class FileHelperTest {
                 final FileHelper.InputOutputConsumer inputOutputConsumer = (inputStream, outputStream) -> {
                     final byte[] oldBytes = new byte[rowAddress.getSize()];
                     inputStream.read(oldBytes);
-                    assertBytes(bytesAdded, oldBytes);
+                    TestUtils.assertBytes(bytesAdded, oldBytes);
                     processed[1] = true;
                     final byte[] bytes = new byte[rowAddress.getSize() - 1];
                     for (int i = 0; i < bytes.length; i++) {
@@ -302,7 +296,7 @@ public class FileHelperTest {
                 final FileHelper.InputOutputConsumer inputOutputConsumer = (inputStream, outputStream) -> {
                     final byte[] oldBytes = new byte[rowAddress.getSize()];
                     inputStream.read(oldBytes);
-                    assertBytes(bytesAdded, oldBytes);
+                    TestUtils.assertBytes(bytesAdded, oldBytes);
                     processed[2] = true;
                     final byte[] bytes = new byte[rowAddress.getSize() + 3];
                     for (int i = 0; i < bytes.length; i++) {
@@ -339,7 +333,7 @@ public class FileHelperTest {
             assertEquals(5, rowAddresses.size());
             int i = 0;
             for (RowAddress rowAddress : rowAddresses) {
-                assertBytes(byteList.get(i), fileHelper.read(rowAddress));
+                TestUtils.assertBytes(byteList.get(i), fileHelper.read(rowAddress));
                 i++;
             }
         } finally {

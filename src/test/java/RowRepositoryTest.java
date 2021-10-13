@@ -333,7 +333,7 @@ public class RowRepositoryTest {
         int lastId = 750;
         try {
             createFiles(lastId);
-            final ModelService modelService = new ModelServiceImpl("", new ObjectConverterImpl(), null);
+            final ModelService modelService = new ModelServiceImpl("", new ObjectConverterImpl(new DataCompressorImpl()), null);
             modelService.add("field1", String.class);
             modelService.add("field2", String.class);
             modelService.add("field3", String.class);
@@ -574,7 +574,7 @@ public class RowRepositoryTest {
     }
 
     private RowRepository prepareRepository(ModelService modelService, int bufferSize) {
-        return new TestRowRepository(bufferSize, new ObjectConverterImpl(), new DestroyServiceImpl(1000), modelService);
+        return new TestRowRepository(bufferSize, new ObjectConverterImpl(new DataCompressorImpl()), new DestroyServiceImpl(1000), modelService);
     }
 
     private void createFiles(int lastId) {
@@ -585,7 +585,7 @@ public class RowRepositoryTest {
 
     private static class TestRowRepository extends RowRepositoryImpl {
         TestRowRepository(int bufferSize, ObjectConverter objectConverter, DestroyService destroyService, ModelService modelService) {
-            super(new ObjectConverterImpl(), TestUtils.prepareRowIdRepository(objectConverter, destroyService, "", maxIdSize, compressSize, "", ""), new FileHelperImpl(), mockIndexService(), new ConditionServiceImpl(TestUtils.mockModelService()), modelService, destroyService, bufferSize);
+            super(new ObjectConverterImpl(new DataCompressorImpl()), TestUtils.prepareRowIdRepository(objectConverter, destroyService, "", maxIdSize, compressSize, "", ""), new FileHelperImpl(), mockIndexService(), new ConditionServiceImpl(TestUtils.mockModelService()), modelService, destroyService, bufferSize);
         }
 
         @Override
