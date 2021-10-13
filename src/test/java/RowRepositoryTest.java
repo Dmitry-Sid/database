@@ -24,7 +24,7 @@ public class RowRepositoryTest {
     private static final String fileVariablesName = "rowIdVariables";
     private static final String filesIdPath = "rowId";
     private static final String filesRowPath = "row";
-    private static final int maxIdSize = 500;
+    private static final int maxIdSize = 20;
     private static final int compressSize = 2;
 
     @Parameterized.Parameters

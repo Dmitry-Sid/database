@@ -14,7 +14,7 @@ public class LockService {
     }
 
     public static <T> ReadWriteLock<T> createReadWriteLock(Class<T> clazz) {
-        return new ReadWriteLockImpl<>();
+        return new ReadWriteLockImpl2<>();
     }
 
     public static <U, T> T doInLock(Lock<U> lock, U value, Supplier<T> supplier) {

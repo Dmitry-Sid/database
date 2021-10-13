@@ -1,5 +1,7 @@
 import org.junit.After;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import server.model.RowIdRepository;
 import server.model.impl.DataCompressorImpl;
 import server.model.impl.DestroyServiceImpl;
@@ -15,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 
+@RunWith(Parameterized.class)
 public class RowIdRepositoryTest {
     private static final String fileName = "rowIdVariables";
     private static final String filesIdPath = "rowId";
@@ -22,6 +25,11 @@ public class RowIdRepositoryTest {
     private static final int maxIdSize = 500;
     private static final int compressSize = 2;
     private static final int rowAddressSize = 5;
+
+    @Parameterized.Parameters
+    public static Object[][] data() {
+        return new Object[1][0];
+    }
 
     @After
     public void after() {
@@ -33,7 +41,7 @@ public class RowIdRepositoryTest {
     public void newIdTest() {
         final int lastId = 750;
         createFiles(lastId);
-        final RowIdRepository rowIdRepository = prepareRowIdRepository();
+        final RowIdRepository rowIdRepository = prepareRowIdRepository(maxIdSize);
         try {
             assertEquals(751, rowIdRepository.newId());
             assertEquals(752, rowIdRepository.newId());
@@ -48,7 +56,7 @@ public class RowIdRepositoryTest {
     public void processTest() {
         final int lastId = 750;
         createFiles(lastId);
-        final RowIdRepository rowIdRepository = prepareRowIdRepository();
+        final RowIdRepository rowIdRepository = prepareRowIdRepository(maxIdSize);
         try {
             TestUtils.doAndSleep(rowIdRepository, () -> {
                 assertFalse(rowIdRepository.process(0, rowAddress -> {
@@ -122,7 +130,7 @@ public class RowIdRepositoryTest {
     public void addTest() {
         final int lastId = 750;
         createFiles(lastId);
-        final RowIdRepository rowIdRepository = prepareRowIdRepository();
+        final RowIdRepository rowIdRepository = prepareRowIdRepository(maxIdSize);
         try {
             {
                 TestUtils.doAndSleep(rowIdRepository, () -> {
@@ -313,7 +321,7 @@ public class RowIdRepositoryTest {
     public void deleteTest() {
         final int lastId = 750;
         createFiles(lastId);
-        final RowIdRepository rowIdRepository = prepareRowIdRepository();
+        final RowIdRepository rowIdRepository = prepareRowIdRepository(maxIdSize);
         try {
             TestUtils.doAndSleep(rowIdRepository, () -> {
                 assertTrue(rowIdRepository.process(300, rowAddress -> {
@@ -375,7 +383,7 @@ public class RowIdRepositoryTest {
     public void streamTest() {
         final int lastId = 750;
         createFiles(lastId);
-        final RowIdRepository rowIdRepository = prepareRowIdRepository();
+        final RowIdRepository rowIdRepository = prepareRowIdRepository(maxIdSize);
         try {
             TestUtils.doAndSleep(rowIdRepository, () -> {
                 {
@@ -424,8 +432,9 @@ public class RowIdRepositoryTest {
     public void concurrentTest() {
         final int lastId = 750;
         final int max = 5000;
+        final int maxIdSize = 20;
         createFiles(lastId);
-        final RowIdRepository rowIdRepository = prepareRowIdRepository();
+        final RowIdRepository rowIdRepository = prepareRowIdRepository(maxIdSize);
         try {
             TestUtils.doAndSleep(rowIdRepository, () -> {
                 final AtomicInteger count = new AtomicInteger();
@@ -438,7 +447,7 @@ public class RowIdRepositoryTest {
                 });
                 final Thread thread2 = new Thread(() -> {
                     for (int i = 0; i < max; i++) {
-                        rowIdRepository.delete(i + 100);
+                        rowIdRepository.delete(i);
                     }
                     System.out.println(Thread.currentThread().getName() + " finished");
                 });
@@ -483,7 +492,7 @@ public class RowIdRepositoryTest {
         TestUtils.createRowIdFiles(lastId, maxIdSize, compressSize, fileName, filesIdPath, filesRowPath, rowAddressSize, null);
     }
 
-    private RowIdRepository prepareRowIdRepository() {
+    private RowIdRepository prepareRowIdRepository(int maxIdSize) {
         return TestUtils.prepareRowIdRepository(new ObjectConverterImpl(new DataCompressorImpl()), new DestroyServiceImpl(1000), "", maxIdSize, compressSize, "", "");
     }
 
