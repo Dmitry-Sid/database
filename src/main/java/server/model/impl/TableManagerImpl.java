@@ -34,8 +34,8 @@ public class TableManagerImpl extends BaseDestroyable implements TableManager {
     private ServiceHolder createServiceHolder(String tableName) {
         final ServiceHolder[] serviceHolders = new ServiceHolder[1];
         tableServiceFactory.createServices(tableName, map -> {
-            serviceHolders[0] = new ServiceHolder((RowRepository) map.get(RowRepository.class), (ModelService) map.get(ModelService.class));
-        }, ModelService.class, RowRepository.class);
+            serviceHolders[0] = new ServiceHolder((RowRepository) map.get(RowRepository.class), (ModelService) map.get(ModelService.class), (ConditionService) map.get(ConditionService.class));
+        }, ModelService.class, RowRepository.class, ConditionService.class);
         return serviceHolders[0];
     }
 

@@ -14,10 +14,12 @@ public interface TableManager extends Destroyable {
     public static class ServiceHolder {
         public final RowRepository rowRepository;
         public final ModelService modelService;
+        public final ConditionService conditionService;
 
-        public ServiceHolder(RowRepository rowRepository, ModelService modelService) {
+        public ServiceHolder(RowRepository rowRepository, ModelService modelService, ConditionService conditionService) {
             this.rowRepository = rowRepository;
             this.modelService = modelService;
+            this.conditionService = conditionService;
         }
     }
 }

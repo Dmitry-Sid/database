@@ -25,13 +25,10 @@ public class RowListController extends BaseController {
     private static final int ROWS_PER_PAGE = 25;
     private static final int MAX_SIZE = 500;
     public static String tableName;
-    private final ConditionService conditionService;
 
-    public RowListController(TableManager tableManager, ConditionService conditionService) {
+    public RowListController(TableManager tableManager) {
         super(tableManager);
-        this.conditionService = conditionService;
         tableName = "test";
-        tableManager.create(tableName);
       /*  for (int i = 0; i < 10; i++) {
             for (int j = 0; j < 100_000; j++) {
                 final Map<String, Comparable> map = new HashMap<>();
@@ -49,6 +46,7 @@ public class RowListController extends BaseController {
         final TableManager.ServiceHolder serviceHolder = tableManager.getServiceHolder(RowListController.tableName);
         final RowRepository rowRepository = serviceHolder.rowRepository;
         final ModelService modelService = serviceHolder.modelService;
+        final ConditionService conditionService = serviceHolder.conditionService;
         long start = System.currentTimeMillis();
         if (StringUtils.isBlank(searchRequest)) {
             searchRequest = (String) request.getSession().getAttribute("searchRequest");

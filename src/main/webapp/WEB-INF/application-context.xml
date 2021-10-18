@@ -65,7 +65,7 @@
         <constructor-arg index="5" ref="conditionService"/>
     </bean>
 
-    <bean id="conditionService" class="server.model.impl.ConditionServiceImpl" scope="prototype">
+    <bean id="conditionService" class="server.model.impl.ConditionServiceImpl">
         <constructor-arg ref="modelService"/>
     </bean>
 
@@ -86,6 +86,7 @@
     <bean id="dataCompressor" class="server.model.impl.DataCompressorImpl"/>
 
     <bean id="tableManager" class="server.model.impl.TableManagerImpl" parent="baseDestroyable">
+        <constructor-arg index="1" value="true"/>
         <constructor-arg index="4" ref="tableServiceFactory"/>
     </bean>
 
@@ -111,7 +112,5 @@
 
     <bean class="server.controllers.RowController" parent="baseController"/>
 
-    <bean class="server.controllers.RowListController" parent="baseController">
-        <constructor-arg index="1" ref="conditionService"/>
-    </bean>
+    <bean class="server.controllers.RowListController" parent="baseController"/>
 </beans>
