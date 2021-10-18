@@ -20,16 +20,14 @@ import java.util.stream.Collectors;
 public class RowRepositoryImpl extends BaseDestroyable implements RowRepository {
     private static final Logger log = LoggerFactory.getLogger(RowRepositoryImpl.class);
     protected final RowIdRepository rowIdRepository;
-    private final ObjectConverter objectConverter;
     private final FileHelper fileHelper;
     private final IndexService indexService;
     private final ConditionService conditionService;
     private final Buffer<Row> buffer;
     private final Set<String> fields = Collections.synchronizedSet(new HashSet<>());
 
-    public RowRepositoryImpl(ObjectConverter objectConverter, RowIdRepository rowIdRepository, FileHelper fileHelper, IndexService indexService, ConditionService conditionService, ModelService modelService, DestroyService destroyService, int bufferSize) {
-        super(destroyService);
-        this.objectConverter = objectConverter;
+    public RowRepositoryImpl(String filePath, boolean init, ObjectConverter objectConverter, DestroyService destroyService, RowIdRepository rowIdRepository, FileHelper fileHelper, IndexService indexService, ConditionService conditionService, ModelService modelService, int bufferSize) {
+        super(filePath, init, objectConverter, destroyService);
         this.rowIdRepository = rowIdRepository;
         this.fileHelper = fileHelper;
         this.indexService = indexService;

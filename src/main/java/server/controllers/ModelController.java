@@ -4,20 +4,21 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import server.model.ModelService;
+import server.model.TableManager;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @RequestMapping(value = "/model", produces = "text/plain;charset=UTF-8")
-public class ModelController {
-    private final ModelService modelService;
+public class ModelController extends BaseController {
 
-    public ModelController(ModelService modelService) {
-        this.modelService = modelService;
+    public ModelController(TableManager tableManager) {
+        super(tableManager);
     }
 
     @GetMapping("/")
     public String getFields(Model model) {
+        final ModelService modelService = tableManager.getServiceHolder(RowListController.tableName).modelService;
         model.addAttribute("types", modelService.types);
         model.addAttribute("fieldsForm", new FieldsForm(modelService.getFields()));
         return "model";
@@ -25,7 +26,7 @@ public class ModelController {
 
     @GetMapping("/delete")
     public String delete(@RequestParam String field) {
-        modelService.delete(field);
+        tableManager.getServiceHolder(RowListController.tableName).modelService.delete(field);
         return "redirect:/model/";
     }
 
@@ -40,6 +41,7 @@ public class ModelController {
                 addedIndexes.add(fieldInfo.getName());
             }
         }
+        final ModelService modelService = tableManager.getServiceHolder(RowListController.tableName).modelService;
         modelService.deleteIndex(deletedIndexes.toArray(new String[0]));
         modelService.addIndex(addedIndexes.toArray(new String[0]));
         return "redirect:/model/";
@@ -48,7 +50,7 @@ public class ModelController {
     @PostMapping("/add")
     public String addField(@RequestParam String fieldName, @RequestParam String type) throws ClassNotFoundException {
         if (StringUtils.isNotBlank(fieldName) && StringUtils.isNotBlank(type)) {
-            modelService.add(fieldName, Class.forName(type));
+            tableManager.getServiceHolder(RowListController.tableName).modelService.add(fieldName, Class.forName(type));
         }
         return "redirect:/model/";
     }

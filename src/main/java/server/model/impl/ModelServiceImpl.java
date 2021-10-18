@@ -1,10 +1,7 @@
 package server.model.impl;
 
 import org.apache.commons.lang3.StringUtils;
-import server.model.BaseDestroyable;
-import server.model.DestroyService;
-import server.model.ModelService;
-import server.model.ObjectConverter;
+import server.model.*;
 
 import java.io.File;
 import java.io.Serializable;
@@ -25,13 +22,11 @@ public class ModelServiceImpl extends BaseDestroyable implements ModelService {
     private final List<Consumer<Set<String>>> indexesChangesSubscribers = new CopyOnWriteArrayList<>();
     private final Map<String, FieldInfo> fields;
     private final String fileName;
-    private final ObjectConverter objectConverter;
     private volatile boolean changed;
 
-    public ModelServiceImpl(String filePath, ObjectConverter objectConverter, DestroyService destroyService) {
-        super(destroyService, filePath);
-        this.fileName = filePath + FILE_NAME;
-        this.objectConverter = objectConverter;
+    public ModelServiceImpl(String filePath, boolean init, ObjectConverter objectConverter, DestroyService destroyService) {
+        super(filePath, init, objectConverter, destroyService, Utils.getFullPath(filePath, FILE_NAME));
+        this.fileName = Utils.getFullPath(filePath, FILE_NAME) + FILE_NAME;
         if (new File(this.fileName).exists()) {
             this.fields = objectConverter.fromFile(ConcurrentHashMap.class, this.fileName);
             checkFields(this.fields);

@@ -24,8 +24,8 @@ public class TestUtils {
         }});
     }
 
-    public static RowIdRepository prepareRowIdRepository(ObjectConverter objectConverter, DestroyService destroyService, String filesRowPath, int maxIdSize, int compressSize, String fileName, String filesIdPath) {
-        return new RowIdRepositoryImpl(objectConverter, destroyService, filesIdPath, filesRowPath, maxIdSize, compressSize, fileName);
+    public static RowIdRepository prepareRowIdRepository(String filePath, DestroyService destroyService, int maxIdSize, int compressSize, ObjectConverter objectConverter) {
+        return new RowIdRepositoryImpl(filePath, true, objectConverter, destroyService, maxIdSize, compressSize);
     }
 
     public static ModelService mockModelService() {

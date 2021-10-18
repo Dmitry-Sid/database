@@ -5,13 +5,19 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
-public abstract class BaseDestroyable implements Destroyable {
+public abstract class BaseDestroyable extends BaseFilePathHolder implements Destroyable {
     private static final Logger log = LoggerFactory.getLogger(BaseDestroyable.class);
 
+    protected final ObjectConverter objectConverter;
     private final DestroyService destroyService;
 
-    protected BaseDestroyable(DestroyService destroyService, String... paths) {
+    protected BaseDestroyable(String filePath, boolean init, ObjectConverter objectConverter, DestroyService destroyService, String... paths) {
+        super(filePath);
+        this.objectConverter = objectConverter;
         this.destroyService = destroyService;
+        if (!init) {
+            return;
+        }
         if (destroyService != null) {
             destroyService.register(this);
         }

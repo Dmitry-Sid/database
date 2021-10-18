@@ -44,44 +44,32 @@
         <property name="locations" value="classpath:application.properties"/>
     </bean>
 
-    <bean id="rowRepository" class="server.model.impl.RowRepositoryImpl">
-        <constructor-arg index="0" ref="objectConverter"/>
-        <constructor-arg index="1" ref="rowIdRepository"/>
-        <constructor-arg index="2" ref="fileHelper"/>
-        <constructor-arg index="3" ref="indexService"/>
-        <constructor-arg index="4" ref="conditionService"/>
-        <constructor-arg index="5" ref="modelService"/>
-        <constructor-arg index="6" ref="destroyableService"/>
-        <constructor-arg index="7" value="10000"/>
+    <bean id="rowRepository" class="server.model.impl.RowRepositoryImpl" parent="baseDestroyable">
+        <constructor-arg index="4" ref="rowIdRepository"/>
+        <constructor-arg index="5" ref="fileHelper"/>
+        <constructor-arg index="6" ref="indexService"/>
+        <constructor-arg index="7" ref="conditionService"/>
+        <constructor-arg index="8" ref="modelService"/>
+        <constructor-arg index="9" value="10000"/>
     </bean>
 
-    <bean id="rowIdRepository" class="server.model.impl.RowIdRepositoryImpl">
-        <constructor-arg index="0" ref="objectConverter"/>
-        <constructor-arg index="1" ref="destroyableService"/>
-        <constructor-arg index="2" value="#{systemProperties.projectPath}\rowId\"/>
-        <constructor-arg index="3" value="#{systemProperties.projectPath}\row\"/>
+    <bean id="rowIdRepository" class="server.model.impl.RowIdRepositoryImpl" parent="baseDestroyable">
+        <constructor-arg index="2" ref="objectConverter"/>
+        <constructor-arg index="3" ref="destroyableService"/>
         <constructor-arg index="4" value="20000"/>
         <constructor-arg index="5" value="2"/>
-        <constructor-arg index="6" value="#{systemProperties.projectPath}\rowId\"/>
     </bean>
 
-    <bean id="indexService" class="server.model.impl.IndexServiceImpl">
-        <constructor-arg index="0" value="#{systemProperties.projectPath}\indexes\"/>
-        <constructor-arg index="1" ref="objectConverter"/>
-        <constructor-arg index="2" ref="modelService"/>
-        <constructor-arg index="3" ref="conditionService"/>
-        <constructor-arg index="4" ref="destroyableService"/>
+    <bean id="indexService" class="server.model.impl.IndexServiceImpl" parent="baseDestroyable">
+        <constructor-arg index="4" ref="modelService"/>
+        <constructor-arg index="5" ref="conditionService"/>
     </bean>
 
-    <bean id="conditionService" class="server.model.impl.ConditionServiceImpl">
+    <bean id="conditionService" class="server.model.impl.ConditionServiceImpl" scope="prototype">
         <constructor-arg ref="modelService"/>
     </bean>
 
-    <bean id="modelService" class="server.model.impl.ModelServiceImpl">
-        <constructor-arg index="0" value="#{systemProperties.projectPath}\model\"/>
-        <constructor-arg index="1" ref="objectConverter"/>
-        <constructor-arg index="2" ref="destroyableService"/>
-    </bean>
+    <bean id="modelService" class="server.model.impl.ModelServiceImpl" parent="baseDestroyable"/>
 
     <bean id="fileHelper" class="server.model.impl.FileHelperImpl"/>
 
@@ -95,19 +83,34 @@
         <constructor-arg value="1000"/>
     </bean>
 
-    <bean class="server.controllers.ModelController">
-        <constructor-arg index="0" ref="modelService"/>
-    </bean>
-
-    <bean class="server.controllers.RowController">
-        <constructor-arg index="0" ref="rowRepository"/>
-        <constructor-arg index="1" ref="modelService"/>
-    </bean>
-
-    <bean class="server.controllers.RowListController">
-        <constructor-arg index="0" ref="rowRepository"/>
-        <constructor-arg index="1" ref="modelService"/>
-        <constructor-arg index="2" ref="conditionService"/>
-    </bean>
     <bean id="dataCompressor" class="server.model.impl.DataCompressorImpl"/>
+
+    <bean id="tableManager" class="server.model.impl.TableManagerImpl">
+        <constructor-arg ref="tableServiceFactory"/>
+    </bean>
+
+    <bean id="tableServiceFactory" class="server.model.impl.TableServiceFactoryImpl" parent="baseFilePathHolder"/>
+
+    <bean id="baseFilePathHolder" class="server.model.BaseFilePathHolder" abstract="true" lazy-init="true">
+        <constructor-arg index="0" value="#{systemProperties.projectPath}/"/>
+    </bean>
+
+    <bean id="baseDestroyable" class="server.model.BaseDestroyable" abstract="true" parent="baseFilePathHolder">
+        <constructor-arg index="1" value="false"/>
+        <constructor-arg index="2" ref="objectConverter"/>
+        <constructor-arg index="3" ref="destroyableService"/>
+    </bean>
+
+
+    <bean id="baseController" class="server.controllers.BaseController" abstract="true" lazy-init="true">
+        <constructor-arg index="0" ref="tableManager"/>
+    </bean>
+
+    <bean class="server.controllers.ModelController" parent="baseController"/>
+
+    <bean class="server.controllers.RowController" parent="baseController"/>
+
+    <bean class="server.controllers.RowListController" parent="baseController">
+        <constructor-arg index="1" ref="conditionService"/>
+    </bean>
 </beans>

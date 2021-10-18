@@ -8,10 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import server.model.ConditionException;
-import server.model.ConditionService;
-import server.model.ModelService;
-import server.model.RowRepository;
+import server.model.*;
 import server.model.pojo.ICondition;
 import server.model.pojo.Row;
 
@@ -23,18 +20,18 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @RequestMapping(value = "/", produces = "text/plain;charset=UTF-8")
-public class RowListController {
+public class RowListController extends BaseController {
     private static final Logger log = LoggerFactory.getLogger(RowListController.class);
     private static final int ROWS_PER_PAGE = 25;
     private static final int MAX_SIZE = 500;
-    private final RowRepository rowRepository;
-    private final ModelService modelService;
     private final ConditionService conditionService;
+    public static String tableName;
 
-    public RowListController(RowRepository rowRepository, ModelService modelService, ConditionService conditionService) {
-        this.rowRepository = rowRepository;
-        this.modelService = modelService;
+    public RowListController(TableManager tableManager, ConditionService conditionService) {
+        super(tableManager);
         this.conditionService = conditionService;
+        tableName = "test";
+        tableManager.create(tableName);
       /*  for (int i = 0; i < 10; i++) {
             for (int j = 0; j < 100_000; j++) {
                 final Map<String, Comparable> map = new HashMap<>();
@@ -49,6 +46,9 @@ public class RowListController {
 
     @GetMapping("/")
     public String searchRows(Model model, HttpServletRequest request, @RequestParam(defaultValue = "") String searchRequest, @RequestParam(defaultValue = "1") int page) throws UnsupportedEncodingException {
+        final TableManager.ServiceHolder serviceHolder = tableManager.getServiceHolder(RowListController.tableName);
+        final RowRepository rowRepository = serviceHolder.rowRepository;
+        final ModelService modelService = serviceHolder.modelService;
         long start = System.currentTimeMillis();
         if (StringUtils.isBlank(searchRequest)) {
             searchRequest = (String) request.getSession().getAttribute("searchRequest");
@@ -98,7 +98,20 @@ public class RowListController {
 
     @GetMapping("/delete")
     public String delete(@RequestParam int id) {
-        rowRepository.delete(id);
+        tableManager.getServiceHolder(tableName).rowRepository.delete(id);
+        return "redirect:/";
+    }
+
+    @GetMapping("/create")
+    public String create(@RequestParam String tableName) {
+        RowListController.tableName = tableName;
+        tableManager.create(tableName);
+        return "redirect:/";
+    }
+
+    @GetMapping("/set")
+    public String set(@RequestParam String tableName) {
+        RowListController.tableName = tableName;
         return "redirect:/";
     }
 }

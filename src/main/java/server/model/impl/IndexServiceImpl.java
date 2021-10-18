@@ -11,10 +11,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class IndexServiceImpl extends BaseDestroyable implements IndexService {
+    private static final String DIRECTORY = "index";
     private static final SearchResult EMPTY = new SearchResult(false, Collections.emptySet());
     private final Map<String, FieldKeeper> fieldKeepers;
     private final String path;
-    private final ObjectConverter objectConverter;
     private final ConditionService conditionService;
     private List<Runnable> runnableList = new CopyOnWriteArrayList<>();
     private volatile boolean changed;
@@ -26,17 +26,15 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
      * @param conditionService
      */
     public IndexServiceImpl(Map<String, FieldKeeper> fieldKeepers, ConditionService conditionService) {
-        super(null);
+        super(null, false, null, null);
         this.fieldKeepers = fieldKeepers;
         this.conditionService = conditionService;
         this.path = null;
-        this.objectConverter = null;
     }
 
-    public IndexServiceImpl(String path, ObjectConverter objectConverter, ModelService modelService, ConditionService conditionService, DestroyService destroyService) {
-        super(destroyService, path);
-        this.path = path;
-        this.objectConverter = objectConverter;
+    public IndexServiceImpl(String filePath, boolean init, ObjectConverter objectConverter, DestroyService destroyService, ModelService modelService, ConditionService conditionService) {
+        super(filePath, init, objectConverter, destroyService, Utils.getFullPath(filePath, DIRECTORY));
+        this.path = Utils.getFullPath(filePath, DIRECTORY);
         this.conditionService = conditionService;
         this.fieldKeepers = new ConcurrentHashMap<>();
         if (new File(getFullPath()).exists()) {

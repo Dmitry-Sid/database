@@ -2,10 +2,7 @@ package server.model.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import server.model.BaseDestroyable;
-import server.model.DestroyService;
-import server.model.ObjectConverter;
-import server.model.RowIdRepository;
+import server.model.*;
 import server.model.lock.Lock;
 import server.model.lock.LockService;
 import server.model.lock.ReadWriteLock;
@@ -29,7 +26,6 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     private final ReadWriteLock<String> rowReadWriteLock = LockService.getFileReadWriteLock();
     private final ReadWriteLock<String> rowIdReadWriteLock = LockService.createReadWriteLock(String.class);
     private final Lock<String> rowIdLock = LockService.createLock(String.class);
-    private final ObjectConverter objectConverter;
     private final Variables variables;
     private final String variablesFileName;
     private final String filesIdPath;
@@ -38,19 +34,18 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     private final int compressSize;
     private volatile boolean changed;
 
-    public RowIdRepositoryImpl(ObjectConverter objectConverter, DestroyService destroyService, String filesIdPath, String filesRowPath, int maxIdSize, int compressSize, String variablesFileName) {
-        super(destroyService, filesRowPath, filesIdPath, variablesFileName);
-        this.objectConverter = objectConverter;
-        this.filesRowPath = filesRowPath + ROW_NAME;
+    public RowIdRepositoryImpl(String filePath, boolean init, ObjectConverter objectConverter, DestroyService destroyService, int maxIdSize, int compressSize) {
+        super(filePath, init, objectConverter, destroyService, Utils.getFullPath(filePath, ROW_ID_NAME), Utils.getFullPath(filePath, ROW_NAME));
+        this.filesIdPath = Utils.getFullPath(filePath, ROW_ID_NAME) + ROW_ID_NAME;
+        this.filesRowPath = Utils.getFullPath(filePath, ROW_NAME) + ROW_NAME;
+        this.variablesFileName = Utils.getFullPath(filePath, ROW_ID_NAME) + VARIABLES_NAME;
         this.compressSize = compressSize;
-        this.variablesFileName = variablesFileName + VARIABLES_NAME;
         final File file = new File(this.variablesFileName);
         if (file.exists()) {
             this.variables = objectConverter.fromFile(Variables.class, this.variablesFileName);
         } else {
             this.variables = new Variables(new AtomicInteger(0), Collections.synchronizedSet(new LinkedHashSet<>()), new ConcurrentHashMap<>());
         }
-        this.filesIdPath = filesIdPath + ROW_ID_NAME;
         this.maxIdSize = maxIdSize;
     }
 
