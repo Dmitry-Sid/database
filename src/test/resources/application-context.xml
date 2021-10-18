@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+    	http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="baseFilePathHolder" class="server.model.BaseFilePathHolder" abstract="true">
+        <constructor-arg index="0" value=""/>
+    </bean>
+
+    <bean id="tableService" class="server.model.BaseDestroyable" abstract="true" lazy-init="true"
+          parent="baseFilePathHolder">
+        <constructor-arg index="1" value="false"/>
+    </bean>
+
+    <bean id="tableServiceFactory" class="server.model.impl.TableServiceFactoryImpl" parent="baseFilePathHolder"/>
+
+    <bean id="testClass1" class="TableServiceFactoryTest.TestClass1" parent="tableService"/>
+    <bean id="testClass2" class="TableServiceFactoryTest.TestClass2" parent="tableService">
+        <constructor-arg index="2" ref="testClass1"/>
+    </bean>
+</beans>

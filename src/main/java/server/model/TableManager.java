@@ -1,11 +1,15 @@
 package server.model;
 
-public interface TableManager {
+import java.util.Set;
+
+public interface TableManager extends Destroyable {
     void create(String tableName);
 
     void delete(String tableName);
 
     ServiceHolder getServiceHolder(String tableName);
+
+    Set<String> getTables();
 
     public static class ServiceHolder {
         public final RowRepository rowRepository;

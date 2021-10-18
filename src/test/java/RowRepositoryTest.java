@@ -275,62 +275,67 @@ public class RowRepositoryTest {
         int lastId = 750;
         createFiles(lastId);
         final ModelService modelService = new ModelServiceImpl("", true, new ObjectConverterImpl(new DataCompressorImpl()), null);
-        modelService.add("field1", String.class);
-        modelService.add("field2", String.class);
-        modelService.add("field3", String.class);
-        final RowRepository rowRepository = prepareRepository(modelService, bufferSize);
-        TestUtils.doAndSleep(rowRepository, () -> {
-            for (int i = 1; i <= 750; i++) {
-                final Map<String, Comparable> map = new LinkedHashMap<>();
-                map.put("field1", "1f" + i);
-                map.put("field2", "2f" + i);
-                map.put("field3", "3f" + i);
-                rowRepository.add(new Row(i, map));
-            }
-            List<Row> rows = rowRepository.getList(ICondition.empty, 0, 750);
-            assertEquals(750, rows.size());
-            for (int i = 1; i <= 750; i++) {
-                final Map<String, Comparable> map = new LinkedHashMap<>();
-                map.put("field1", "1f" + i);
-                map.put("field2", "2f" + i);
-                map.put("field3", "3f" + i);
-                assertEquals(new Row(i, map), rows.get(i - 1));
-            }
-            modelService.delete("field4");
-            rows = rowRepository.getList(ICondition.empty, 0, 750);
-            assertEquals(750, rows.size());
-            for (int i = 1; i <= 750; i++) {
-                final Map<String, Comparable> map = new LinkedHashMap<>();
-                map.put("field1", "1f" + i);
-                map.put("field2", "2f" + i);
-                map.put("field3", "3f" + i);
-                assertEquals(new Row(i, map), rows.get(i - 1));
-            }
-            modelService.delete("field2");
-            rows = rowRepository.getList(ICondition.empty, 0, 750);
-            assertEquals(750, rows.size());
-            for (int i = 1; i <= 750; i++) {
-                final Map<String, Comparable> map = new LinkedHashMap<>();
-                map.put("field1", "1f" + i);
-                map.put("field3", "3f" + i);
-                assertEquals(new Row(i, map), rows.get(i - 1));
-            }
-            modelService.delete("field1");
-            rows = rowRepository.getList(ICondition.empty, 0, 750);
-            assertEquals(750, rows.size());
-            for (int i = 1; i <= 750; i++) {
-                final Map<String, Comparable> map = new LinkedHashMap<>();
-                map.put("field3", "3f" + i);
-                assertEquals(new Row(i, map), rows.get(i - 1));
-            }
-            modelService.delete("field3");
-            rows = rowRepository.getList(ICondition.empty, 0, 750);
-            assertEquals(750, rows.size());
-            for (int i = 1; i <= 750; i++) {
-                final Map<String, Comparable> map = new LinkedHashMap<>();
-                assertEquals(new Row(i, map), rows.get(i - 1));
-            }
-        });
+        try {
+            modelService.stop();
+            modelService.add("field1", String.class);
+            modelService.add("field2", String.class);
+            modelService.add("field3", String.class);
+            final RowRepository rowRepository = prepareRepository(modelService, bufferSize);
+            TestUtils.doAndSleep(rowRepository, () -> {
+                for (int i = 1; i <= 750; i++) {
+                    final Map<String, Comparable> map = new LinkedHashMap<>();
+                    map.put("field1", "1f" + i);
+                    map.put("field2", "2f" + i);
+                    map.put("field3", "3f" + i);
+                    rowRepository.add(new Row(i, map));
+                }
+                List<Row> rows = rowRepository.getList(ICondition.empty, 0, 750);
+                assertEquals(750, rows.size());
+                for (int i = 1; i <= 750; i++) {
+                    final Map<String, Comparable> map = new LinkedHashMap<>();
+                    map.put("field1", "1f" + i);
+                    map.put("field2", "2f" + i);
+                    map.put("field3", "3f" + i);
+                    assertEquals(new Row(i, map), rows.get(i - 1));
+                }
+                modelService.delete("field4");
+                rows = rowRepository.getList(ICondition.empty, 0, 750);
+                assertEquals(750, rows.size());
+                for (int i = 1; i <= 750; i++) {
+                    final Map<String, Comparable> map = new LinkedHashMap<>();
+                    map.put("field1", "1f" + i);
+                    map.put("field2", "2f" + i);
+                    map.put("field3", "3f" + i);
+                    assertEquals(new Row(i, map), rows.get(i - 1));
+                }
+                modelService.delete("field2");
+                rows = rowRepository.getList(ICondition.empty, 0, 750);
+                assertEquals(750, rows.size());
+                for (int i = 1; i <= 750; i++) {
+                    final Map<String, Comparable> map = new LinkedHashMap<>();
+                    map.put("field1", "1f" + i);
+                    map.put("field3", "3f" + i);
+                    assertEquals(new Row(i, map), rows.get(i - 1));
+                }
+                modelService.delete("field1");
+                rows = rowRepository.getList(ICondition.empty, 0, 750);
+                assertEquals(750, rows.size());
+                for (int i = 1; i <= 750; i++) {
+                    final Map<String, Comparable> map = new LinkedHashMap<>();
+                    map.put("field3", "3f" + i);
+                    assertEquals(new Row(i, map), rows.get(i - 1));
+                }
+                modelService.delete("field3");
+                rows = rowRepository.getList(ICondition.empty, 0, 750);
+                assertEquals(750, rows.size());
+                for (int i = 1; i <= 750; i++) {
+                    final Map<String, Comparable> map = new LinkedHashMap<>();
+                    assertEquals(new Row(i, map), rows.get(i - 1));
+                }
+            });
+        } finally {
+            new File("model").delete();
+        }
     }
 
     @Test

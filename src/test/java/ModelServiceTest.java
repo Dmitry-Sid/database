@@ -1,9 +1,11 @@
+import org.junit.After;
 import org.junit.Test;
 import server.model.ModelService;
 import server.model.impl.DataCompressorImpl;
 import server.model.impl.ModelServiceImpl;
 import server.model.impl.ObjectConverterImpl;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -14,6 +16,12 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.*;
 
 public class ModelServiceTest {
+    private static final String FILE_NAME = "model";
+
+    @After
+    public void after() {
+        new File(FILE_NAME).delete();
+    }
 
     @Test
     public void addAndContainsTest() {

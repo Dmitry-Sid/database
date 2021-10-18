@@ -1,7 +1,8 @@
 package server.model;
 
-public interface TableServiceFactory {
-    <T> T getService(String tableName, Class<T> clazz);
+import java.util.Map;
+import java.util.function.Consumer;
 
-    void createServices(String tableName);
+public interface TableServiceFactory {
+    void createServices(String tableName, Consumer<Map<Class<?>, Object>> consumer, Class<?>... classes);
 }

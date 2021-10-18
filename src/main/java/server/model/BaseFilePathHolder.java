@@ -6,4 +6,8 @@ public abstract class BaseFilePathHolder {
     protected BaseFilePathHolder(String filePath) {
         this.filePath = filePath;
     }
+
+    public String getFilePath() {
+        return filePath;
+    }
 }

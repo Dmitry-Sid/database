@@ -44,7 +44,7 @@
         <property name="locations" value="classpath:application.properties"/>
     </bean>
 
-    <bean id="rowRepository" class="server.model.impl.RowRepositoryImpl" parent="baseDestroyable">
+    <bean id="rowRepository" class="server.model.impl.RowRepositoryImpl" parent="tableService">
         <constructor-arg index="4" ref="rowIdRepository"/>
         <constructor-arg index="5" ref="fileHelper"/>
         <constructor-arg index="6" ref="indexService"/>
@@ -53,14 +53,14 @@
         <constructor-arg index="9" value="10000"/>
     </bean>
 
-    <bean id="rowIdRepository" class="server.model.impl.RowIdRepositoryImpl" parent="baseDestroyable">
+    <bean id="rowIdRepository" class="server.model.impl.RowIdRepositoryImpl" parent="tableService">
         <constructor-arg index="2" ref="objectConverter"/>
         <constructor-arg index="3" ref="destroyableService"/>
         <constructor-arg index="4" value="20000"/>
         <constructor-arg index="5" value="2"/>
     </bean>
 
-    <bean id="indexService" class="server.model.impl.IndexServiceImpl" parent="baseDestroyable">
+    <bean id="indexService" class="server.model.impl.IndexServiceImpl" parent="tableService">
         <constructor-arg index="4" ref="modelService"/>
         <constructor-arg index="5" ref="conditionService"/>
     </bean>
@@ -69,7 +69,7 @@
         <constructor-arg ref="modelService"/>
     </bean>
 
-    <bean id="modelService" class="server.model.impl.ModelServiceImpl" parent="baseDestroyable"/>
+    <bean id="modelService" class="server.model.impl.ModelServiceImpl" parent="tableService"/>
 
     <bean id="fileHelper" class="server.model.impl.FileHelperImpl"/>
 
@@ -85,8 +85,8 @@
 
     <bean id="dataCompressor" class="server.model.impl.DataCompressorImpl"/>
 
-    <bean id="tableManager" class="server.model.impl.TableManagerImpl">
-        <constructor-arg ref="tableServiceFactory"/>
+    <bean id="tableManager" class="server.model.impl.TableManagerImpl" parent="baseDestroyable">
+        <constructor-arg index="4" ref="tableServiceFactory"/>
     </bean>
 
     <bean id="tableServiceFactory" class="server.model.impl.TableServiceFactoryImpl" parent="baseFilePathHolder"/>
@@ -101,6 +101,7 @@
         <constructor-arg index="3" ref="destroyableService"/>
     </bean>
 
+    <bean id="tableService" abstract="true" parent="baseDestroyable"/>
 
     <bean id="baseController" class="server.controllers.BaseController" abstract="true" lazy-init="true">
         <constructor-arg index="0" ref="tableManager"/>

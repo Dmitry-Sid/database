@@ -24,8 +24,8 @@ public class RowListController extends BaseController {
     private static final Logger log = LoggerFactory.getLogger(RowListController.class);
     private static final int ROWS_PER_PAGE = 25;
     private static final int MAX_SIZE = 500;
-    private final ConditionService conditionService;
     public static String tableName;
+    private final ConditionService conditionService;
 
     public RowListController(TableManager tableManager, ConditionService conditionService) {
         super(tableManager);
