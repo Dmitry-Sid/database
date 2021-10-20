@@ -10,12 +10,13 @@
     <!--/*@thymesVar id="pageNumbers" type="java.util.List<java.lang.Integer>"*/-->
     <!--/*@thymesVar id="searchRequest" type="java.lang.String"*/-->
     <!--/*@thymesVar id="page" type="java.lang.Integer"*/-->
-    <form method="post" style="margin-bottom: 10px" th:action="@{/}">
+    <!--/*@thymesVar id="tableManager" type="server.model.TableManager"*/-->
+    <form method="post" style="margin-bottom: 10px" th:action="@{/search}">
         <input name="searchRequest" style="width: 50%" th:value="${searchRequest}" type="text"/>
         <input type="submit" value="Поиск"/>
     </form>
     <th:block
-            th:insert="fragments.html :: pagination (${totalPages}, ${pageNumbers}, @{/(searchRequest=${searchRequest})}, ${page})"></th:block>
+            th:insert="fragments.html :: pagination (${totalPages}, ${pageNumbers}, @{/search(searchRequest=${searchRequest})}, ${page})"></th:block>
     <!--/*@thymesVar id="rows" type="java.util.List<server.model.pojo.Row>"*/-->
     <!--/*@thymesVar id="fields" type="java.util.List<server.model.ModelService.FieldInfo>"*/-->
     <table class="table" style="margin-top: 15px" th:if="${rows != null}">
@@ -36,10 +37,10 @@
                 <td th:text="${row.getFields().get(field.name)}"></td>
             </th:block>
             <td>
-                <a th:href="@{/row/(id=${row.id})}">изменить</a>
+                <a th:href="@{/row(id=${row.id})}">изменить</a>
             </td>
             <td>
-                <a th:href="@{/delete/(id=${row.id})}">удалить</a>
+                <a th:href="@{/search/delete(id=${row.id})}">удалить</a>
             </td>
         </tr>
         </tbody>

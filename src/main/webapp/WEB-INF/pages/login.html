@@ -16,8 +16,8 @@
                            th:field="*{email}" type="text"/>
                     <input name="password" placeholder="Password" th:field="*{password}" type="password"/>
                     <button type="submit">Log In</button>
-                    <h4><a th:href="@{/login/(action='resetPassword')}">Забыли пароль?</a></h4>
-                    <h4><a th:href="@{/registration/}">Зарегистрироваться</a></h4>
+                    <h4><a th:href="@{/login(action='resetPassword')}">Забыли пароль?</a></h4>
+                    <h4><a th:href="@{/registration}">Зарегистрироваться</a></h4>
                 </div>
             </form>
         </th:block>

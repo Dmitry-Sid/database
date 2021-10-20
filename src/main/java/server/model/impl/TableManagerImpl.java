@@ -1,14 +1,19 @@
 package server.model.impl;
 
+import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import server.model.*;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class TableManagerImpl extends BaseDestroyable implements TableManager {
+    private static final Logger log = LoggerFactory.getLogger(TableManagerImpl.class);
     private static final String FILE_NAME = "tables";
 
     private final Map<String, ServiceHolder> map = new ConcurrentHashMap<>();
@@ -41,7 +46,22 @@ public class TableManagerImpl extends BaseDestroyable implements TableManager {
 
     @Override
     public void delete(String tableName) {
-        map.remove(tableName);
+        final ServiceHolder serviceHolder = map.remove(tableName);
+        if (serviceHolder != null) {
+            serviceHolder.rowRepository.stop();
+            new Thread(() -> {
+                try {
+                    Thread.sleep(destroyService.getSleepTime());
+                } catch (InterruptedException e) {
+                    log.error("sleep error", e);
+                }
+                try {
+                    FileUtils.deleteDirectory(new File(Utils.getFullPath(filePath, tableName)));
+                } catch (IOException e) {
+                    log.error("cannot delete directory", e);
+                }
+            }).start();
+        }
         changed = true;
     }
 

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import server.model.*;
 import server.model.pojo.ICondition;
+import server.model.pojo.PersistentFields;
 import server.model.pojo.Row;
 
 import javax.servlet.http.HttpServletRequest;
@@ -19,16 +20,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-@RequestMapping(value = "/", produces = "text/plain;charset=UTF-8")
+@RequestMapping(value = "/search", produces = "text/plain;charset=UTF-8")
 public class RowListController extends BaseController {
     private static final Logger log = LoggerFactory.getLogger(RowListController.class);
     private static final int ROWS_PER_PAGE = 25;
     private static final int MAX_SIZE = 500;
-    public static String tableName;
 
-    public RowListController(TableManager tableManager) {
-        super(tableManager);
-        tableName = "test";
+    public RowListController(TableManager tableManager, PersistentFields persistentFields) {
+        super(tableManager, persistentFields);
       /*  for (int i = 0; i < 10; i++) {
             for (int j = 0; j < 100_000; j++) {
                 final Map<String, Comparable> map = new HashMap<>();
@@ -41,17 +40,21 @@ public class RowListController extends BaseController {
         }*/
     }
 
-    @GetMapping("/")
+    @GetMapping
     public String searchRows(Model model, HttpServletRequest request, @RequestParam(defaultValue = "") String searchRequest, @RequestParam(defaultValue = "1") int page) throws UnsupportedEncodingException {
-        final TableManager.ServiceHolder serviceHolder = tableManager.getServiceHolder(RowListController.tableName);
+        final TableManager.ServiceHolder serviceHolder = tableManager.getServiceHolder(persistentFields.getTableName());
         final RowRepository rowRepository = serviceHolder.rowRepository;
         final ModelService modelService = serviceHolder.modelService;
         final ConditionService conditionService = serviceHolder.conditionService;
+        if (persistentFields.getTableFields() == null) {
+            persistentFields.setTableFields(new PersistentFields.TableFields(null, null, null));
+        }
+        final PersistentFields.TableFields tableFields = persistentFields.getTableFields();
         long start = System.currentTimeMillis();
         if (StringUtils.isBlank(searchRequest)) {
-            searchRequest = (String) request.getSession().getAttribute("searchRequest");
+            searchRequest = tableFields.getSearchRequest();
             if (StringUtils.isNotBlank(searchRequest)) {
-                return "redirect:/?searchRequest=" + URLEncoder.encode(searchRequest, "UTF-8");
+                return "redirect:/search?searchRequest=" + URLEncoder.encode(searchRequest, "UTF-8");
             }
         }
         model.addAttribute("searchRequest", searchRequest);
@@ -59,23 +62,23 @@ public class RowListController extends BaseController {
         try {
             final ICondition condition;
             final int totalPages;
-            if (request.getSession().getAttribute("totalPages:" + searchRequest) != null) {
+            if (tableFields.getTotalPages() != null) {
                 condition = null;
-                totalPages = (int) request.getSession().getAttribute("totalPages:" + searchRequest);
+                totalPages = tableFields.getTotalPages();
             } else {
                 condition = conditionService.parse(searchRequest);
                 final int pages = (int) Math.ceil((double) rowRepository.size(condition, MAX_SIZE) / ROWS_PER_PAGE);
                 totalPages = pages == 0 ? 1 : pages;
-                request.getSession().setAttribute("totalPages:" + searchRequest, totalPages);
+                tableFields.setTotalPages(totalPages);
             }
             model.addAttribute("totalPages", totalPages);
             model.addAttribute("pageNumbers", IntStream.rangeClosed(1, totalPages).boxed().collect(Collectors.toList()));
             final List<Row> rows;
-            if (request.getSession().getAttribute("rows:" + searchRequest) != null) {
-                rows = (List<Row>) request.getSession().getAttribute("rows:" + searchRequest);
+            if (tableFields.getRows() != null) {
+                rows = tableFields.getRows();
             } else {
                 rows = rowRepository.getList(condition, 0, ROWS_PER_PAGE * totalPages);
-                request.getSession().setAttribute("rows:" + searchRequest, rows);
+                tableFields.setRows(rows);
             }
             model.addAttribute("rows", rows.size() > 0 ? rows.subList((page - 1) * ROWS_PER_PAGE, Math.min(rows.size(), page * ROWS_PER_PAGE)) : rows);
             model.addAttribute("fields", modelService.getFields());
@@ -83,33 +86,12 @@ public class RowListController extends BaseController {
             ServletUtils.makeError(request, e.getMessage());
         }
         log.info("search time " + (System.currentTimeMillis() - start));
-        return "index";
+        return "search";
     }
 
-    @PostMapping("/")
-    public String setSearchRequest(@RequestParam String searchRequest, HttpServletRequest request) throws UnsupportedEncodingException {
-        request.getSession().setAttribute("searchRequest", searchRequest);
-        request.getSession().setAttribute("totalPages:" + searchRequest, null);
-        request.getSession().setAttribute("rows:" + searchRequest, null);
-        return "redirect:/?searchRequest=" + URLEncoder.encode(searchRequest, "UTF-8");
-    }
-
-    @GetMapping("/delete")
-    public String delete(@RequestParam int id) {
-        tableManager.getServiceHolder(tableName).rowRepository.delete(id);
-        return "redirect:/";
-    }
-
-    @GetMapping("/create")
-    public String create(@RequestParam String tableName) {
-        RowListController.tableName = tableName;
-        tableManager.create(tableName);
-        return "redirect:/";
-    }
-
-    @GetMapping("/set")
-    public String set(@RequestParam String tableName) {
-        RowListController.tableName = tableName;
-        return "redirect:/";
+    @PostMapping
+    public String setSearchRequest(@RequestParam String searchRequest) throws UnsupportedEncodingException {
+        persistentFields.setTableFields(new PersistentFields.TableFields(searchRequest, null, null));
+        return "redirect:/search?searchRequest=" + URLEncoder.encode(searchRequest, "UTF-8");
     }
 }

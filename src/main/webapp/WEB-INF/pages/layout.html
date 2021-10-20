@@ -21,22 +21,35 @@
 </head>
 <body class="layout-cell layout-scrollbar">
 <div class="wrapper">
+    <!--/*@thymesVar id="tableManager" type="server.model.TableManager"*/-->
     <nav class="sidebar sidebar-sticky">
         <div class="sidebar-content layout-cell layout-scrollbar">
             <a class="sidebar-brand" href="index">
                 <img/>
             </a>
             <ul class="sidebar-nav">
-                <li class="sidebar-item" th:classappend="${#request.requestURI.endsWith('/')} ? 'active' : ''">
-                    <a class="sidebar-link" th:href="@{/}"><i class="align-middle" data-feather="home"></i> Поиск</a>
+                <li class="sidebar-item"
+                    th:classappend="${#request.requestURI.toLowerCase().contains('/tablesmanager')} ? 'active' : ''">
+                    <a class="sidebar-link" th:href="@{/tablesManager}"><i class="align-middle" data-feather="home"></i>
+                        Управление таблицами</a>
                 </li>
-                <li class="sidebar-item" th:classappend="${#request.requestURI.endsWith('/model/')} ? 'active' : ''">
-                    <a class="sidebar-link" th:href="@{/model/}"><i class="align-middle" data-feather="home"></i> Модель</a>
-                </li>
-                <li class="sidebar-item" th:classappend="${#request.requestURI.endsWith('/model/')} ? 'active' : ''">
-                    <a class="sidebar-link" th:href="@{/row/(id=0)}"><i class="align-middle" data-feather="home"></i>
-                        Добавить строку</a>
-                </li>
+                <th:block th:if="${!tableManager.getTables().isEmpty()}">
+                    <li class="sidebar-item"
+                        th:classappend="${#request.requestURI.toLowerCase().contains('/search')} ? 'active' : ''">
+                        <a class="sidebar-link" th:href="@{/search}"><i class="align-middle" data-feather="home"></i>
+                            Поиск</a>
+                    </li>
+                    <li class="sidebar-item"
+                        th:classappend="${#request.requestURI.toLowerCase().contains('/model')} ? 'active' : ''">
+                        <a class="sidebar-link" th:href="@{/model}"><i class="align-middle" data-feather="home"></i>
+                            Модель</a>
+                    </li>
+                    <li class="sidebar-item"
+                        th:classappend="${#request.requestURI.toLowerCase().contains('/row')} ? 'active' : ''">
+                        <a class="sidebar-link" th:href="@{/row(id=0)}"><i class="align-middle" data-feather="home"></i>
+                            Добавить строку</a>
+                    </li>
+                </th:block>
             </ul>
         </div>
     </nav>
@@ -74,6 +87,21 @@
                 </div>
                 <div class="row">
                     <div class="col-md-12">
+                        <!--/*@thymesVar id="persistentFields" type="server.model.pojo.PersistentFields"*/-->
+                        <th:block th:if="!${#request.requestURI.toLowerCase().contains('/tablesmanager')}">
+                            <div>
+                                <select class="form-control"
+                                        onchange="this.options[this.selectedIndex].value && (window.location = this.options[this.selectedIndex].value);"
+                                        th:with="link=@{/tablesManager/setTable(redirectURI=${T(java.net.URLEncoder).encode(#request.requestURI, 'UTF-8')})}">
+                                    <option th:each="table : ${tableManager.getTables()}"
+                                            th:selected="${table.equals(persistentFields.getTableName())}"
+                                            th:text="${table}"
+                                            th:value="${link + '&tableName=' + table}">
+                                    </option>
+                                </select>
+                            </div>
+                            <br/>
+                        </th:block>
                         <div class="card" layout:fragment="content"></div>
                     </div>
                 </div>

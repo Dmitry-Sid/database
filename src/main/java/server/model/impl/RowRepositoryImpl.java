@@ -23,6 +23,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
     private final FileHelper fileHelper;
     private final IndexService indexService;
     private final ConditionService conditionService;
+    private final ModelService modelService;
     private final Buffer<Row> buffer;
     private final Set<String> fields = Collections.synchronizedSet(new HashSet<>());
 
@@ -33,6 +34,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         this.indexService = indexService;
         this.conditionService = conditionService;
         this.buffer = new BufferImpl<>(bufferSize, bufferConsumer());
+        this.modelService = modelService;
         this.fields.addAll(modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         modelService.subscribeOnFieldsChanges(fields -> processDeletedFields(RowRepositoryImpl.this.fields.stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet())));
         indexService.subscribeOnIndexesChanges(this::processIndexesChanges);
@@ -305,5 +307,13 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
     @Override
     public void destroy() {
         buffer.flush();
+    }
+
+    @Override
+    public void stop() {
+        super.stop();
+        rowIdRepository.stop();
+        indexService.stop();
+        modelService.stop();
     }
 }

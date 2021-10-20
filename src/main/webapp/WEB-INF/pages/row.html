@@ -8,7 +8,7 @@
 <div layout:fragment="content">
     <!--/*@thymesVar id="row" type="server.model.pojo.Row"*/-->
     <!--/*@thymesVar id="fields" type="java.util.List<server.model.ModelService.FieldInfo>"*/-->
-    <form action="#" method="post" th:action="@{/row/}" th:object="${row}">
+    <form action="#" method="post" th:action="@{/row}" th:object="${row}">
         <div>ID : <span th:text="${row.getId()}"></span></div>
         <input th:field="*{id}" type="hidden"/>
         <div th:each="field : ${fields}">

@@ -9,7 +9,7 @@ public abstract class BaseDestroyable extends BaseFilePathHolder implements Dest
     private static final Logger log = LoggerFactory.getLogger(BaseDestroyable.class);
 
     protected final ObjectConverter objectConverter;
-    private final DestroyService destroyService;
+    protected final DestroyService destroyService;
 
     protected BaseDestroyable(String filePath, boolean init, ObjectConverter objectConverter, DestroyService destroyService, String... paths) {
         super(filePath);

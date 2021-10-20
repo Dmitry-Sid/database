@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru" layout:decorate="~{layout}" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Таблицы</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <!--/*@thymesVar id="tableManager" type="server.model.TableManager"*/-->
+    <form method="post" th:action="@{/tablesManager/add}">
+        <div class="row">
+            <div class="col-md-3">
+                <input name="tableName" type="text"/>
+            </div>
+        </div>
+        <button type="submit">Добавить</button>
+    </form>
+    <div>
+        <table class="table" style="margin-top: 15px" th:if="${!tableManager.getTables().isEmpty()}">
+            <thead>
+            <tr>
+                <th>Название</th>
+                <th>Удалить</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="table : ${tableManager.getTables()}">
+                <td th:text="${table}"></td>
+                <td>
+                    <a th:href="@{/tablesManager/delete(tableName=${table})}">удалить</a>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+</body>
+</html>

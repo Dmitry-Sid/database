@@ -7,7 +7,7 @@
 <body>
 <div layout:fragment="content">
     <!--/*@thymesVar id="fieldsForm" type="java.util.List<server.controllers.ModelController.FieldsForm>"*/-->
-    <form method="post" th:action="@{/model/add/}">
+    <form method="post" th:action="@{/model/add}">
         <div class="row">
             <div class="col-md-3">
                 <input name="fieldName" type="text"/>
@@ -23,7 +23,7 @@
         </div>
         <button type="submit">Добавить</button>
     </form>
-    <form action="#" method="post" th:action="@{/model/}" th:object="${fieldsForm}">
+    <form action="#" method="post" th:action="@{/model}" th:object="${fieldsForm}">
         <tr th:each="field, stat : *{fields}">
             <div class="row">
                 <div class="col-md-3" th:text="${field.name}"></div>
@@ -33,7 +33,7 @@
                     <input th:field="*{fields[__${stat.index}__].name}" type="hidden"/>
                     <input th:field="*{fields[__${stat.index}__].index}" th:value="${field.name}" type="checkbox"/>
                 </div>
-                <a th:href="@{/model/delete/(field=${field.name})}">удалить</a>
+                <a th:href="@{/model/delete(field=${field.name})}">удалить</a>
             </div>
         </tr>
         <button type="submit">Изменить</button>

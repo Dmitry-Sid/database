@@ -79,6 +79,11 @@
 
     <bean id="exceptionFilter" class="server.model.impl.ExceptionFilter"/>
 
+    <bean id="commonAttributesFilter" class="server.model.impl.CommonAttributesFilter">
+        <constructor-arg index="0" ref="tableManager"/>
+        <constructor-arg index="1" ref="persistentFields"/>
+    </bean>
+
     <bean id="destroyableService" class="server.model.impl.DestroyServiceImpl" destroy-method="destroy">
         <constructor-arg value="1000"/>
     </bean>
@@ -104,8 +109,11 @@
 
     <bean id="tableService" abstract="true" parent="baseDestroyable"/>
 
+    <!--<bean id="persistentFields" class="server.model.pojo.PersistentFields" scope="session"/>-->
+
     <bean id="baseController" class="server.controllers.BaseController" abstract="true" lazy-init="true">
         <constructor-arg index="0" ref="tableManager"/>
+        <constructor-arg index="1" ref="persistentFields"/>
     </bean>
 
     <bean class="server.controllers.ModelController" parent="baseController"/>
@@ -113,4 +121,8 @@
     <bean class="server.controllers.RowController" parent="baseController"/>
 
     <bean class="server.controllers.RowListController" parent="baseController"/>
+
+    <bean class="server.controllers.TablesController" parent="baseController"/>
+
+    <bean class="server.controllers.RedirectController"/>
 </beans>
