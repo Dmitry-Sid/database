@@ -15,6 +15,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.*;
 
 public class TestUtils {
@@ -135,22 +136,6 @@ public class TestUtils {
         }
     }
 
-    public static <T> Future<Long> createFuture(ExecutorService executorService, Lock<T> lock, T value, Exception exc) {
-        return executorService.submit(() -> {
-            final long begin = System.currentTimeMillis();
-            lock.lock(value);
-            try {
-                Thread.sleep(1000);
-                if (exc != null) {
-                    throw exc;
-                }
-                return System.currentTimeMillis() - begin;
-            } finally {
-                lock.unlock(value);
-            }
-        });
-    }
-
     public static void doAndSleep(Destroyable destroyable, Runnable runnable) {
         doAndSleep(destroyable, runnable, 3000);
     }
@@ -172,6 +157,62 @@ public class TestUtils {
         assertEquals(expected.length, actual.length);
         for (int i = 0; i < expected.length; i++) {
             assertEquals(expected[i], actual[i]);
+        }
+    }
+
+    public static <T> void lock(Lock<T> lock, Set<T> set, T value) {
+        lock.lock(value);
+        set.add(value);
+    }
+
+    public static <T> void unlock(Lock<T> lock, Set<T> set, T value) {
+        set.remove(value);
+        lock.unlock(value);
+    }
+
+    public static class LockBean<T> {
+        public final ExecutorService executorService;
+        public final Set<T> lockedValues;
+
+        public LockBean(ExecutorService executorService, Set<T> lockedValues) {
+            this.executorService = executorService;
+            this.lockedValues = lockedValues;
+        }
+
+        public Future<Long> run(Lock<T> lock, T value, String exception, boolean gottaWait) {
+            return executorService.submit(() -> {
+                final long begin = System.currentTimeMillis();
+                synchronized (LockBean.this) {
+                    if (gottaWait && !lockedValues.contains(value)) {
+                        fail("lock failed");
+                    }
+                }
+                lock.lock(value);
+                synchronized (LockBean.this) {
+                    if (gottaWait && lockedValues.contains(value)) {
+                        fail("lock failed");
+                    }
+                }
+                synchronized (LockBean.this) {
+                    lockedValues.add(value);
+                }
+                try {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                    if (exception != null) {
+                        throw new RuntimeException(exception);
+                    }
+                    return System.currentTimeMillis() - begin;
+                } finally {
+                    synchronized (LockBean.this) {
+                        lockedValues.remove(value);
+                    }
+                    lock.unlock(value);
+                }
+            });
         }
     }
 }

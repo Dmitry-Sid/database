@@ -2,13 +2,16 @@ import org.junit.Test;
 import server.model.lock.Lock;
 import server.model.lock.LockImpl;
 
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class LockTest {
 
@@ -18,39 +21,44 @@ public class LockTest {
     public void fullTest() throws InterruptedException, ExecutionException {
         {
             final Lock<Integer> lock = new LockImpl<>();
-            lock.lock(1);
-            final Future<Long> future1 = TestUtils.createFuture(executorService, lock, 1, null);
-            final Future<Long> future2 = TestUtils.createFuture(executorService, lock, 2, null);
-            final Future<Long> future3 = TestUtils.createFuture(executorService, lock, 1, null);
+            final Set<Integer> set = Collections.synchronizedSet(new HashSet<>());
+            final TestUtils.LockBean<Integer> lockBean = new TestUtils.LockBean<>(executorService, set);
+            TestUtils.lock(lock, set, 1);
+            final Future<Long> future1 = lockBean.run(lock, 1, null, true);
+            final Future<Long> future2 = lockBean.run(lock, 2, null, false);
+            final Future<Long> future3 = lockBean.run(lock, 1, null, true);
             Thread.sleep(1000);
-            lock.unlock(1);
-            assertTrue(future1.get() + future3.get() > 5000);
-            assertTrue(future2.get() < 2000);
+            TestUtils.unlock(lock, set, 1);
+            future1.get();
+            future2.get();
+            future3.get();
 
-            lock.lock(3);
-            final Future<Long> future4 = TestUtils.createFuture(executorService, lock, 3, new RuntimeException("test exception"));
-            final Future<Long> future5 = TestUtils.createFuture(executorService, lock, 3, null);
+            TestUtils.lock(lock, set, 3);
+            final Future<Long> future4 = lockBean.run(lock, 3, "test exception", true);
+            final Future<Long> future5 = lockBean.run(lock, 3, null, true);
             Thread.sleep(1000);
-            lock.unlock(3);
-            String exception = null;
+            TestUtils.unlock(lock, set, 3);
             try {
                 future4.get();
-            } catch (Exception exc) {
-                exception = exc.getMessage();
+                fail("no way");
+            } catch (Exception e) {
+                assertEquals("java.lang.RuntimeException: test exception", e.getMessage());
             }
-            assertEquals("java.lang.RuntimeException: test exception", exception);
-            assertTrue(future5.get() > 2000);
+            future5.get();
         }
         {
             final Lock<String> lock = new LockImpl<>();
-            lock.lock("test1");
-            final Future<Long> future1 = TestUtils.createFuture(executorService, lock, "test1", null);
-            final Future<Long> future2 = TestUtils.createFuture(executorService, lock, "test2", null);
-            final Future<Long> future3 = TestUtils.createFuture(executorService, lock, "test1", null);
+            final Set<String> set = Collections.synchronizedSet(new HashSet<>());
+            final TestUtils.LockBean<String> lockBean = new TestUtils.LockBean<>(executorService, set);
+            TestUtils.lock(lock, set, "test1");
+            final Future<Long> future1 = lockBean.run(lock, "test1", null, true);
+            final Future<Long> future2 = lockBean.run(lock, "test2", null, false);
+            final Future<Long> future3 = lockBean.run(lock, "test1", null, true);
             Thread.sleep(1000);
-            lock.unlock("test1");
-            assertTrue(future1.get() + future3.get() > 5000);
-            assertTrue(future2.get() < 2000);
+            TestUtils.unlock(lock, set, "test1");
+            future1.get();
+            future2.get();
+            future3.get();
         }
     }
 }
