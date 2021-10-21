@@ -28,9 +28,6 @@ public class BufferImpl<V extends TableType> implements Buffer<V> {
         if (value == null) {
             return;
         }
-        if (value.getId() == 19 && State.DELETED.equals(state)) {
-            System.out.println("sss");
-        }
         map.put(value.getId(), new Element<>(value, state));
     }
 
