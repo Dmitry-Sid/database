@@ -1,3 +1,4 @@
+import org.junit.Before;
 import org.junit.Test;
 import server.model.FieldKeeper;
 import server.model.IndexService;
@@ -8,10 +9,7 @@ import server.model.pojo.EmptyCondition;
 import server.model.pojo.ICondition;
 import server.model.pojo.SimpleCondition;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
@@ -20,10 +18,17 @@ import static org.mockito.Mockito.*;
 
 public class IndexServiceTest {
 
-    private final Boolean[] transformed = new Boolean[]{false, false};
-    private final Boolean[] inserted = new Boolean[]{false, false};
-    private final Boolean[] deleted = new Boolean[]{false, false};
+    private Boolean[] transformed;
+    private Boolean[] inserted;
+    private Boolean[] deleted;
     private final IndexService indexService = prepareIndexService();
+
+    @Before
+    public void before() {
+        transformed = new Boolean[]{false, false};
+        inserted = new Boolean[]{false, false};
+        deleted = new Boolean[]{false, false};
+    }
 
     @Test
     public void searchTest() {
@@ -208,6 +213,33 @@ public class IndexServiceTest {
         assertFalse(inserted[0]);
         assertFalse(inserted[1]);
         indexService.insert(TestUtils.generateRow(1, 1));
+        assertTrue(inserted[0]);
+        assertTrue(inserted[1]);
+    }
+
+    @Test
+    public void insertIntTest() {
+        assertFalse(inserted[0]);
+        assertFalse(inserted[1]);
+        indexService.insert(TestUtils.generateRow(1, 1), new HashSet<>(Collections.singletonList("int")));
+        assertTrue(inserted[0]);
+        assertFalse(inserted[1]);
+    }
+
+    @Test
+    public void insertStringTest() {
+        assertFalse(inserted[0]);
+        assertFalse(inserted[1]);
+        indexService.insert(TestUtils.generateRow(1, 1), new HashSet<>(Collections.singletonList("String")));
+        assertFalse(inserted[0]);
+        assertTrue(inserted[1]);
+    }
+
+    @Test
+    public void insertBothTest() {
+        assertFalse(inserted[0]);
+        assertFalse(inserted[1]);
+        indexService.insert(TestUtils.generateRow(1, 1), new HashSet<>(Arrays.asList("String", "int")));
         assertTrue(inserted[0]);
         assertTrue(inserted[1]);
     }

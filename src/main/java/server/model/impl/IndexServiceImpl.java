@@ -7,7 +7,7 @@ import java.io.File;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class IndexServiceImpl extends BaseDestroyable implements IndexService {
@@ -16,7 +16,7 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
     private final Map<String, FieldKeeper> fieldKeepers;
     private final String path;
     private final ConditionService conditionService;
-    private List<Runnable> runnableList = new CopyOnWriteArrayList<>();
+    private final List<Consumer<Set<String>>> newIndexesSubscribers = new CopyOnWriteArrayList<>();
     private volatile boolean changed;
 
     /**
@@ -42,11 +42,11 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
             fields.forEach(field -> fieldKeepers.put(field, createFieldKeeper(field)));
         }
         modelService.subscribeOnIndexesChanges(fields -> {
-            final AtomicBoolean added = new AtomicBoolean(false);
+            final Set<String> newIndexes = new HashSet<>();
             fields.forEach(field -> {
                 if (!fieldKeepers.containsKey(field)) {
                     changed = true;
-                    added.set(true);
+                    newIndexes.add(field);
                     fieldKeepers.putIfAbsent(field, createFieldKeeper(field));
                 }
             });
@@ -57,8 +57,8 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
                 fieldKeepers.remove(field);
                 changed = true;
             });
-            if (added.get()) {
-                runnableList.forEach(Runnable::run);
+            if (!newIndexes.isEmpty()) {
+                newIndexesSubscribers.forEach(consumer -> consumer.accept(newIndexes));
             }
         });
     }
@@ -133,7 +133,16 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
 
     @Override
     public void insert(Row row) {
-        fieldKeepers.forEach((key, value) -> value.insert(row.getFields().get(value.getFieldName()), row.getId()));
+        fieldKeepers.forEach((key, value) -> insert(value, row));
+    }
+
+    private void insert(FieldKeeper fieldKeeper, Row row) {
+        fieldKeeper.insert(row.getFields().get(fieldKeeper.getFieldName()), row.getId());
+    }
+
+    @Override
+    public void insert(Row row, Set<String> fields) {
+        fields.forEach(field -> insert(fieldKeepers.get(field), row));
     }
 
     @Override
@@ -142,8 +151,8 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
     }
 
     @Override
-    public void subscribeOnIndexesChanges(Runnable runnable) {
-        runnableList.add(runnable);
+    public void subscribeOnNewIndexes(Consumer<Set<String>> fieldsConsumer) {
+        newIndexesSubscribers.add(fieldsConsumer);
     }
 
     private <U extends Comparable<U>, V> FieldKeeper<U, V> createFieldKeeper(String fieldName) {

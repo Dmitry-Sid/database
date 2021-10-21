@@ -4,6 +4,7 @@ import server.model.pojo.ICondition;
 import server.model.pojo.Row;
 
 import java.util.Set;
+import java.util.function.Consumer;
 
 public interface IndexService extends Destroyable {
 
@@ -13,9 +14,11 @@ public interface IndexService extends Destroyable {
 
     void insert(Row row);
 
+    void insert(Row row, Set<String> fields);
+
     void delete(Row row);
 
-    void subscribeOnIndexesChanges(Runnable runnable);
+    void subscribeOnNewIndexes(Consumer<Set<String>> fieldsConsumer);
 
     class SearchResult {
         public final boolean found;

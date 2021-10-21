@@ -43,7 +43,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                 RowRepositoryImpl.this.fields.addAll(fields);
             }
         });
-        indexService.subscribeOnIndexesChanges(this::processIndexesChanges);
+        indexService.subscribeOnNewIndexes(this::processIndexesChanges);
     }
 
     @Override
@@ -252,12 +252,12 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         }
     }
 
-    private void processIndexesChanges() {
+    private void processIndexesChanges(Set<String> indexes) {
         final AtomicLong counter = new AtomicLong();
         log.info("processing inserted indexes to rows");
         try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
             final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
-                indexService.insert(row);
+                indexService.insert(row, indexes);
                 if (counter.incrementAndGet() % 1000 == 0) {
                     log.info("processed inserted indexes " + counter.get() + " rows");
                 }
