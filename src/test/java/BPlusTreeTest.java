@@ -45,7 +45,7 @@ public class BPlusTreeTest extends FieldKeeperTest {
 
         @Override
         public void insert(U key, V value) {
-            LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+            LockService.doInReadWriteLock(readWriteLock.writeLock(), () -> {
                 setStateBefore();
                 super.insert(key, value);
                 checkTree();
@@ -54,7 +54,7 @@ public class BPlusTreeTest extends FieldKeeperTest {
 
         @Override
         public DeleteResult delete(U key, V value) {
-            return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+            return LockService.doInReadWriteLock(readWriteLock.writeLock(), () -> {
                 setStateBefore();
                 final DeleteResult deleteResult = super.delete(key, value);
                 checkTree();
@@ -75,7 +75,7 @@ public class BPlusTreeTest extends FieldKeeperTest {
 
         @Override
         public void transform(U oldKey, U key, V value) {
-            LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+            LockService.doInReadWriteLock(readWriteLock.writeLock(), () -> {
                 setStateBefore();
                 super.transform(oldKey, key, value);
                 checkTree();

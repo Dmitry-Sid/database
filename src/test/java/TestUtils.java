@@ -147,7 +147,7 @@ public class TestUtils {
             try {
                 Thread.sleep(sleepTime);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                throw new RuntimeException(e);
             }
         }
         destroyable.destroy();

@@ -35,7 +35,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
 
     @Override
     public void insertNotNull(U key, V value) {
-        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+        LockService.doInReadWriteLock(readWriteLock.writeLock(), () -> {
             if (getVariables().root.pairs.size() != treeFactor * 2 - 1) {
                 insert(getVariables().root, key, value);
                 return;
@@ -113,7 +113,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
 
     @Override
     public DeleteResult deleteNotNull(U key, V value) {
-        return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+        return LockService.doInReadWriteLock(readWriteLock.writeLock(), () -> {
             final Pair<Node<U, V>, Pair<U, Set<V>>> pair = search(getVariables().root, key);
             if (!pair.getSecond().getSecond().contains(value)) {
                 return NOT;
@@ -266,19 +266,19 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
 
     @Override
     public void conditionSearchNotNull(SimpleCondition condition, Set<V> set, int size) {
-        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
+        LockService.doInReadWriteLock(readWriteLock.readLock(), () -> {
             new ConditionSearcher(condition, set, size).search(getVariables().root, 0);
         });
     }
 
     @Override
     public Set<V> searchNotNull(U key) {
-        return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> search(getVariables().root, key).getSecond().getSecond());
+        return LockService.doInReadWriteLock(readWriteLock.readLock(), () -> search(getVariables().root, key).getSecond().getSecond());
     }
 
     @Override
     public void clear() {
-        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+        LockService.doInReadWriteLock(readWriteLock.writeLock(), () -> {
             final String searchPath;
             if (new File(path).isDirectory()) {
                 searchPath = path;
@@ -293,7 +293,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
 
     @Override
     public void destroy() {
-        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+        LockService.doInReadWriteLock(readWriteLock.writeLock(), () -> {
             saveLeaves();
             super.destroy();
             changed = false;

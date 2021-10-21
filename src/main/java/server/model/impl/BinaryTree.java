@@ -27,7 +27,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
 
     @Override
     public void insertNotNull(U key, V value) {
-        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+        LockService.doInReadWriteLock(readWriteLock.writeLock(), () -> {
             final Pair<Node<U, V>, Node<U, V>> pair;
             pair = search(getVariables().root, key);
             if (pair.getFirst() == null) {
@@ -55,7 +55,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
 
     @Override
     public DeleteResult deleteNotNull(U key, V value) {
-        return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, () -> {
+        return LockService.doInReadWriteLock(readWriteLock.writeLock(), () -> {
             if (getVariables().root == null) {
                 return NOT;
             }
@@ -121,7 +121,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
 
     @Override
     public void conditionSearchNotNull(SimpleCondition condition, Set<V> set, int size) {
-        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
+        LockService.doInReadWriteLock(readWriteLock.readLock(), () -> {
             if (getVariables().root == null) {
                 return;
             }
@@ -131,7 +131,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
 
     @Override
     public Set<V> searchNotNull(U key) {
-        return LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Read, () -> {
+        return LockService.doInReadWriteLock(readWriteLock.readLock(), () -> {
             if (getVariables().root == null) {
                 return Collections.emptySet();
             }
@@ -145,7 +145,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
 
     @Override
     public void destroy() {
-        LockService.doInReadWriteLock(readWriteLock, LockService.LockType.Write, super::destroy);
+        LockService.doInReadWriteLock(readWriteLock.writeLock(), super::destroy);
     }
 
     private Pair<Node<U, V>, Node<U, V>> search(Node<U, V> node, U key) {
