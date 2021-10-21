@@ -36,7 +36,13 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         this.buffer = new BufferImpl<>(bufferSize, bufferConsumer());
         this.modelService = modelService;
         this.fields.addAll(modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
-        modelService.subscribeOnFieldsChanges(fields -> processDeletedFields(RowRepositoryImpl.this.fields.stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet())));
+        modelService.subscribeOnFieldsChanges(fields -> {
+            synchronized (RowRepositoryImpl.this) {
+                processDeletedFields(RowRepositoryImpl.this.fields.stream().filter(field -> !fields.contains(field)).collect(Collectors.toSet()));
+                RowRepositoryImpl.this.fields.clear();
+                RowRepositoryImpl.this.fields.addAll(fields);
+            }
+        });
         indexService.subscribeOnIndexesChanges(this::processIndexesChanges);
     }
 

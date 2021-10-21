@@ -365,15 +365,15 @@ public class RowRepositoryTest {
                 }
                 System.out.println(Thread.currentThread().getName() + " finished");
             });
-            final Thread thread3 = new Thread(() -> {
+            final Thread destroyThread = new Thread(() -> {
                 for (int i = 0; i < max; i++) {
-                    rowRepository.add(TestUtils.generateRow(i, i));
+                    rowRepository.destroy();
                 }
                 System.out.println(Thread.currentThread().getName() + " finished");
             });
             thread1.start();
             thread2.start();
-            thread3.start();
+            destroyThread.start();
             for (int i = 0; i < max; i++) {
                 rowRepository.process(i, row -> count.incrementAndGet());
             }
@@ -383,7 +383,7 @@ public class RowRepositoryTest {
             try {
                 thread1.join();
                 thread2.join();
-                thread3.join();
+                destroyThread.join();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

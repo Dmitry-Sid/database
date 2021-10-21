@@ -279,13 +279,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     @Override
     public void clear() {
         LockService.doInReadWriteLock(readWriteLock.writeLock(), () -> {
-            final String searchPath;
-            if (new File(path).isDirectory()) {
-                searchPath = path;
-            } else {
-                searchPath = System.getProperty("user.dir");
-            }
-            for (File file : Objects.requireNonNull(new File(searchPath).listFiles((file, name) -> name.endsWith(fieldName)))) {
+            for (File file : Objects.requireNonNull(new File(path).listFiles((file, name) -> name.endsWith("." + fieldName)))) {
                 file.delete();
             }
         });

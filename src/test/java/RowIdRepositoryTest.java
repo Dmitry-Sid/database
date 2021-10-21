@@ -404,37 +404,36 @@ public class RowIdRepositoryTest {
     }
 
     @Test
-    public void concurrentTest() throws IOException {
+    public void concurrentTest() {
         final int lastId = 750;
-        final int max = 5000;
+        final int max = 750;
         final int maxIdSize = 20;
-        createFiles(lastId);
+        createFiles(lastId, maxIdSize);
         final RowIdRepository rowIdRepository = prepareRowIdRepository(maxIdSize);
         TestUtils.doAndSleep(rowIdRepository, () -> {
             final AtomicInteger count = new AtomicInteger();
             final Thread thread1 = new Thread(() -> {
-                for (int i = 0; i < max; i++) {
-                    int finalI = i;
-                    rowIdRepository.add(800 + i, rowAddress -> rowAddress.setSize(rowAddressSize + finalI));
-                }
-                System.out.println(Thread.currentThread().getName() + " finished");
-            });
-            final Thread thread2 = new Thread(() -> {
-                for (int i = 0; i < max; i++) {
-                    rowIdRepository.delete(i);
-                }
-                System.out.println(Thread.currentThread().getName() + " finished");
-            });
-            final Thread thread3 = new Thread(() -> {
-                for (int i = 0; i < max; i++) {
+                for (int i = 1; i < max; i++) {
                     int finalI = i;
                     rowIdRepository.add(i, rowAddress -> rowAddress.setSize(rowAddressSize + finalI));
                 }
                 System.out.println(Thread.currentThread().getName() + " finished");
             });
+            final Thread thread2 = new Thread(() -> {
+                for (int i = 1; i < max; i++) {
+                    rowIdRepository.delete(i);
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
+            final Thread destroyThread = new Thread(() -> {
+                for (int i = 0; i < max; i++) {
+                    rowIdRepository.destroy();
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
             thread1.start();
             thread2.start();
-            thread3.start();
+            destroyThread.start();
             for (int i = 0; i < max; i++) {
                 rowIdRepository.process(i, rowAddress -> count.incrementAndGet());
             }
@@ -444,7 +443,7 @@ public class RowIdRepositoryTest {
             try {
                 thread1.join();
                 thread2.join();
-                thread3.join();
+                destroyThread.join();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -458,6 +457,10 @@ public class RowIdRepositoryTest {
     }
 
     private void createFiles(int lastId) {
+        createFiles(lastId, maxIdSize);
+    }
+
+    private void createFiles(int lastId, int maxIdSize) {
         Utils.createDirectoryTree(new File(filesIdPath));
         Utils.createDirectoryTree(new File(filesRowPath));
         TestUtils.createRowIdFiles(lastId, maxIdSize, compressSize, filesIdPath + "/" + filePath,

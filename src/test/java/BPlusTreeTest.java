@@ -10,6 +10,7 @@ import server.model.impl.ObjectConverterImpl;
 import server.model.lock.LockService;
 import server.model.pojo.Pair;
 
+import java.io.File;
 import java.util.*;
 import java.util.function.Function;
 
@@ -79,6 +80,21 @@ public class BPlusTreeTest extends FieldKeeperTest {
                 setStateBefore();
                 super.transform(oldKey, key, value);
                 checkTree();
+            });
+        }
+
+        @Override
+        public void clear() {
+            LockService.doInReadWriteLock(readWriteLock.writeLock(), () -> {
+                final String searchPath;
+                if (new File(path).isDirectory()) {
+                    searchPath = path;
+                } else {
+                    searchPath = System.getProperty("user.dir");
+                }
+                for (File file : Objects.requireNonNull(new File(searchPath).listFiles((file, name) -> name.endsWith("." + fieldName)))) {
+                    file.delete();
+                }
             });
         }
 
