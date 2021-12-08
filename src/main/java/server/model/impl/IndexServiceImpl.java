@@ -92,7 +92,7 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
         } else if (condition instanceof EmptyCondition) {
             return new SearchResult(true, Collections.emptySet());
         }
-        throw new ConditionException("Unknown condition class : " + condition.getClass());
+        throw new IllegalArgumentException("Unknown condition class : " + condition.getClass());
     }
 
     private SearchResult searchResult(ComplexCondition condition, int size) {
@@ -116,7 +116,7 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
                     searchResult.idSet.retainAll(searchResultInner.idSet);
                     break;
                 default:
-                    throw new ConditionException("Unknown complex type : " + condition.getType());
+                    throw new IllegalArgumentException("Unknown complex type : " + condition.getType());
             }
         }
         if (searchResult == null) {

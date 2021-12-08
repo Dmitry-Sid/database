@@ -544,7 +544,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
                         }
                         break;
                     default:
-                        throw new ConditionException("Unknown simple type : " + condition.getType());
+                        throw new IllegalArgumentException("Unknown simple type : " + condition.getType());
                 }
             }
             if (index < node.pairs.size() - 1) {
@@ -582,7 +582,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
                         }
                         break;
                     default:
-                        throw new ConditionException("Unknown simple type : " + condition.getType());
+                        throw new IllegalArgumentException("Unknown simple type : " + condition.getType());
                 }
             }
             if (set.isEmpty()) {

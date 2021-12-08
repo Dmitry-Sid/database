@@ -11,26 +11,35 @@ public class ComplexCondition implements ICondition {
     private final ComplexType type;
     private final Set<ICondition> conditions;
 
-    public ComplexCondition(ComplexType type, ICondition... conditions) {
+    private ComplexCondition(ComplexType type, Collection<ICondition> conditions) {
+        this.type = type;
+        this.conditions = new HashSet<>(conditions);
+    }
+
+    public static ComplexCondition make(ComplexType type, ICondition... conditions) throws ConditionException {
         if (conditions == null || conditions.length == 0) {
             throw new ConditionException("empty inner conditions");
         }
-        this.type = type;
-        this.conditions = new HashSet<>();
+        final Set<ICondition> conditionSet = new HashSet<>();
         for (ICondition iCondition : conditions) {
             if (iCondition instanceof EmptyCondition) {
                 throw new ConditionException("inner condition cannot be empty");
             }
-            this.conditions.add(iCondition);
+            conditionSet.add(iCondition);
         }
+        return new ComplexCondition(type, conditionSet);
     }
 
-    public ComplexCondition(ComplexType type, Collection<ICondition> conditions) {
+    public static ComplexCondition make(ComplexType type, Collection<ICondition> conditions) throws ConditionException {
         if (conditions == null || conditions.size() == 0) {
             throw new ConditionException("empty inner conditions");
         }
-        this.type = type;
-        this.conditions = new HashSet<>(conditions);
+        for (ICondition iCondition : conditions) {
+            if (iCondition instanceof EmptyCondition) {
+                throw new ConditionException("inner condition cannot be empty");
+            }
+        }
+        return new ComplexCondition(type, conditions);
     }
 
     public ComplexType getType() {

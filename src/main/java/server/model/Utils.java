@@ -60,6 +60,6 @@ public class Utils {
     }
 
     private enum OSType {
-        WIN, MAC, LINUX, OTHER;
+        WIN, MAC, LINUX, OTHER
     }
 }

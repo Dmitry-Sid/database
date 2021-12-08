@@ -11,7 +11,7 @@ public interface TableManager extends Destroyable {
 
     Set<String> getTables();
 
-    public static class ServiceHolder {
+    class ServiceHolder {
         public final RowRepository rowRepository;
         public final ModelService modelService;
         public final ConditionService conditionService;

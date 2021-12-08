@@ -1,6 +1,6 @@
 package server.model;
 
-public class ConditionException extends RuntimeException {
+public class ConditionException extends Exception {
 
     public ConditionException() {
         super();

@@ -20,7 +20,7 @@ public class ConditionServiceImpl implements ConditionService {
         this.modelService = modelService;
     }
 
-    public static String[] getMainParts(String input) {
+    private static String[] getMainParts(String input) throws ConditionException {
         if (!(input.contains("(") || input.contains(")"))) {
             return input.split(";");
         }
@@ -56,7 +56,7 @@ public class ConditionServiceImpl implements ConditionService {
     }
 
     @Override
-    public ICondition parse(String input) {
+    public ICondition parse(String input) throws ConditionException {
         if (StringUtils.isBlank(input)) {
             return ICondition.empty;
         }
@@ -68,7 +68,7 @@ public class ConditionServiceImpl implements ConditionService {
         return parseSimpleCondition(formatted);
     }
 
-    private ICondition parseComplexCondition(String input) {
+    private ICondition parseComplexCondition(String input) throws ConditionException {
         final int first = input.indexOf("(");
         if (first < 0) {
             throw new ConditionException("cannot find ( for ComplexCondition, input : " + input);
@@ -88,10 +88,10 @@ public class ConditionServiceImpl implements ConditionService {
         for (String part : getMainParts(input.substring(first + 1, last).trim())) {
             conditions.add(parse(part));
         }
-        return new ComplexCondition(type, conditions);
+        return ComplexCondition.make(type, conditions);
     }
 
-    private SimpleCondition parseSimpleCondition(String input) {
+    private SimpleCondition parseSimpleCondition(String input) throws ConditionException {
         final String formatted = input.trim();
         final ICondition.SimpleType conditionType = getConditionSign(formatted, ICondition.SimpleType.values());
         final String[] parts = formatted.split(conditionType.toString());
@@ -99,10 +99,13 @@ public class ConditionServiceImpl implements ConditionService {
             throw new ConditionException("wrong condition patter : " + input);
         }
         final Pair<String, Comparable> pair = parseValue(parts);
-        return new SimpleCondition(conditionType, pair.getFirst(), pair.getSecond());
+        if (ICondition.SimpleType.LIKE == conditionType && !(pair.getSecond() instanceof String)) {
+            throw new ConditionException("wrong type from LIKE condition " + pair.getSecond().getClass() + " for field " + pair.getFirst());
+        }
+        return SimpleCondition.make(conditionType, pair.getFirst(), pair.getSecond());
     }
 
-    private Pair<String, Comparable> parseValue(String[] parts) {
+    private Pair<String, Comparable> parseValue(String[] parts) throws ConditionException {
         final String field = parts[0].trim();
         final String valueStr = parts[1].trim();
         checkFieldName(field);
@@ -119,13 +122,13 @@ public class ConditionServiceImpl implements ConditionService {
         return new Pair<>(field, value);
     }
 
-    private void checkFieldName(String field) {
+    private void checkFieldName(String field) throws ConditionException {
         if (!modelService.contains(field)) {
             throw new ConditionException("unknown field : " + field);
         }
     }
 
-    private <T> T getConditionSign(String formatted, T[] values) {
+    private <T> T getConditionSign(String formatted, T[] values) throws ConditionException {
         if (values instanceof ICondition.SimpleType[]) {
             if (formatted.contains(ICondition.SimpleType.GTE.toString())) {
                 return (T) ICondition.SimpleType.GTE;
@@ -151,7 +154,7 @@ public class ConditionServiceImpl implements ConditionService {
         } else if (condition instanceof EmptyCondition) {
             return true;
         }
-        throw new ConditionException("Unknown condition class : " + condition.getClass());
+        throw new IllegalArgumentException("Unknown condition class : " + condition.getClass());
     }
 
     private <T> boolean check(T value, ComplexCondition condition) {
@@ -169,7 +172,7 @@ public class ConditionServiceImpl implements ConditionService {
                     result = result && check(value, innerCondition);
                     break;
                 default:
-                    throw new ConditionException("Unknown complex type : " + condition.getType());
+                    throw new IllegalArgumentException("Unknown complex type : " + condition.getType());
             }
         }
         if (result == null) {
@@ -180,7 +183,7 @@ public class ConditionServiceImpl implements ConditionService {
 
     private <T> boolean check(T input, SimpleCondition condition) {
         if (condition.getValue() == null && !(EQ.equals(condition.getType()) || NOT.equals(condition.getType()))) {
-            throw new ConditionException("wrong condition " + condition.getField() + ", null values allowed only for EQ and NOT");
+            throw new IllegalArgumentException("wrong condition " + condition.getField() + ", null values allowed only for EQ and NOT");
         }
         final Comparable value;
         if (input instanceof Row) {
@@ -204,9 +207,6 @@ public class ConditionServiceImpl implements ConditionService {
             if (condition.getValue() == null) {
                 return false;
             }
-            if (!(value instanceof String)) {
-                throw new ConditionException("wrong type from LIKE condition " + value.getClass());
-            }
             return ((String) value).contains((String) condition.getValue());
         }
         final int compareResult = value.compareTo(condition.getValue());
@@ -224,7 +224,7 @@ public class ConditionServiceImpl implements ConditionService {
             case LTE:
                 return compareResult <= 0;
             default:
-                throw new ConditionException("Unknown simple type : " + condition.getType());
+                throw new IllegalArgumentException("Unknown simple type : " + condition.getType());
         }
     }
 

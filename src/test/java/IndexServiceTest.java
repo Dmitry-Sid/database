@@ -1,5 +1,6 @@
 import org.junit.Before;
 import org.junit.Test;
+import server.model.ConditionException;
 import server.model.FieldKeeper;
 import server.model.IndexService;
 import server.model.impl.ConditionServiceImpl;
@@ -23,6 +24,9 @@ public class IndexServiceTest {
     private Boolean[] deleted;
     private final IndexService indexService = prepareIndexService();
 
+    public IndexServiceTest() throws ConditionException {
+    }
+
     @Before
     public void before() {
         transformed = new Boolean[]{false, false};
@@ -31,7 +35,7 @@ public class IndexServiceTest {
     }
 
     @Test
-    public void searchTest() {
+    public void searchTest() throws ConditionException {
         {
             final IndexService.SearchResult searchResult = indexService.search(null, -1);
             assertFalse(searchResult.found);
@@ -41,7 +45,7 @@ public class IndexServiceTest {
             assertFalse(searchResult.found);
         }
         {
-            final ICondition condition = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
+            final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 20);
             final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(51, searchResult.idSet.size());
@@ -52,7 +56,7 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
+            final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 20);
             final IndexService.SearchResult searchResult = indexService.search(condition, 10);
             assertTrue(searchResult.found);
             assertEquals(10, searchResult.idSet.size());
@@ -63,7 +67,7 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = new SimpleCondition(ICondition.SimpleType.LT, "int", 20);
+            final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LT, "int", 20);
             final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(51, searchResult.idSet.size());
@@ -74,7 +78,7 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = new SimpleCondition(ICondition.SimpleType.LT, "int", 20);
+            final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LT, "int", 20);
             final IndexService.SearchResult searchResult = indexService.search(condition, 30);
             assertTrue(searchResult.found);
             assertEquals(30, searchResult.idSet.size());
@@ -85,7 +89,7 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = new SimpleCondition(ICondition.SimpleType.GT, "String", "se");
+            final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "String", "se");
             final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(51, searchResult.idSet.size());
@@ -96,7 +100,7 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = new SimpleCondition(ICondition.SimpleType.GT, "String", "se");
+            final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "String", "se");
             final IndexService.SearchResult searchResult = indexService.search(condition, 29);
             assertTrue(searchResult.found);
             assertEquals(29, searchResult.idSet.size());
@@ -107,7 +111,7 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = new SimpleCondition(ICondition.SimpleType.LT, "String", "te");
+            final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LT, "String", "te");
             final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(51, searchResult.idSet.size());
@@ -118,7 +122,7 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = new SimpleCondition(ICondition.SimpleType.LT, "String", "te");
+            final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LT, "String", "te");
             final IndexService.SearchResult searchResult = indexService.search(condition, 18);
             assertTrue(searchResult.found);
             assertEquals(18, searchResult.idSet.size());
@@ -129,9 +133,9 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
-                    new SimpleCondition(ICondition.SimpleType.GT, "int", 20),
-                    new SimpleCondition(ICondition.SimpleType.GT, "String", "se"));
+            final ICondition condition = ComplexCondition.make(ICondition.ComplexType.OR,
+                    SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
+                    SimpleCondition.make(ICondition.SimpleType.GT, "String", "se"));
             final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(61, searchResult.idSet.size());
@@ -142,17 +146,17 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
-                    new SimpleCondition(ICondition.SimpleType.GT, "int", 20),
-                    new SimpleCondition(ICondition.SimpleType.GT, "String", "se"));
+            final ICondition condition = ComplexCondition.make(ICondition.ComplexType.OR,
+                    SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
+                    SimpleCondition.make(ICondition.SimpleType.GT, "String", "se"));
             final IndexService.SearchResult searchResult = indexService.search(condition, 44);
             assertTrue(searchResult.found);
             assertEquals(44, searchResult.idSet.size());
         }
         {
-            final ICondition condition = new ComplexCondition(ICondition.ComplexType.AND,
-                    new SimpleCondition(ICondition.SimpleType.GT, "int", 20),
-                    new SimpleCondition(ICondition.SimpleType.GT, "String", "se"));
+            final ICondition condition = ComplexCondition.make(ICondition.ComplexType.AND,
+                    SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
+                    SimpleCondition.make(ICondition.SimpleType.GT, "String", "se"));
             final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(41, searchResult.idSet.size());
@@ -163,18 +167,18 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = new ComplexCondition(ICondition.ComplexType.AND,
-                    new SimpleCondition(ICondition.SimpleType.GT, "int", 20),
-                    new SimpleCondition(ICondition.SimpleType.GT, "String", "se"));
+            final ICondition condition = ComplexCondition.make(ICondition.ComplexType.AND,
+                    SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
+                    SimpleCondition.make(ICondition.SimpleType.GT, "String", "se"));
             final IndexService.SearchResult searchResult = indexService.search(condition, 25);
             assertTrue(searchResult.found);
             assertEquals(25, searchResult.idSet.size());
             final AtomicInteger i = new AtomicInteger();
         }
         {
-            final ICondition condition = new ComplexCondition(ICondition.ComplexType.OR,
-                    new SimpleCondition(ICondition.SimpleType.LT, "int", 20),
-                    new SimpleCondition(ICondition.SimpleType.GT, "String", "se"));
+            final ICondition condition = ComplexCondition.make(ICondition.ComplexType.OR,
+                    SimpleCondition.make(ICondition.SimpleType.LT, "int", 20),
+                    SimpleCondition.make(ICondition.SimpleType.GT, "String", "se"));
             final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(101, searchResult.idSet.size());
@@ -185,9 +189,9 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = new ComplexCondition(ICondition.ComplexType.AND,
-                    new SimpleCondition(ICondition.SimpleType.LT, "int", 20),
-                    new SimpleCondition(ICondition.SimpleType.LT, "String", "te"));
+            final ICondition condition = ComplexCondition.make(ICondition.ComplexType.AND,
+                    SimpleCondition.make(ICondition.SimpleType.LT, "int", 20),
+                    SimpleCondition.make(ICondition.SimpleType.LT, "String", "te"));
             final IndexService.SearchResult searchResult = indexService.search(condition, -1);
             assertTrue(searchResult.found);
             assertEquals(41, searchResult.idSet.size());
@@ -253,17 +257,17 @@ public class IndexServiceTest {
         assertTrue(deleted[1]);
     }
 
-    private IndexService prepareIndexService() {
+    private IndexService prepareIndexService() throws ConditionException {
         final Map<String, FieldKeeper> fieldKeepers = new HashMap<>();
         fieldKeepers.put("int", mockIntFieldKeeper());
         fieldKeepers.put("String", mockStringFieldKeeper());
         return new IndexServiceImpl(fieldKeepers, new ConditionServiceImpl(TestUtils.mockModelService()));
     }
 
-    private FieldKeeper<Integer, Integer> mockIntFieldKeeper() {
+    private FieldKeeper<Integer, Integer> mockIntFieldKeeper() throws ConditionException {
         final FieldKeeper<Integer, Integer> fieldKeeper = (FieldKeeper<Integer, Integer>) mock(FieldKeeper.class);
-        final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "int", 20);
-        final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LT, "int", 20);
+        final ICondition condition1 = SimpleCondition.make(ICondition.SimpleType.GT, "int", 20);
+        final ICondition condition2 = SimpleCondition.make(ICondition.SimpleType.LT, "int", 20);
         when(fieldKeeper.conditionSearch(any(SimpleCondition.class), anyInt())).thenAnswer(invocation -> {
             final ICondition condition = (ICondition) invocation.getArguments()[0];
             final int size = (int) invocation.getArguments()[1];
@@ -296,10 +300,10 @@ public class IndexServiceTest {
         return fieldKeeper;
     }
 
-    private FieldKeeper<String, Integer> mockStringFieldKeeper() {
+    private FieldKeeper<String, Integer> mockStringFieldKeeper() throws ConditionException {
         final FieldKeeper<String, Integer> fieldKeeper = (FieldKeeper<String, Integer>) mock(FieldKeeper.class);
-        final ICondition condition1 = new SimpleCondition(ICondition.SimpleType.GT, "String", "se");
-        final ICondition condition2 = new SimpleCondition(ICondition.SimpleType.LT, "String", "te");
+        final ICondition condition1 = SimpleCondition.make(ICondition.SimpleType.GT, "String", "se");
+        final ICondition condition2 = SimpleCondition.make(ICondition.SimpleType.LT, "String", "te");
         when(fieldKeeper.conditionSearch(any(SimpleCondition.class), anyInt())).thenAnswer(invocation -> {
             final ICondition condition = (ICondition) invocation.getArguments()[0];
             final int size = (int) invocation.getArguments()[1];

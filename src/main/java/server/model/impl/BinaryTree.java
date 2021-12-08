@@ -1,6 +1,9 @@
 package server.model.impl;
 
-import server.model.*;
+import server.model.BaseFieldKeeper;
+import server.model.ConditionService;
+import server.model.ObjectConverter;
+import server.model.Utils;
 import server.model.lock.LockService;
 import server.model.pojo.ICondition;
 import server.model.pojo.Pair;
@@ -237,9 +240,6 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
         }
 
         private BinarySearchDirection determineDirection(U value) {
-            if (value == null) {
-                throw new ConditionException("unknown field " + condition.getField());
-            }
             if (condition.getValue() == null) {
                 return SimpleCondition.SimpleType.EQ.equals(condition.getType()) ? BinarySearchDirection.NONE : BinarySearchDirection.BOTH;
             }
@@ -273,7 +273,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
                     }
                     return BinarySearchDirection.LEFT;
                 default:
-                    throw new ConditionException("Unknown simple type : " + condition.getType());
+                    throw new IllegalArgumentException("Unknown simple type : " + condition.getType());
             }
         }
     }

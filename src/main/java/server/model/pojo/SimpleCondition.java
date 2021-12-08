@@ -10,14 +10,18 @@ public class SimpleCondition implements ICondition {
     private final String field;
     private final Comparable value;
 
-    public SimpleCondition(SimpleType type, String field, Comparable value) {
-        check(type, field, value);
+    private SimpleCondition(SimpleType type, String field, Comparable value) {
         this.type = type;
         this.field = field;
         this.value = value;
     }
 
-    private void check(SimpleType type, String field, Comparable value) {
+    public static SimpleCondition make(SimpleType type, String field, Comparable value) throws ConditionException {
+        check(type, field, value);
+        return new SimpleCondition(type, field, value);
+    }
+
+    private static void check(SimpleType type, String field, Comparable value) throws ConditionException {
         if (value == null) {
             return;
         }
