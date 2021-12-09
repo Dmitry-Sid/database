@@ -4,6 +4,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import server.model.RowIdRepository;
+import server.model.StoppableStream;
 import server.model.Utils;
 import server.model.impl.DataCompressorImpl;
 import server.model.impl.DestroyServiceImpl;
@@ -15,7 +16,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
@@ -368,36 +368,36 @@ public class RowIdRepositoryTest {
         TestUtils.doAndSleep(rowIdRepository, () -> {
             {
                 final AtomicInteger counter = new AtomicInteger();
-                rowIdRepository.stream(rowAddress -> {
+                rowIdRepository.stream().forEach(rowAddress -> {
                     assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> {
                         assertEquals(rowAddress, rowAddressProcessed);
                     }));
                     counter.incrementAndGet();
-                }, null, null);
+                });
                 assertEquals(lastId, counter.get());
             }
             {
                 final Set<Integer> idSet = new HashSet<>(Arrays.asList(10, 55, 155, 44, 749, 750, 900));
                 final AtomicInteger counter = new AtomicInteger();
-                rowIdRepository.stream(rowAddress -> {
+                rowIdRepository.stream(idSet).forEach(rowAddress -> {
                     assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> {
                         assertEquals(rowAddress, rowAddressProcessed);
                     }));
                     counter.incrementAndGet();
-                }, null, idSet);
+                });
                 assertEquals(idSet.size() - 1, counter.get());
             }
             {
-                final AtomicBoolean stopChecker = new AtomicBoolean();
                 final AtomicInteger counter = new AtomicInteger();
-                rowIdRepository.stream(rowAddress -> {
+                final StoppableStream<RowAddress> stream = rowIdRepository.stream();
+                stream.forEach(rowAddress -> {
                     assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> {
                         assertEquals(rowAddress, rowAddressProcessed);
                     }));
                     if (counter.incrementAndGet() == 500) {
-                        stopChecker.set(true);
+                        stream.stop();
                     }
-                }, stopChecker, null);
+                });
                 assertEquals(500, counter.get());
             }
         });
@@ -427,7 +427,8 @@ public class RowIdRepositoryTest {
             });
             final Thread thread3 = new Thread(() -> {
                 for (int i = 1; i < max; i++) {
-                    rowIdRepository.stream(rowAddress -> {}, new AtomicBoolean(false), null);
+                    rowIdRepository.stream().forEach(rowAddress -> {
+                    });
                 }
                 System.out.println(Thread.currentThread().getName() + " finished");
             });

@@ -3,8 +3,6 @@ package server.model;
 import server.model.pojo.TableType;
 
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 
 public interface Buffer<V extends TableType> {
 
@@ -14,7 +12,7 @@ public interface Buffer<V extends TableType> {
 
     int size();
 
-    void stream(Consumer<Element<V>> consumer, AtomicBoolean stopChecker);
+    StoppableStream<Element<V>> stream();
 
     void flush();
 

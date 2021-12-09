@@ -110,24 +110,13 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     }
 
     @Override
-    public void stream(Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker, Set<Integer> idSet) {
-        if (idSet == null) {
-            for (Integer value : new HashSet<>(variables.idBatches)) {
-                if (stopChecker != null && stopChecker.get()) {
-                    return;
-                }
-                processRowAddresses(readWriteLock.readLock(), filesIdPath + value, false,
-                        cachedRowAddresses -> stream(cachedRowAddresses.rowAddressMap, rowAddressConsumer, stopChecker));
-            }
-        } else {
-            for (Integer id : idSet.stream().sorted(Integer::compareTo)
-                    .collect(Collectors.toCollection(LinkedHashSet::new))) {
-                if (stopChecker != null && stopChecker.get()) {
-                    return;
-                }
-                process(id, rowAddressConsumer);
-            }
-        }
+    public StoppableStream<RowAddress> stream() {
+        return new RowAddressStream();
+    }
+
+    @Override
+    public StoppableStream<RowAddress> stream(Set<Integer> idSet) {
+        return new RowAddressStream(idSet);
     }
 
     private void stream(Map<Integer, RowAddress> rowAddressMap, Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker) {
@@ -272,6 +261,42 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         public CachedRowAddresses(Map<Integer, RowAddress> rowAddressMap, RowAddress lastRowAddress) {
             this.rowAddressMap = rowAddressMap;
             this.lastRowAddress = lastRowAddress;
+        }
+    }
+
+    private class RowAddressStream extends BaseStoppableStream<RowAddress> {
+        private final boolean full;
+        private final Set<Integer> idSet;
+
+        private RowAddressStream() {
+            this.full = true;
+            this.idSet = null;
+        }
+
+        private RowAddressStream(Set<Integer> idSet) {
+            this.full = false;
+            this.idSet = idSet;
+        }
+
+        @Override
+        public void forEach(Consumer<RowAddress> consumer) {
+            if (full) {
+                for (Integer value : new HashSet<>(variables.idBatches)) {
+                    if (stopChecker.get()) {
+                        return;
+                    }
+                    processRowAddresses(readWriteLock.readLock(), filesIdPath + value, false,
+                            cachedRowAddresses -> stream(cachedRowAddresses.rowAddressMap, consumer, stopChecker));
+                }
+            } else if (idSet != null) {
+                for (Integer id : idSet.stream().sorted(Integer::compareTo)
+                        .collect(Collectors.toCollection(LinkedHashSet::new))) {
+                    if (stopChecker.get()) {
+                        return;
+                    }
+                    process(id, consumer);
+                }
+            }
         }
     }
 }

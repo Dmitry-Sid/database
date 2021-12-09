@@ -3,7 +3,6 @@ package server.model;
 import server.model.pojo.RowAddress;
 
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 public interface RowIdRepository extends Repository<RowAddress> {
@@ -12,7 +11,9 @@ public interface RowIdRepository extends Repository<RowAddress> {
 
     void add(int id, Consumer<RowAddress> rowAddressConsumer);
 
-    void stream(Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker, Set<Integer> idSet);
+    StoppableStream<RowAddress> stream();
+
+    StoppableStream<RowAddress> stream(Set<Integer> idSet);
 
     String getRowFileName(int rowId);
 

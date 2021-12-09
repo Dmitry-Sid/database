@@ -1,6 +1,7 @@
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -347,6 +348,7 @@ public class RowRepositoryTest {
         }
     }
 
+    @Ignore
     @Test
     public void concurrentTest() {
         concurrentTest(1);

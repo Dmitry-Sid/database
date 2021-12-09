@@ -12,7 +12,6 @@ import server.model.pojo.RowAddress;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -21,9 +20,8 @@ import java.util.stream.Collectors;
 
 public class RowRepositoryImpl extends BaseDestroyable implements RowRepository {
     private static final Logger log = LoggerFactory.getLogger(RowRepositoryImpl.class);
-
-    private final ReadWriteLock<String> rowReadWriteLock = LockService.getFileReadWriteLock();
     protected final RowIdRepository rowIdRepository;
+    private final ReadWriteLock<String> rowReadWriteLock = LockService.getFileReadWriteLock();
     private final FileHelper fileHelper;
     private final IndexService indexService;
     private final ConditionService conditionService;
@@ -68,10 +66,10 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
     @Override
     public int size(ICondition iCondition, int maxSize) {
         final AtomicInteger size = new AtomicInteger();
-        final AtomicBoolean stopChecker = new AtomicBoolean(false);
-        stream(iCondition, 0, maxSize, stopChecker, row -> {
+        final StoppableStream<Row> stream = stream(iCondition, 0, maxSize);
+        stream.forEach(row -> {
             if (maxSize > 0 && size.get() >= maxSize) {
-                stopChecker.set(true);
+                stream.stop();
                 return;
             }
             size.incrementAndGet();
@@ -79,42 +77,55 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         return size.get();
     }
 
-    private void stream(ICondition iCondition, int from, int size, AtomicBoolean stopChecker, Consumer<Row> rowConsumer) {
-        final Set<Integer> processedIdSet = new HashSet<>();
-        final AtomicInteger skipped = new AtomicInteger();
+    private StoppableStream<Row> stream(ICondition iCondition, int from, int size) {
         final IndexService.SearchResult searchResult = indexService.search(iCondition, size);
-        try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
-            final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
-                if (conditionService.check(row, iCondition)) {
-                    if (skipped.get() == from) {
-                        rowConsumer.accept(row);
-                        processedIdSet.add(row.getId());
-                    } else {
-                        skipped.getAndIncrement();
+        return new BaseStoppableStream<Row>() {
+            private final StoppableStream<RowAddress> rowAddressStream = searchResult.found ?
+                    rowIdRepository.stream(searchResult.idSet) : rowIdRepository.stream();
+            private StoppableStream<Buffer.Element<Row>> bufferStream;
+
+            @Override
+            public void forEach(Consumer<Row> consumer) {
+                final Set<Integer> processedIdSet = new HashSet<>();
+                final AtomicInteger skipped = new AtomicInteger();
+                try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
+                    final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
+                        if (conditionService.check(row, iCondition)) {
+                            if (skipped.get() == from) {
+                                consumer.accept(row);
+                                processedIdSet.add(row.getId());
+                            } else {
+                                skipped.getAndIncrement();
+                            }
+                        }
+                    });
+                    rowAddressStream.forEach(rowAddressConsumer);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                if (stopChecker.get()) {
+                    return;
+                }
+                bufferStream = buffer.stream();
+                bufferStream.forEach(rowElement -> {
+                    final Row row = rowElement.getValue();
+                    final boolean inSet = !searchResult.found || (searchResult.idSet != null && searchResult.idSet.contains(row.getId()));
+                    if (Buffer.State.ADDED.equals(rowElement.getState()) && !processedIdSet.contains(row.getId()) &&
+                            inSet && (conditionService.check(row, iCondition))) {
+                        consumer.accept(row);
                     }
-                }
-            });
-            if (searchResult.found) {
-                if (searchResult.idSet != null && searchResult.idSet.size() > 0) {
-                    rowIdRepository.stream(rowAddressConsumer, stopChecker, searchResult.idSet);
-                }
-            } else {
-                rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
+                });
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        if (stopChecker.get()) {
-            return;
-        }
-        buffer.stream(rowElement -> {
-            final Row row = rowElement.getValue();
-            final boolean inSet = !searchResult.found || (searchResult.idSet != null && searchResult.idSet.contains(row.getId()));
-            if (Buffer.State.ADDED.equals(rowElement.getState()) && !processedIdSet.contains(row.getId()) &&
-                    inSet && (conditionService.check(row, iCondition))) {
-                rowConsumer.accept(row);
+
+            @Override
+            public void stop() {
+                rowAddressStream.stop();
+                if (bufferStream != null) {
+                    bufferStream.stop();
+                }
+                super.stop();
             }
-        }, stopChecker);
+        };
     }
 
     @Override
@@ -161,10 +172,10 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
             return Collections.emptyList();
         }
         final List<Row> rows = new ArrayList<>();
-        final AtomicBoolean stopChecker = new AtomicBoolean(false);
-        stream(iCondition, from, size, stopChecker, row -> {
+        final StoppableStream<Row> stream = stream(iCondition, from, size);
+        stream.forEach(row -> {
             if (rows.size() >= size) {
-                stopChecker.set(false);
+                stream.stop();
                 return;
             }
             rows.add(row);
@@ -226,7 +237,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     log.info("processed deleted fields " + counter.get() + " rows");
                 }
             });
-            rowIdRepository.stream(rowAddressConsumer, null, null);
+            rowIdRepository.stream().forEach(rowAddressConsumer);
             log.info("processing deleted fields to rows done, count " + counter.get());
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -243,7 +254,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     log.info("processed inserted indexes " + counter.get() + " rows");
                 }
             });
-            rowIdRepository.stream(rowAddressConsumer, null, null);
+            rowIdRepository.stream().forEach(rowAddressConsumer);
             log.info("processing inserted indexes to rows done, count " + counter.get());
         } catch (IOException e) {
             throw new RuntimeException(e);

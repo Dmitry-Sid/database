@@ -1,6 +1,8 @@
 package server.model.impl;
 
+import server.model.BaseStoppableStream;
 import server.model.Buffer;
+import server.model.StoppableStream;
 import server.model.pojo.TableType;
 
 import java.util.Comparator;
@@ -8,7 +10,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -53,13 +54,18 @@ public class BufferImpl<V extends TableType> implements Buffer<V> {
     }
 
     @Override
-    public void stream(Consumer<Element<V>> consumer, AtomicBoolean stopChecker) {
-        for (Element<V> element : sortedList()) {
-            if (stopChecker != null && stopChecker.get()) {
-                return;
+    public StoppableStream<Element<V>> stream() {
+        return new BaseStoppableStream<Element<V>>() {
+            @Override
+            public void forEach(Consumer<Element<V>> consumer) {
+                for (Element<V> element : sortedList()) {
+                    if (stopChecker.get()) {
+                        return;
+                    }
+                    consumer.accept(element);
+                }
             }
-            consumer.accept(element);
-        }
+        };
     }
 
     @Override
