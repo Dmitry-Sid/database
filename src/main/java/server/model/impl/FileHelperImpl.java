@@ -50,7 +50,10 @@ public class FileHelperImpl implements FileHelper {
 
     @Override
     public void skip(InputStream inputStream, long size) {
-        if (inputStream == null) {
+        if (size < 0) {
+            throw new IllegalArgumentException("size can't be negative");
+        }
+        if (inputStream == null || size == 0) {
             return;
         }
         try {
@@ -282,6 +285,7 @@ public class FileHelperImpl implements FileHelper {
                     closed = true;
                 } catch (IOException e) {
                     log.warn(e.toString());
+                    throw new RuntimeException(e);
                 }
             }
             if (currentFileName != null) {

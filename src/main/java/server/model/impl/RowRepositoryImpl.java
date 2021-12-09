@@ -3,6 +3,8 @@ package server.model.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.model.*;
+import server.model.lock.LockService;
+import server.model.lock.ReadWriteLock;
 import server.model.pojo.ICondition;
 import server.model.pojo.Row;
 import server.model.pojo.RowAddress;
@@ -19,6 +21,8 @@ import java.util.stream.Collectors;
 
 public class RowRepositoryImpl extends BaseDestroyable implements RowRepository {
     private static final Logger log = LoggerFactory.getLogger(RowRepositoryImpl.class);
+
+    private final ReadWriteLock<String> rowReadWriteLock = LockService.getFileReadWriteLock();
     protected final RowIdRepository rowIdRepository;
     private final FileHelper fileHelper;
     private final IndexService indexService;
@@ -63,19 +67,33 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
 
     @Override
     public int size(ICondition iCondition, int maxSize) {
-        final Set<Integer> processedIdSet = new HashSet<>();
+        final AtomicInteger size = new AtomicInteger();
         final AtomicBoolean stopChecker = new AtomicBoolean(false);
+        stream(iCondition, 0, maxSize, stopChecker, row -> {
+            if (maxSize > 0 && size.get() >= maxSize) {
+                stopChecker.set(true);
+                return;
+            }
+            size.incrementAndGet();
+        });
+        return size.get();
+    }
+
+    private void stream(ICondition iCondition, int from, int size, AtomicBoolean stopChecker, Consumer<Row> rowConsumer) {
+        final Set<Integer> processedIdSet = new HashSet<>();
+        final AtomicInteger skipped = new AtomicInteger();
+        final IndexService.SearchResult searchResult = indexService.search(iCondition, size);
         try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
             final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
                 if (conditionService.check(row, iCondition)) {
-                    if (maxSize >= 0 && processedIdSet.size() >= maxSize) {
-                        stopChecker.set(true);
-                    } else {
+                    if (skipped.get() == from) {
+                        rowConsumer.accept(row);
                         processedIdSet.add(row.getId());
+                    } else {
+                        skipped.getAndIncrement();
                     }
                 }
             });
-            final IndexService.SearchResult searchResult = indexService.search(iCondition, maxSize);
             if (searchResult.found) {
                 if (searchResult.idSet != null && searchResult.idSet.size() > 0) {
                     rowIdRepository.stream(rowAddressConsumer, stopChecker, searchResult.idSet);
@@ -83,26 +101,20 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
             } else {
                 rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
             }
-            if (maxSize >= 0 && processedIdSet.size() >= maxSize) {
-                return processedIdSet.size();
-            }
-            final AtomicBoolean bufferStopChecker = new AtomicBoolean(false);
-            buffer.stream(rowElement -> {
-                final Row row = rowElement.getValue();
-                final boolean inSet = !searchResult.found || (searchResult.idSet != null && searchResult.idSet.contains(row.getId()));
-                if (Buffer.State.ADDED.equals(rowElement.getState()) && !processedIdSet.contains(row.getId()) &&
-                        inSet && (conditionService.check(row, iCondition))) {
-                    if (maxSize >= 0 && processedIdSet.size() >= maxSize) {
-                        bufferStopChecker.set(true);
-                    } else {
-                        processedIdSet.add(row.getId());
-                    }
-                }
-            }, bufferStopChecker);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return processedIdSet.size();
+        if (stopChecker.get()) {
+            return;
+        }
+        buffer.stream(rowElement -> {
+            final Row row = rowElement.getValue();
+            final boolean inSet = !searchResult.found || (searchResult.idSet != null && searchResult.idSet.contains(row.getId()));
+            if (Buffer.State.ADDED.equals(rowElement.getState()) && !processedIdSet.contains(row.getId()) &&
+                    inSet && (conditionService.check(row, iCondition))) {
+                rowConsumer.accept(row);
+            }
+        }, stopChecker);
     }
 
     @Override
@@ -123,7 +135,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
             consumer.accept(objectConverter.clone(element.getValue()));
             return true;
         }
-        return rowIdRepository.process(id, rowAddress -> {
+        return processRowAddress(id, rowAddress -> {
             final byte[] bytes = fileHelper.read(rowAddress);
             if (bytes == null) {
                 buffer.add(new Row(id, null), Buffer.State.DELETED);
@@ -133,61 +145,30 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         });
     }
 
+    private boolean processRowAddress(int id, Consumer<RowAddress> consumer) {
+        return LockService.doInLock(rowReadWriteLock.readLock(), rowIdRepository.getRowFileName(id), () -> rowIdRepository.process(id, consumer));
+    }
+
     @Override
     public List<Row> getList(ICondition iCondition, int from, int size) {
         if (from < 0) {
-            throw new RuntimeException("from cannot be negative");
+            throw new IllegalArgumentException("from cannot be negative");
         }
         if (size < 0) {
-            throw new RuntimeException("size cannot be negative");
+            throw new IllegalArgumentException("size cannot be negative");
         }
         if (size == 0) {
             return Collections.emptyList();
         }
         final List<Row> rows = new ArrayList<>();
-        final Set<Integer> processedIdSet = new HashSet<>();
         final AtomicBoolean stopChecker = new AtomicBoolean(false);
-        final AtomicInteger skipped = new AtomicInteger();
-        try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
-            final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
-                if (conditionService.check(row, iCondition)) {
-                    if (skipped.get() == from && rows.size() != size) {
-                        rows.add(row);
-                        processedIdSet.add(row.getId());
-                    } else {
-                        skipped.getAndIncrement();
-                    }
-                }
-                if (rows.size() >= size) {
-                    stopChecker.set(true);
-                }
-            });
-            final IndexService.SearchResult searchResult = indexService.search(iCondition, size);
-            if (searchResult.found) {
-                if (searchResult.idSet != null && searchResult.idSet.size() > 0) {
-                    rowIdRepository.stream(rowAddressConsumer, stopChecker, searchResult.idSet);
-                }
-            } else {
-                rowIdRepository.stream(rowAddressConsumer, stopChecker, null);
+        stream(iCondition, from, size, stopChecker, row -> {
+            if (rows.size() >= size) {
+                stopChecker.set(false);
+                return;
             }
-            if (rows.size() < size) {
-                final AtomicBoolean bufferStopChecker = new AtomicBoolean();
-                buffer.stream(rowElement -> {
-                    final Row row = rowElement.getValue();
-                    final boolean inSet = !searchResult.found || (searchResult.idSet != null && searchResult.idSet.contains(row.getId()));
-                    if (Buffer.State.ADDED.equals(rowElement.getState()) && !processedIdSet.contains(row.getId()) &&
-                            inSet && (conditionService.check(row, iCondition))) {
-                        if (rows.size() >= size) {
-                            bufferStopChecker.set(true);
-                        } else {
-                            rows.add(row);
-                        }
-                    }
-                }, bufferStopChecker);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+            rows.add(row);
+        });
         return rows;
     }
 
@@ -279,7 +260,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                         processAdded(row, fileHelperList);
                         break;
                     case UPDATED:
-                        boolean processed = rowIdRepository.process(row.getId(), rowAddress -> {
+                        boolean processed = processRowAddress(row.getId(), rowAddress -> {
                             final byte[] rowBytes = objectConverter.toBytes(row);
                             fileHelperList.add(new FileHelper.CollectBean(rowAddress, (inputStream, outputStream) -> {
                                 fileHelper.skip(inputStream, rowAddress.getSize());
@@ -291,7 +272,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                         }
                         break;
                     case DELETED:
-                        rowIdRepository.process(row.getId(), rowAddress ->
+                        processRowAddress(row.getId(), rowAddress ->
                                 fileHelperList.add(new FileHelper.CollectBean(rowAddress,
                                         (inputStream, outputStream) -> fileHelper.skip(inputStream, rowAddress.getSize()),
                                         () -> rowIdRepository.delete(row.getId()))));

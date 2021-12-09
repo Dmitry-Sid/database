@@ -14,4 +14,6 @@ public interface RowIdRepository extends Repository<RowAddress> {
 
     void stream(Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker, Set<Integer> idSet);
 
+    String getRowFileName(int rowId);
+
 }

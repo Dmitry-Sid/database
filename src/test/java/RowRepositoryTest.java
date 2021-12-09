@@ -280,7 +280,7 @@ public class RowRepositoryTest {
         fieldsChangedTest(1000);
     }
 
-    public void fieldsChangedTest(int bufferSize) {
+    private void fieldsChangedTest(int bufferSize) {
         int lastId = 750;
         createFiles(lastId);
         final ModelService modelService = new ModelServiceImpl("", true, new ObjectConverterImpl(new DataCompressorImpl()), null);
@@ -349,7 +349,7 @@ public class RowRepositoryTest {
 
     @Test
     public void concurrentTest() {
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 1; i++) {
             concurrentTest(1);
             concurrentTest(10);
             concurrentTest(40);

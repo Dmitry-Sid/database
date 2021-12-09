@@ -38,7 +38,7 @@ public class ModelServiceImpl extends BaseDestroyable implements ModelService {
     private void checkFields(Map<String, FieldInfo> fields) {
         fields.forEach((key, info) -> {
             if (!types.contains(info.getType())) {
-                throw new RuntimeException("unknown type " + info.getType());
+                throw new IllegalArgumentException("unknown type " + info.getType());
             }
         });
     }
@@ -52,13 +52,13 @@ public class ModelServiceImpl extends BaseDestroyable implements ModelService {
     public Comparable getValue(String field, String value) {
         final Class<?> type = fields.get(field).getType();
         if (type == null) {
-            throw new RuntimeException("unknown field " + field);
+            throw new IllegalArgumentException("unknown field " + field);
         }
         if (Byte.class.equals(type)) {
             return Byte.parseByte(value);
         } else if (Character.class.equals(type)) {
             if (StringUtils.isBlank(value) || value.length() > 1) {
-                throw new RuntimeException("wrong format for " + field + ", expected Character but was " + value);
+                throw new IllegalArgumentException("wrong format for " + field + ", expected Character but was " + value);
             }
             return value.charAt(0);
         } else if (Short.class.equals(type)) {
@@ -78,7 +78,7 @@ public class ModelServiceImpl extends BaseDestroyable implements ModelService {
     @Override
     public void add(String field, Class<?> type) {
         if (!types.contains(type)) {
-            throw new RuntimeException("unknown type " + type);
+            throw new IllegalArgumentException("unknown type " + type);
         }
         final int size = fields.size();
         fields.putIfAbsent(field, new FieldInfo(field, type, false));

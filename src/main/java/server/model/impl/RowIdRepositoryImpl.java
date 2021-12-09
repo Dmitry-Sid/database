@@ -23,8 +23,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     private static final String ROW_ID_NAME = "rowId";
     private static final String VARIABLES_NAME = "rowIdVariables";
 
-    private final ReadWriteLock<String> rowReadWriteLock = LockService.getFileReadWriteLock();
-    private final ReadWriteLock<String> rowIdReadWriteLock = LockService.createReadWriteLock(String.class);
+    private final ReadWriteLock<String> readWriteLock = LockService.createReadWriteLock(String.class);
     private final Lock<String> rowIdLock = LockService.createLock(String.class);
     private final Variables variables;
     private final String variablesFileName;
@@ -58,11 +57,11 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     @Override
     public void add(int id, Consumer<RowAddress> rowAddressConsumer) {
         final String fileName = getRowIdFileName(id);
-        processRowAddresses(rowIdReadWriteLock.writeLock(), fileName, true, cachedRowAddresses -> {
+        processRowAddresses(readWriteLock.writeLock(), fileName, true, cachedRowAddresses -> {
             if (cachedRowAddresses == null) {
                 final int rowIdFileNumber = getRowIdFileNumber(id);
                 if (variables.idBatches.contains(rowIdFileNumber)) {
-                    throw new RuntimeException("idBatches contains rowIdFileNumber " + rowIdFileNumber);
+                    throw new IllegalStateException("idBatches contains rowIdFileNumber " + rowIdFileNumber);
                 }
                 variables.idBatches.add(rowIdFileNumber);
                 final Map<Integer, RowAddress> rowAddressMap = emptyRowAddressMap();
@@ -87,7 +86,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
                     rowAddress = rowAddressFromMap;
                     final int sizeBefore = rowAddress.getSize();
                     rowAddressConsumer.accept(rowAddress);
-                    transform(rowAddress.getId(), sizeBefore, rowAddress.getSize());
+                    transform(cachedRowAddresses, rowAddress, sizeBefore, rowAddress.getSize());
                 }
                 cachedRowAddresses.rowAddressMap.put(rowAddress.getId(), rowAddress);
             }
@@ -99,43 +98,33 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         return new RowAddress(getRowFileName(id), id, 0, 0);
     }
 
-    private void transform(int id, int sizeBefore, int sizeAfter) {
+    private void transform(CachedRowAddresses cachedRowAddresses, RowAddress rowAddress, int sizeBefore, int sizeAfter) {
         if (sizeBefore == sizeAfter) {
             return;
         }
-        processRowAddresses(getRowIdFileName(id), false, cachedRowAddresses -> {
-            RowAddress rowAddressNext = cachedRowAddresses.rowAddressMap.get(id);
-            if (rowAddressNext == null) {
-                throw new RuntimeException("cannot find rowAddress with id : " + id);
-            }
-            rowAddressNext.setSize(sizeAfter);
-            while ((rowAddressNext = cachedRowAddresses.rowAddressMap.get(rowAddressNext.getNext())) != null) {
-                rowAddressNext.setPosition(rowAddressNext.getPosition() + (sizeAfter - sizeBefore));
-            }
-        });
+        RowAddress rowAddressNext = rowAddress;
+        rowAddressNext.setSize(sizeAfter);
+        while ((rowAddressNext = cachedRowAddresses.rowAddressMap.get(rowAddressNext.getNext())) != null) {
+            rowAddressNext.setPosition(rowAddressNext.getPosition() + (sizeAfter - sizeBefore));
+        }
     }
 
     @Override
     public void stream(Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker, Set<Integer> idSet) {
         if (idSet == null) {
             for (Integer value : variables.idBatches) {
-                for (int i = 1; i <= compressSize; i++) {
-                    rowReadWriteLock.readLock().lock(filesRowPath + (compressSize * (value - 1) + i));
+                if (stopChecker != null && stopChecker.get()) {
+                    return;
                 }
-                try {
-                    if (stopChecker != null && stopChecker.get()) {
-                        return;
-                    }
-                    processRowAddresses(rowIdReadWriteLock.readLock(), filesIdPath + value, false, cachedRowAddresses -> stream(cachedRowAddresses.rowAddressMap, rowAddressConsumer, stopChecker));
-                } finally {
-                    for (int i = 1; i <= compressSize; i++) {
-                        rowReadWriteLock.readLock().unlock(filesRowPath + (compressSize * (value - 1) + i));
-                    }
-                }
+                processRowAddresses(readWriteLock.readLock(), filesIdPath + value, false,
+                        cachedRowAddresses -> stream(cachedRowAddresses.rowAddressMap, rowAddressConsumer, stopChecker));
             }
         } else {
             for (Integer id : idSet.stream().sorted(Integer::compareTo)
                     .collect(Collectors.toCollection(LinkedHashSet::new))) {
+                if (stopChecker != null && stopChecker.get()) {
+                    return;
+                }
                 process(id, rowAddressConsumer);
             }
         }
@@ -154,13 +143,13 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     @Override
     public void delete(int id) {
         final String rowIdFileName = getRowIdFileName(id);
-        processRowAddresses(rowIdReadWriteLock.writeLock(), rowIdFileName, false, cachedRowAddresses -> {
+        processRowAddresses(readWriteLock.writeLock(), rowIdFileName, false, cachedRowAddresses -> {
             final RowAddress rowAddress = cachedRowAddresses.rowAddressMap.get(id);
             if (rowAddress == null) {
                 log.warn("rowAddress not found, id : " + id);
                 return;
             }
-            transform(id, rowAddress.getSize(), 0);
+            transform(cachedRowAddresses, rowAddress, rowAddress.getSize(), 0);
             if (cachedRowAddresses.rowAddressMap.get(rowAddress.getPrevious()) != null) {
                 cachedRowAddresses.rowAddressMap.get(rowAddress.getPrevious()).setNext(rowAddress.getNext());
             }
@@ -179,17 +168,20 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
 
     @Override
     public boolean process(int id, Consumer<RowAddress> consumer) {
-        return LockService.doInLock(rowReadWriteLock.readLock(), getRowFileName(id), () -> {
-            final AtomicBoolean processed = new AtomicBoolean();
-            processRowAddresses(rowIdReadWriteLock.readLock(), getRowIdFileName(id), false, cachedRowAddresses -> {
-                final RowAddress rowAddress = cachedRowAddresses.rowAddressMap.get(id);
-                if (rowAddress != null) {
-                    consumer.accept(objectConverter.clone(rowAddress));
-                    processed.set(true);
-                }
-            });
-            return processed.get();
+        final AtomicBoolean processed = new AtomicBoolean();
+        processRowAddresses(readWriteLock.readLock(), getRowIdFileName(id), false, cachedRowAddresses -> {
+            final RowAddress rowAddress = cachedRowAddresses.rowAddressMap.get(id);
+            if (rowAddress != null) {
+                consumer.accept(objectConverter.clone(rowAddress));
+                processed.set(true);
+            }
         });
+        return processed.get();
+    }
+
+    @Override
+    public String getRowFileName(int rowId) {
+        return filesRowPath + getRowFileNumber(rowId);
     }
 
     private int getRowIdFileNumber(int id) {
@@ -200,10 +192,6 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         return 1 + (id - 1) * compressSize / maxIdSize;
     }
 
-    private String getRowFileName(int id) {
-        return filesRowPath + getRowFileNumber(id);
-    }
-
     private String getRowIdFileName(int id) {
         return filesIdPath + getRowIdFileNumber(id);
     }
@@ -212,37 +200,27 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         return new ConcurrentHashMap<>();
     }
 
-    private void processRowAddresses(String fileName, boolean acceptNull, Consumer<CachedRowAddresses> consumer) {
-        processRowAddresses(null, fileName, acceptNull, consumer);
-    }
-
     private void processRowAddresses(Lock<String> lock, String fileName, boolean acceptNull, Consumer<CachedRowAddresses> consumer) {
-        if (lock == null) {
-            processRowAddressInternal(fileName, acceptNull, consumer);
-        } else {
-            LockService.doInLock(lock, fileName, () -> processRowAddressInternal(fileName, acceptNull, consumer));
-        }
-    }
-
-    private void processRowAddressInternal(String fileName, boolean acceptNull, Consumer<CachedRowAddresses> consumer) {
-        CachedRowAddresses cachedRowAddresses = variables.cachedRowAddressesMap.get(fileName);
-        if (cachedRowAddresses == null) {
-            rowIdLock.lock(fileName);
-            try {
-                cachedRowAddresses = variables.cachedRowAddressesMap.get(fileName);
-                if (cachedRowAddresses == null) {
-                    cachedRowAddresses = objectConverter.fromFile(CachedRowAddresses.class, fileName);
-                    if (cachedRowAddresses != null) {
-                        variables.cachedRowAddressesMap.put(fileName, cachedRowAddresses);
+        LockService.doInLock(lock, fileName, () -> {
+            CachedRowAddresses cachedRowAddresses = variables.cachedRowAddressesMap.get(fileName);
+            if (cachedRowAddresses == null) {
+                rowIdLock.lock(fileName);
+                try {
+                    cachedRowAddresses = variables.cachedRowAddressesMap.get(fileName);
+                    if (cachedRowAddresses == null) {
+                        cachedRowAddresses = objectConverter.fromFile(CachedRowAddresses.class, fileName);
+                        if (cachedRowAddresses != null) {
+                            variables.cachedRowAddressesMap.put(fileName, cachedRowAddresses);
+                        }
                     }
+                } finally {
+                    rowIdLock.unlock(fileName);
                 }
-            } finally {
-                rowIdLock.unlock(fileName);
             }
-        }
-        if (acceptNull || cachedRowAddresses != null) {
-            consumer.accept(cachedRowAddresses);
-        }
+            if (acceptNull || cachedRowAddresses != null) {
+                consumer.accept(cachedRowAddresses);
+            }
+        });
     }
 
     private void saveAndClearMap() {
@@ -252,7 +230,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         final Set<Map.Entry<String, CachedRowAddresses>> entrySet = variables.cachedRowAddressesMap.entrySet();
         for (Iterator<Map.Entry<String, CachedRowAddresses>> iterator = entrySet.iterator(); iterator.hasNext(); ) {
             final Map.Entry<String, CachedRowAddresses> entry = iterator.next();
-            LockService.doInLock(rowIdReadWriteLock.writeLock(), entry.getKey(), () -> {
+            LockService.doInLock(readWriteLock.writeLock(), entry.getKey(), () -> {
                 final CachedRowAddresses cachedRowAddresses = entry.getValue();
                 if (!cachedRowAddresses.rowAddressMap.isEmpty() && changed) {
                     objectConverter.toFile(entry.getValue(), entry.getKey());
