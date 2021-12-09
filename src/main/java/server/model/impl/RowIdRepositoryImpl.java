@@ -110,13 +110,13 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     }
 
     @Override
-    public StoppableStream<RowAddress> stream() {
-        return new RowAddressStream();
+    public StoppableStream<RowAddress> stream(Action action) {
+        return new RowAddressStream(action);
     }
 
     @Override
-    public StoppableStream<RowAddress> stream(Set<Integer> idSet) {
-        return new RowAddressStream(idSet);
+    public StoppableStream<RowAddress> stream(Action action, Set<Integer> idSet) {
+        return new RowAddressStream(action, idSet);
     }
 
     private void stream(Map<Integer, RowAddress> rowAddressMap, Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker) {
@@ -157,8 +157,12 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
 
     @Override
     public boolean process(int id, Consumer<RowAddress> consumer) {
+        return process(id, readWriteLock.readLock(), consumer);
+    }
+
+    private boolean process(Integer id, Lock<String> lock, Consumer<RowAddress> consumer) {
         final AtomicBoolean processed = new AtomicBoolean();
-        processRowAddresses(readWriteLock.readLock(), getRowIdFileName(id), false, cachedRowAddresses -> {
+        processRowAddresses(lock, getRowIdFileName(id), false, cachedRowAddresses -> {
             final RowAddress rowAddress = cachedRowAddresses.rowAddressMap.get(id);
             if (rowAddress != null) {
                 consumer.accept(objectConverter.clone(rowAddress));
@@ -265,15 +269,21 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     }
 
     private class RowAddressStream extends BaseStoppableStream<RowAddress> {
+        private final Action action;
+        private final Lock<String> lock;
         private final boolean full;
         private final Set<Integer> idSet;
 
-        private RowAddressStream() {
+        private RowAddressStream(Action action) {
+            this.action = action;
+            this.lock = Action.READ == action ? readWriteLock.readLock() : readWriteLock.writeLock();
             this.full = true;
             this.idSet = null;
         }
 
-        private RowAddressStream(Set<Integer> idSet) {
+        private RowAddressStream(Action action, Set<Integer> idSet) {
+            this.action = action;
+            this.lock = Action.READ == action ? readWriteLock.readLock() : readWriteLock.writeLock();
             this.full = false;
             this.idSet = idSet;
         }
@@ -285,7 +295,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
                     if (stopChecker.get()) {
                         return;
                     }
-                    processRowAddresses(readWriteLock.readLock(), filesIdPath + value, false,
+                    processRowAddresses(lock, filesIdPath + value, false,
                             cachedRowAddresses -> stream(cachedRowAddresses.rowAddressMap, consumer, stopChecker));
                 }
             } else if (idSet != null) {
@@ -294,7 +304,9 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
                     if (stopChecker.get()) {
                         return;
                     }
-                    process(id, consumer);
+                    if (!process(id, lock, consumer) && Action.WRITE == action) {
+                        add(id, consumer);
+                    }
                 }
             }
         }

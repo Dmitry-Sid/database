@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.function.Consumer;
 
 public interface FileHelper {
 
@@ -23,6 +24,8 @@ public interface FileHelper {
     void collect(CollectBean collectBean);
 
     void collect(List<CollectBean> list);
+
+    void collect(StoppableStream<RowAddress> stoppableStream, Consumer<CollectBean2> consumer);
 
     interface InputOutputConsumer {
         void accept(InputStream inputStream, OutputStream outputStream) throws IOException;
@@ -47,6 +50,20 @@ public interface FileHelper {
             this.rowAddress = rowAddress;
             this.inputOutputConsumer = inputOutputConsumer;
             this.runnable = runnable;
+        }
+    }
+
+    class CollectBean2 {
+        public final RowAddress rowAddress;
+        public final InputStream inputStream;
+        public final OutputStream outputStream;
+        public final List<Runnable> runnableList;
+
+        public CollectBean2(RowAddress rowAddress, InputStream inputStream, OutputStream outputStream, List<Runnable> runnableList) {
+            this.rowAddress = rowAddress;
+            this.inputStream = inputStream;
+            this.outputStream = outputStream;
+            this.runnableList = runnableList;
         }
     }
 }

@@ -348,7 +348,6 @@ public class RowRepositoryTest {
         }
     }
 
-    @Ignore
     @Test
     public void concurrentTest() {
         concurrentTest(1);

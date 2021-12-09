@@ -11,11 +11,13 @@ import server.model.pojo.RowAddress;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class RowRepositoryImpl extends BaseDestroyable implements RowRepository {
@@ -81,7 +83,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         final IndexService.SearchResult searchResult = indexService.search(iCondition, size);
         return new BaseStoppableStream<Row>() {
             private final StoppableStream<RowAddress> rowAddressStream = searchResult.found ?
-                    rowIdRepository.stream(searchResult.idSet) : rowIdRepository.stream();
+                    rowIdRepository.stream(RowIdRepository.Action.READ, searchResult.idSet) : rowIdRepository.stream(RowIdRepository.Action.READ);
             private StoppableStream<Buffer.Element<Row>> bufferStream;
 
             @Override
@@ -237,7 +239,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     log.info("processed deleted fields " + counter.get() + " rows");
                 }
             });
-            rowIdRepository.stream().forEach(rowAddressConsumer);
+            rowIdRepository.stream(RowIdRepository.Action.READ).forEach(rowAddressConsumer);
             log.info("processing deleted fields to rows done, count " + counter.get());
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -254,7 +256,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     log.info("processed inserted indexes " + counter.get() + " rows");
                 }
             });
-            rowIdRepository.stream().forEach(rowAddressConsumer);
+            rowIdRepository.stream(RowIdRepository.Action.READ).forEach(rowAddressConsumer);
             log.info("processing inserted indexes to rows done, count " + counter.get());
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -263,43 +265,45 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
 
     private Consumer<List<Buffer.Element<Row>>> bufferConsumer() {
         return list -> {
-            final List<FileHelper.CollectBean> fileHelperList = new ArrayList<>();
-            list.forEach(element -> {
+            final Map<Integer, Buffer.Element<Row>> map = list.stream().collect(Collectors.toMap(element -> element.getValue().getId(), Function.identity()));
+            fileHelper.collect(rowIdRepository.stream(RowIdRepository.Action.WRITE, map.keySet()), collectBean2 -> {
+                final Buffer.Element<Row> element = map.get(collectBean2.rowAddress.getId());
                 final Row row = element.getValue();
+                final byte[] rowBytes = objectConverter.toBytes(row);
                 switch (element.getState()) {
                     case ADDED:
-                        processAdded(row, fileHelperList);
+                        collectBean2.rowAddress.setSize(rowBytes.length);
+                        try {
+                            collectBean2.outputStream.write(rowBytes);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
                         break;
                     case UPDATED:
-                        boolean processed = processRowAddress(row.getId(), rowAddress -> {
-                            final byte[] rowBytes = objectConverter.toBytes(row);
+                        fileHelper.skip(collectBean2.inputStream, collectBean2.rowAddress.getSize());
+                        try {
+                            collectBean2.outputStream.write(rowBytes);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                        rowIdRepository.add(row.getId(), rowAddressToSave -> rowAddressToSave.setSize(rowBytes.length));
+                       /* boolean processed = processRowAddress(row.getId(), rowAddress -> {
                             fileHelperList.add(new FileHelper.CollectBean(rowAddress, (inputStream, outputStream) -> {
                                 fileHelper.skip(inputStream, rowAddress.getSize());
                                 outputStream.write(rowBytes);
-                            }, () -> rowIdRepository.add(row.getId(), rowAddressToSave -> rowAddressToSave.setSize(rowBytes.length))));
+                            }, () -> );
                         });
                         if (!processed) {
                             processAdded(row, fileHelperList);
-                        }
+                        }*/
                         break;
                     case DELETED:
-                        processRowAddress(row.getId(), rowAddress ->
-                                fileHelperList.add(new FileHelper.CollectBean(rowAddress,
-                                        (inputStream, outputStream) -> fileHelper.skip(inputStream, rowAddress.getSize()),
-                                        () -> rowIdRepository.delete(row.getId()))));
+                        fileHelper.skip(collectBean2.inputStream, collectBean2.rowAddress.getSize());
+                        rowIdRepository.delete(row.getId());
                         break;
                 }
             });
-            fileHelper.collect(fileHelperList);
         };
-    }
-
-    private void processAdded(Row row, List<FileHelper.CollectBean> fileHelperList) {
-        rowIdRepository.add(row.getId(), rowAddress -> {
-            final byte[] rowBytes = objectConverter.toBytes(row);
-            rowAddress.setSize(rowBytes.length);
-            fileHelperList.add(new FileHelper.CollectBean(rowAddress, (inputStream, outputStream) -> outputStream.write(rowBytes), null));
-        });
     }
 
     @Override

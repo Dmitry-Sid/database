@@ -3,6 +3,7 @@ package server.model.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.model.FileHelper;
+import server.model.StoppableStream;
 import server.model.lock.Lock;
 import server.model.lock.LockService;
 import server.model.lock.ReadWriteLock;
@@ -11,6 +12,7 @@ import server.model.pojo.RowAddress;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -175,6 +177,70 @@ public class FileHelperImpl implements FileHelper {
         }
         if (inputFileName != null) {
             saveTempFile(tempFileName, inputFileName, runnableList);
+        }
+    }
+
+    @Override
+    public void collect(StoppableStream<RowAddress> stoppableStream, Consumer<CollectBean2> consumer) {
+        final String[] inputFileName = {null};
+        final String[] tempFileName = {null};
+        final long[] inputLastPosition = {0};
+        final List<Runnable> runnableList = new ArrayList<>();
+        try (ChainStream<InputStream> chainInputStream = getChainInputStream();
+             ChainStream<OutputStream> chainOutputStream = getChainOutputStream()) {
+            log.info("processing saved rows");
+            final AtomicLong counter = new AtomicLong();
+            stoppableStream.forEach(rowAddress -> {
+                try {
+                    if (inputFileName[0] == null) {
+                        inputFileName[0] = rowAddress.getFilePath();
+                        tempFileName[0] = getTempFile(inputFileName[0]);
+                        chainInputStream.init(inputFileName[0]);
+                        chainOutputStream.init(tempFileName[0]);
+                    } else if (!inputFileName[0].equals(rowAddress.getFilePath())) {
+                        writeToEnd(chainInputStream, chainOutputStream);
+                        inputLastPosition[0] = 0;
+                        chainInputStream.init(rowAddress.getFilePath());
+                        chainOutputStream.init(getTempFile(rowAddress.getFilePath()));
+                        saveTempFile(tempFileName[0], inputFileName[0], runnableList);
+                        inputFileName[0] = rowAddress.getFilePath();
+                        tempFileName[0] = getTempFile(inputFileName[0]);
+                    }
+                    boolean found = false;
+                    if (chainInputStream.getStream() != null) {
+                        while (true) {
+                            if (inputLastPosition[0] == rowAddress.getPosition()) {
+                                consumer.accept(new CollectBean2(rowAddress, chainInputStream.getStream(), chainOutputStream.getStream(), runnableList));
+                                inputLastPosition[0] = rowAddress.getPosition() + rowAddress.getSize();
+                                found = true;
+                                break;
+                            }
+                            final int bit = chainInputStream.getStream().read();
+                            if (bit == -1) {
+                                break;
+                            }
+                            chainOutputStream.getStream().write(bit);
+                            inputLastPosition[0]++;
+                        }
+                    }
+                    if (!found) {
+                        consumer.accept(new CollectBean2(rowAddress, chainInputStream.getStream(), chainOutputStream.getStream(), runnableList));
+                    }
+                    if (counter.incrementAndGet() % 1000 == 0) {
+                        log.info("processed " + counter.get() + " saved rows");
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            writeToEnd(chainInputStream, chainOutputStream);
+            log.info("processing saved rows done, count " + counter.get());
+        } catch (IOException e) {
+            delete(new File(tempFileName[0]));
+            throw new RuntimeException(e);
+        }
+        if (inputFileName[0] != null) {
+            saveTempFile(tempFileName[0], inputFileName[0], runnableList);
         }
     }
 
