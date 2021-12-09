@@ -425,6 +425,12 @@ public class RowIdRepositoryTest {
                 }
                 System.out.println(Thread.currentThread().getName() + " finished");
             });
+            final Thread thread3 = new Thread(() -> {
+                for (int i = 1; i < max; i++) {
+                    rowIdRepository.stream(rowAddress -> {}, new AtomicBoolean(false), null);
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
             final Thread destroyThread = new Thread(() -> {
                 for (int i = 0; i < max; i++) {
                     rowIdRepository.destroy();
@@ -433,6 +439,7 @@ public class RowIdRepositoryTest {
             });
             thread1.start();
             thread2.start();
+            thread3.start();
             destroyThread.start();
             for (int i = 0; i < max; i++) {
                 rowIdRepository.process(i, rowAddress -> count.incrementAndGet());
@@ -443,6 +450,7 @@ public class RowIdRepositoryTest {
             try {
                 thread1.join();
                 thread2.join();
+                thread3.join();
                 destroyThread.join();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);

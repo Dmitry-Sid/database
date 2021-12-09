@@ -112,7 +112,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     @Override
     public void stream(Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker, Set<Integer> idSet) {
         if (idSet == null) {
-            for (Integer value : variables.idBatches) {
+            for (Integer value : new HashSet<>(variables.idBatches)) {
                 if (stopChecker != null && stopChecker.get()) {
                     return;
                 }

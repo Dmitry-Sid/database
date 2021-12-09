@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static org.junit.Assert.*;
 
@@ -166,5 +168,50 @@ public class BufferTest {
             }
         }, stopChecker);
         assertEquals((int) Math.ceil(maxSize / 2), counter.get());
+    }
+
+    @Test
+    public void stateTest() {
+        final Buffer<Row> buffer = new BufferImpl<>(10, null);
+        {
+            final Map<String, Comparable> map = new HashMap<>();
+            map.put("field", Integer.toString(1));
+            buffer.add(new Row(1, map), Buffer.State.ADDED);
+        }
+        {
+            final Map<String, Comparable> map = new HashMap<>();
+            map.put("field", Integer.toString(2));
+            buffer.add(new Row(2, map), Buffer.State.ADDED);
+        }
+        assertFalse(buffer.get(1).isFlushed());
+        assertEquals(Buffer.State.ADDED, buffer.get(1).getState());
+        assertFalse(buffer.get(2).isFlushed());
+        assertEquals(Buffer.State.ADDED, buffer.get(2).getState());
+        {
+            final Map<String, Comparable> map = new HashMap<>();
+            map.put("field", Integer.toString(1));
+            buffer.add(new Row(1, map), Buffer.State.UPDATED);
+        }
+        {
+            final Map<String, Comparable> map = new HashMap<>();
+            map.put("field", Integer.toString(2));
+            buffer.add(new Row(2, map), Buffer.State.DELETED);
+        }
+        assertFalse(buffer.get(1).isFlushed());
+        assertEquals(Buffer.State.ADDED, buffer.get(1).getState());
+        assertFalse(buffer.get(2).isFlushed());
+        assertEquals(Buffer.State.DELETED, buffer.get(2).getState());
+
+        buffer.flush();
+
+        assertTrue(buffer.get(1).isFlushed());
+        assertEquals(Buffer.State.ADDED, buffer.get(1).getState());
+        {
+            final Map<String, Comparable> map = new HashMap<>();
+            map.put("field", Integer.toString(1));
+            buffer.add(new Row(1, map), Buffer.State.UPDATED);
+        }
+        assertFalse(buffer.get(1).isFlushed());
+        assertEquals(Buffer.State.UPDATED, buffer.get(1).getState());
     }
 }

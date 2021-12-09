@@ -349,12 +349,10 @@ public class RowRepositoryTest {
 
     @Test
     public void concurrentTest() {
-        for (int i = 0; i < 1; i++) {
-            concurrentTest(1);
-            concurrentTest(10);
-            concurrentTest(40);
-            concurrentTest(1000);
-        }
+        concurrentTest(1);
+        concurrentTest(10);
+        concurrentTest(40);
+        concurrentTest(1000);
     }
 
     private void concurrentTest(int bufferSize) {
@@ -376,6 +374,18 @@ public class RowRepositoryTest {
                 }
                 System.out.println(Thread.currentThread().getName() + " finished");
             });
+            final Thread thread3 = new Thread(() -> {
+                for (int i = 0; i < max; i++) {
+                    rowRepository.size(ICondition.empty, -1);
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
+            final Thread thread4 = new Thread(() -> {
+                for (int i = 0; i < max; i++) {
+                    rowRepository.getList(ICondition.empty, 0, 750);
+                }
+                System.out.println(Thread.currentThread().getName() + " finished");
+            });
             final Thread destroyThread = new Thread(() -> {
                 for (int i = 0; i < max; i++) {
                     rowRepository.destroy();
@@ -384,6 +394,8 @@ public class RowRepositoryTest {
             });
             thread1.start();
             thread2.start();
+            thread3.start();
+            thread4.start();
             destroyThread.start();
             for (int i = 0; i < max; i++) {
                 rowRepository.process(i, row -> count.incrementAndGet());
@@ -394,6 +406,8 @@ public class RowRepositoryTest {
             try {
                 thread1.join();
                 thread2.join();
+                thread3.join();
+                thread4.join();
                 destroyThread.join();
             } catch (InterruptedException e) {
                 e.printStackTrace();

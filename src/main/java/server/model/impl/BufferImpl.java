@@ -28,7 +28,18 @@ public class BufferImpl<V extends TableType> implements Buffer<V> {
         if (value == null) {
             return;
         }
-        map.put(value.getId(), new Element<>(value, state));
+        map.compute(value.getId(), (k, v) -> {
+            if (v == null) {
+                return new Element<>(value, state);
+            }
+            final State finalState;
+            if (!v.isFlushed() && State.DELETED != state) {
+                finalState = State.ADDED;
+            } else {
+                finalState = state;
+            }
+            return new Element<>(value, finalState);
+        });
     }
 
     @Override
