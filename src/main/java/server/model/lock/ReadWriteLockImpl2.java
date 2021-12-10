@@ -6,12 +6,15 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 
 public class ReadWriteLockImpl2<T> implements ReadWriteLock<T> {
     private static final Logger log = LoggerFactory.getLogger(ReadWriteLockImpl2.class);
+    private final Object LOCK = new Object();
+
     private final Map<T, java.util.concurrent.locks.ReadWriteLock> map = new HashMap<>();
-    private final Lock<T> readLock = new InnerReadLock();
-    private final Lock<T> writeLock = new InnerWriteLock();
+    private final Lock<T> readLock = new InnerLock(java.util.concurrent.locks.ReadWriteLock::readLock);
+    private final Lock<T> writeLock = new InnerLock(java.util.concurrent.locks.ReadWriteLock::writeLock);
 
     @Override
     public Lock<T> readLock() {
@@ -23,59 +26,37 @@ public class ReadWriteLockImpl2<T> implements ReadWriteLock<T> {
         return writeLock;
     }
 
-    private class InnerReadLock implements Lock<T> {
+    private class InnerLock implements Lock<T> {
+        private final Function<java.util.concurrent.locks.ReadWriteLock, java.util.concurrent.locks.Lock> function;
+
+        private InnerLock(Function<java.util.concurrent.locks.ReadWriteLock, java.util.concurrent.locks.Lock> function) {
+            this.function = function;
+        }
+
         @Override
         public void lock(T value) {
             java.util.concurrent.locks.ReadWriteLock readWriteLock;
-            synchronized (ReadWriteLockImpl2.this) {
+            synchronized (LOCK) {
                 readWriteLock = map.get(value);
                 if (readWriteLock == null) {
                     readWriteLock = new ReentrantReadWriteLock();
                     map.put(value, readWriteLock);
                 }
             }
-            readWriteLock.readLock().lock();
+            function.apply(readWriteLock).lock();
         }
 
         @Override
         public void unlock(T value) {
             java.util.concurrent.locks.ReadWriteLock readWriteLock;
-            synchronized (ReadWriteLockImpl2.this) {
+            synchronized (LOCK) {
                 readWriteLock = map.get(value);
                 if (readWriteLock == null) {
                     log.warn("try to unlock not acquired value : " + value + ", thread : " + Thread.currentThread());
                     return;
                 }
             }
-            readWriteLock.readLock().unlock();
-        }
-    }
-
-    private class InnerWriteLock implements Lock<T> {
-        @Override
-        public void lock(T value) {
-            java.util.concurrent.locks.ReadWriteLock readWriteLock;
-            synchronized (ReadWriteLockImpl2.this) {
-                readWriteLock = map.get(value);
-                if (readWriteLock == null) {
-                    readWriteLock = new ReentrantReadWriteLock();
-                    map.put(value, readWriteLock);
-                }
-            }
-            readWriteLock.writeLock().lock();
-        }
-
-        @Override
-        public void unlock(T value) {
-            java.util.concurrent.locks.ReadWriteLock readWriteLock;
-            synchronized (ReadWriteLockImpl2.this) {
-                readWriteLock = map.get(value);
-                if (readWriteLock == null) {
-                    log.warn("try to unlock not acquired value : " + value + ", thread : " + Thread.currentThread());
-                    return;
-                }
-            }
-            readWriteLock.writeLock().unlock();
+            function.apply(readWriteLock).unlock();
         }
     }
 }

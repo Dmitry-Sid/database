@@ -4,8 +4,8 @@ import server.model.lock.Lock;
 
 public class ChainedLock<T> implements Chained<T> {
     protected final Lock<T> lock;
-    protected boolean closed = true;
-    protected T currentValue;
+    protected volatile boolean closed = true;
+    protected volatile T currentValue;
 
     public ChainedLock(Lock<T> lock) {
         this.lock = lock;
@@ -45,7 +45,10 @@ public class ChainedLock<T> implements Chained<T> {
     @Override
     public void close() {
         if (currentValue != null) {
-            lock.unlock(currentValue);
+            if (!closed) {
+                lock.unlock(currentValue);
+                closed = true;
+            }
             currentValue = null;
         }
     }
