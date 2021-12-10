@@ -85,7 +85,7 @@ public class FileHelperTest {
         }
     }
 
-    @Test
+   /* @Test
     public void collectTest() {
         try {
             final byte[] bytes1 = new byte[]{1, 3, 4, 8, 6};
@@ -138,7 +138,7 @@ public class FileHelperTest {
         } finally {
             new File("test").delete();
         }
-    }
+    }*/
 
     @Test
     public void chainInputStreamTest() throws IOException {
@@ -215,7 +215,7 @@ public class FileHelperTest {
             }
         }
     }
-
+/*
     @Test
     public void collectListTest() {
         try {
@@ -340,5 +340,5 @@ public class FileHelperTest {
             new File("temp1").delete();
             new File("temp2").delete();
         }
-    }
+    }*/
 }

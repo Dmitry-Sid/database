@@ -2,18 +2,15 @@ package server.model.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import server.model.ChainedLock;
 import server.model.FileHelper;
 import server.model.StoppableStream;
 import server.model.lock.Lock;
 import server.model.lock.LockService;
 import server.model.lock.ReadWriteLock;
-import server.model.pojo.Pair;
 import server.model.pojo.RowAddress;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -79,113 +76,19 @@ public class FileHelperImpl implements FileHelper {
 
     @Override
     public ChainStream<InputStream> getChainInputStream() {
-        return new ChainLockInputStream();
+        return new ChainLockInputStream(readWriteLock.readLock());
     }
 
     @Override
     public ChainStream<OutputStream> getChainOutputStream() {
-        return new ChainLockOutputStream();
+        return new ChainLockOutputStream(readWriteLock.writeLock());
     }
 
     @Override
-    public void collect(CollectBean collectBean) {
-        actionWithRollBack(collectBean.rowAddress.getFilePath(), (pair) -> {
-            try (ChainStream<InputStream> chainInputStream = getChainInputStream();
-                 ChainStream<OutputStream> chainOutputStream = getChainOutputStream()) {
-                chainInputStream.init(pair.getFirst().getAbsolutePath());
-                chainOutputStream.init(pair.getSecond().getAbsolutePath());
-                long position = 0;
-                while (true) {
-                    if (position == collectBean.rowAddress.getPosition()) {
-                        collectBean.inputOutputConsumer.accept(chainInputStream.getStream(), chainOutputStream.getStream());
-                        if (collectBean.runnable != null) {
-                            collectBean.runnable.run();
-                        }
-                    }
-                    final int bit = chainInputStream.getStream().read();
-                    if (bit == -1) {
-                        break;
-                    }
-                    chainOutputStream.getStream().write(bit);
-                    position++;
-                }
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-    }
-
-    @Override
-    public void collect(List<CollectBean> list) {
-        if (list == null || list.isEmpty()) {
-            return;
-        }
-        String inputFileName = null;
-        String tempFileName = null;
-        long inputLastPosition = 0;
-        final List<Runnable> runnableList = new ArrayList<>();
-        try (ChainStream<InputStream> chainInputStream = getChainInputStream();
-             ChainStream<OutputStream> chainOutputStream = getChainOutputStream()) {
-            log.info("processing saved rows");
-            final AtomicLong counter = new AtomicLong();
-            for (CollectBean collectBean : list) {
-                final RowAddress rowAddress = collectBean.rowAddress;
-                if (inputFileName == null) {
-                    inputFileName = rowAddress.getFilePath();
-                    tempFileName = getTempFile(inputFileName);
-                    chainInputStream.init(inputFileName);
-                    chainOutputStream.init(tempFileName);
-                } else if (!inputFileName.equals(rowAddress.getFilePath())) {
-                    writeToEnd(chainInputStream, chainOutputStream);
-                    inputLastPosition = 0;
-                    chainInputStream.init(rowAddress.getFilePath());
-                    chainOutputStream.init(getTempFile(rowAddress.getFilePath()));
-                    saveTempFile(tempFileName, inputFileName, runnableList);
-                    inputFileName = rowAddress.getFilePath();
-                    tempFileName = getTempFile(inputFileName);
-                }
-                boolean found = false;
-                if (chainInputStream.getStream() != null) {
-                    while (true) {
-                        if (inputLastPosition == rowAddress.getPosition()) {
-                            collectBean.inputOutputConsumer.accept(chainInputStream.getStream(), chainOutputStream.getStream());
-                            inputLastPosition = rowAddress.getPosition() + rowAddress.getSize();
-                            found = true;
-                            break;
-                        }
-                        final int bit = chainInputStream.getStream().read();
-                        if (bit == -1) {
-                            break;
-                        }
-                        chainOutputStream.getStream().write(bit);
-                        inputLastPosition++;
-                    }
-                }
-                if (!found) {
-                    collectBean.inputOutputConsumer.accept(chainInputStream.getStream(), chainOutputStream.getStream());
-                }
-                runnableList.add(collectBean.runnable);
-                if (counter.incrementAndGet() % 1000 == 0) {
-                    log.info("processed " + counter.get() + " saved rows");
-                }
-            }
-            writeToEnd(chainInputStream, chainOutputStream);
-            log.info("processing saved rows done, count " + counter.get());
-        } catch (IOException e) {
-            delete(new File(tempFileName));
-            throw new RuntimeException(e);
-        }
-        if (inputFileName != null) {
-            saveTempFile(tempFileName, inputFileName, runnableList);
-        }
-    }
-
-    @Override
-    public void collect(StoppableStream<RowAddress> stoppableStream, Consumer<CollectBean2> consumer) {
+    public void collect(StoppableStream<RowAddress> stoppableStream, Consumer<CollectBean> consumer) {
         final String[] inputFileName = {null};
         final String[] tempFileName = {null};
         final long[] inputLastPosition = {0};
-        final List<Runnable> runnableList = new ArrayList<>();
         try (ChainStream<InputStream> chainInputStream = getChainInputStream();
              ChainStream<OutputStream> chainOutputStream = getChainOutputStream()) {
             log.info("processing saved rows");
@@ -202,7 +105,7 @@ public class FileHelperImpl implements FileHelper {
                         inputLastPosition[0] = 0;
                         chainInputStream.init(rowAddress.getFilePath());
                         chainOutputStream.init(getTempFile(rowAddress.getFilePath()));
-                        saveTempFile(tempFileName[0], inputFileName[0], runnableList);
+                        saveTempFile(tempFileName[0], inputFileName[0]);
                         inputFileName[0] = rowAddress.getFilePath();
                         tempFileName[0] = getTempFile(inputFileName[0]);
                     }
@@ -210,7 +113,7 @@ public class FileHelperImpl implements FileHelper {
                     if (chainInputStream.getStream() != null) {
                         while (true) {
                             if (inputLastPosition[0] == rowAddress.getPosition()) {
-                                consumer.accept(new CollectBean2(rowAddress, chainInputStream.getStream(), chainOutputStream.getStream(), runnableList));
+                                consumer.accept(new CollectBean(rowAddress, chainInputStream.getStream(), chainOutputStream.getStream()));
                                 inputLastPosition[0] = rowAddress.getPosition() + rowAddress.getSize();
                                 found = true;
                                 break;
@@ -224,7 +127,7 @@ public class FileHelperImpl implements FileHelper {
                         }
                     }
                     if (!found) {
-                        consumer.accept(new CollectBean2(rowAddress, chainInputStream.getStream(), chainOutputStream.getStream(), runnableList));
+                        consumer.accept(new CollectBean(rowAddress, chainInputStream.getStream(), chainOutputStream.getStream()));
                     }
                     if (counter.incrementAndGet() % 1000 == 0) {
                         log.info("processed " + counter.get() + " saved rows");
@@ -232,26 +135,27 @@ public class FileHelperImpl implements FileHelper {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
+            }, () -> {
+                try {
+                    writeToEnd(chainInputStream, chainOutputStream);
+                    chainInputStream.close();
+                    chainOutputStream.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                if (inputFileName[0] != null) {
+                    saveTempFile(tempFileName[0], inputFileName[0]);
+                }
             });
-            writeToEnd(chainInputStream, chainOutputStream);
             log.info("processing saved rows done, count " + counter.get());
         } catch (IOException e) {
             delete(new File(tempFileName[0]));
             throw new RuntimeException(e);
         }
-        if (inputFileName[0] != null) {
-            saveTempFile(tempFileName[0], inputFileName[0], runnableList);
-        }
     }
 
-    private void saveTempFile(String tempFileName, String inputFileName, List<Runnable> runnableList) {
+    private void saveTempFile(String tempFileName, String inputFileName) {
         LockService.doInLock(readWriteLock.writeLock(), inputFileName, () -> {
-            for (Runnable runnable : runnableList) {
-                if (runnable != null) {
-                    runnable.run();
-                }
-            }
-            runnableList.clear();
             deleteAndRename(new File(tempFileName), new File(inputFileName));
         });
     }
@@ -267,21 +171,6 @@ public class FileHelperImpl implements FileHelper {
 
     private String getTempFile(String fileName) {
         return fileName + ".tmp";
-    }
-
-    private void actionWithRollBack(String fileName, Consumer<Pair<File, File>> consumer) {
-        LockService.doInLock(readWriteLock.writeLock(), fileName, () -> {
-            final String tempFile = getTempFile(fileName);
-            final Pair<File, File> pair = new Pair<>(new File(fileName), new File(tempFile));
-            try {
-                consumer.accept(pair);
-                deleteAndRename(pair.getSecond(), pair.getFirst());
-            } catch (Throwable throwable) {
-                delete(pair.getSecond());
-                log.error("error", throwable);
-                throw throwable;
-            }
-        });
     }
 
     private boolean deleteAndRename(File fileFrom, File fileTo) {
@@ -313,32 +202,25 @@ public class FileHelperImpl implements FileHelper {
         return true;
     }
 
-    private abstract static class ChainLockStream<T extends Closeable> implements ChainStream<T> {
-        T currentStream;
-        private String currentFileName;
-        private boolean closed = true;
+    private abstract static class ChainLockStream<T extends Closeable> extends ChainedLock<String> implements ChainStream<T> {
+        protected T currentStream;
 
-        public void init(String fileName) {
-            close();
+        private ChainLockStream(Lock<String> lock) {
+            super(lock);
+        }
+
+        @Override
+        protected void initOthers(String value) {
             try {
-                getLock().lock(fileName);
-                currentFileName = fileName;
-                currentStream = createStream(fileName);
-                closed = false;
-            } catch (Throwable e) {
-                close();
+                currentStream = createStream(value);
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
 
         protected abstract T createStream(String fileName) throws Exception;
 
-        protected abstract Lock<String> getLock();
-
-        public String getFileName() {
-            return currentFileName;
-        }
-
+        @Override
         public T getStream() {
             return currentStream;
         }
@@ -348,23 +230,22 @@ public class FileHelperImpl implements FileHelper {
             if (currentStream != null) {
                 try {
                     currentStream.close();
+                    currentStream = null;
                     closed = true;
                 } catch (IOException e) {
                     log.warn(e.toString());
                     throw new RuntimeException(e);
                 }
             }
-            if (currentFileName != null) {
-                getLock().unlock(currentFileName);
-            }
-        }
-
-        public boolean isClosed() {
-            return closed;
+            super.close();
         }
     }
 
-    public class ChainLockInputStream extends ChainLockStream<InputStream> {
+    private static class ChainLockInputStream extends ChainLockStream<InputStream> {
+        private ChainLockInputStream(Lock<String> lock) {
+            super(lock);
+        }
+
         @Override
         protected InputStream createStream(String fileName) throws FileNotFoundException {
             if (!new File(fileName).exists()) {
@@ -372,22 +253,16 @@ public class FileHelperImpl implements FileHelper {
             }
             return new BufferedInputStream(new FileInputStream(fileName));
         }
-
-        @Override
-        protected Lock<String> getLock() {
-            return readWriteLock.readLock();
-        }
     }
 
-    public class ChainLockOutputStream extends ChainLockStream<OutputStream> {
+    private static class ChainLockOutputStream extends ChainLockStream<OutputStream> {
+        private ChainLockOutputStream(Lock<String> lock) {
+            super(lock);
+        }
+
         @Override
         protected OutputStream createStream(String fileName) throws Exception {
             return new BufferedOutputStream(new FileOutputStream(fileName), 10000);
-        }
-
-        @Override
-        protected Lock<String> getLock() {
-            return readWriteLock.writeLock();
         }
     }
 }

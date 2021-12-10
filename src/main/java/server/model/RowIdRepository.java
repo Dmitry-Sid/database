@@ -11,14 +11,12 @@ public interface RowIdRepository extends Repository<RowAddress> {
 
     void add(int id, Consumer<RowAddress> rowAddressConsumer);
 
-    StoppableStream<RowAddress> stream(Action action);
+    StoppableStream<RowAddress> stream();
 
-    StoppableStream<RowAddress> stream(Action action, Set<Integer> idSet);
+    StoppableStream<RowAddress> stream(Set<Integer> idSet);
+
+    StoppableStream<RowAddress> batchStream(Set<Integer> idSet, Runnable afterAction);
 
     String getRowFileName(int rowId);
-
-    enum Action {
-        READ, WRITE
-    }
 
 }

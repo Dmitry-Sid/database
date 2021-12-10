@@ -376,13 +376,13 @@ public class RowRepositoryTest {
                 System.out.println(Thread.currentThread().getName() + " finished");
             });
             final Thread thread3 = new Thread(() -> {
-                for (int i = 0; i < max; i++) {
+                for (int i = 0; i < max / 10; i++) {
                     rowRepository.size(ICondition.empty, -1);
                 }
                 System.out.println(Thread.currentThread().getName() + " finished");
             });
             final Thread thread4 = new Thread(() -> {
-                for (int i = 0; i < max; i++) {
+                for (int i = 0; i < max / 10; i++) {
                     rowRepository.getList(ICondition.empty, 0, 750);
                 }
                 System.out.println(Thread.currentThread().getName() + " finished");

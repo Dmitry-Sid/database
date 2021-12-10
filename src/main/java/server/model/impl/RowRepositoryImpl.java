@@ -11,7 +11,6 @@ import server.model.pojo.RowAddress;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -83,7 +82,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         final IndexService.SearchResult searchResult = indexService.search(iCondition, size);
         return new BaseStoppableStream<Row>() {
             private final StoppableStream<RowAddress> rowAddressStream = searchResult.found ?
-                    rowIdRepository.stream(RowIdRepository.Action.READ, searchResult.idSet) : rowIdRepository.stream(RowIdRepository.Action.READ);
+                    rowIdRepository.stream(searchResult.idSet) : rowIdRepository.stream();
             private StoppableStream<Buffer.Element<Row>> bufferStream;
 
             @Override
@@ -239,7 +238,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     log.info("processed deleted fields " + counter.get() + " rows");
                 }
             });
-            rowIdRepository.stream(RowIdRepository.Action.READ).forEach(rowAddressConsumer);
+            rowIdRepository.stream().forEach(rowAddressConsumer);
             log.info("processing deleted fields to rows done, count " + counter.get());
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -256,7 +255,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     log.info("processed inserted indexes " + counter.get() + " rows");
                 }
             });
-            rowIdRepository.stream(RowIdRepository.Action.READ).forEach(rowAddressConsumer);
+            rowIdRepository.stream().forEach(rowAddressConsumer);
             log.info("processing inserted indexes to rows done, count " + counter.get());
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -266,40 +265,35 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
     private Consumer<List<Buffer.Element<Row>>> bufferConsumer() {
         return list -> {
             final Map<Integer, Buffer.Element<Row>> map = list.stream().collect(Collectors.toMap(element -> element.getValue().getId(), Function.identity()));
-            fileHelper.collect(rowIdRepository.stream(RowIdRepository.Action.WRITE, map.keySet()), collectBean2 -> {
-                final Buffer.Element<Row> element = map.get(collectBean2.rowAddress.getId());
+            final List<Runnable> afterBatchActions = new ArrayList<>();
+            fileHelper.collect(rowIdRepository.batchStream(map.keySet(), () -> {
+                afterBatchActions.forEach(Runnable::run);
+                afterBatchActions.clear();
+            }), collectBean -> {
+                final Buffer.Element<Row> element = map.get(collectBean.rowAddress.getId());
                 final Row row = element.getValue();
                 final byte[] rowBytes = objectConverter.toBytes(row);
                 switch (element.getState()) {
                     case ADDED:
-                        collectBean2.rowAddress.setSize(rowBytes.length);
+                        collectBean.rowAddress.setSize(rowBytes.length);
                         try {
-                            collectBean2.outputStream.write(rowBytes);
+                            collectBean.outputStream.write(rowBytes);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
                         break;
                     case UPDATED:
-                        fileHelper.skip(collectBean2.inputStream, collectBean2.rowAddress.getSize());
+                        fileHelper.skip(collectBean.inputStream, collectBean.rowAddress.getSize());
                         try {
-                            collectBean2.outputStream.write(rowBytes);
+                            collectBean.outputStream.write(rowBytes);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                        rowIdRepository.add(row.getId(), rowAddressToSave -> rowAddressToSave.setSize(rowBytes.length));
-                       /* boolean processed = processRowAddress(row.getId(), rowAddress -> {
-                            fileHelperList.add(new FileHelper.CollectBean(rowAddress, (inputStream, outputStream) -> {
-                                fileHelper.skip(inputStream, rowAddress.getSize());
-                                outputStream.write(rowBytes);
-                            }, () -> );
-                        });
-                        if (!processed) {
-                            processAdded(row, fileHelperList);
-                        }*/
+                        afterBatchActions.add(() -> rowIdRepository.add(row.getId(), rowAddressToSave -> rowAddressToSave.setSize(rowBytes.length)));
                         break;
                     case DELETED:
-                        fileHelper.skip(collectBean2.inputStream, collectBean2.rowAddress.getSize());
-                        rowIdRepository.delete(row.getId());
+                        fileHelper.skip(collectBean.inputStream, collectBean.rowAddress.getSize());
+                        afterBatchActions.add(() -> rowIdRepository.delete(row.getId()));
                         break;
                 }
             });
