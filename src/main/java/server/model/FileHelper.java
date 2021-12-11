@@ -6,7 +6,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.List;
 import java.util.function.Consumer;
 
 public interface FileHelper {
@@ -21,7 +20,7 @@ public interface FileHelper {
 
     ChainStream<OutputStream> getChainOutputStream();
 
-    void collect(StoppableStream<RowAddress> stoppableStream, Consumer<CollectBean> consumer);
+    void collect(StoppableBatchStream<RowAddress> stream, Consumer<CollectBean> consumer);
 
     interface InputOutputConsumer {
         void accept(InputStream inputStream, OutputStream outputStream) throws IOException;

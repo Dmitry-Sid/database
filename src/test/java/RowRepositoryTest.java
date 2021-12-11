@@ -1,7 +1,6 @@
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -30,10 +29,19 @@ public class RowRepositoryTest {
     private static final int maxIdSize = 20;
     private static final int compressSize = 2;
 
-    @Parameterized.Parameters
-    public static Object[][] data() {
-        return new Object[1][0];
+    private final int bufferSize;
+
+    public RowRepositoryTest(int bufferSize) {
+        this.bufferSize = bufferSize;
     }
+
+    @Parameterized.Parameters
+    public static Collection<Object[]> data() {
+        return Arrays.asList(new Object[][]{
+                {1}, {10}, {40}, {1000}
+        });
+    }
+
 
     private static IndexService mockIndexService() {
         try {
@@ -86,14 +94,6 @@ public class RowRepositoryTest {
 
     @Test
     public void addTest() {
-        addTest(1);
-        addTest(2);
-        addTest(3);
-        addTest(4);
-        addTest(1000);
-    }
-
-    public void addTest(int bufferSize) {
         int lastId = 750;
         createFiles(lastId);
         final RowRepository rowRepository = prepareRepository(bufferSize);
@@ -130,14 +130,6 @@ public class RowRepositoryTest {
 
     @Test
     public void deleteTest() {
-        deleteTest(1);
-        deleteTest(2);
-        deleteTest(3);
-        deleteTest(4);
-        deleteTest(1000);
-    }
-
-    public void deleteTest(int bufferSize) {
         int lastId = 750;
         createFiles(lastId);
         final RowRepository rowRepository = prepareRepository(bufferSize);
@@ -173,13 +165,6 @@ public class RowRepositoryTest {
 
     @Test
     public void getListTest() {
-        getListTest(1);
-        getListTest(10);
-        getListTest(40);
-        getListTest(1000);
-    }
-
-    public void getListTest(int bufferSize) {
         int lastId = 750;
         createFiles(lastId);
         final RowRepository rowRepository = prepareRepository(bufferSize);
@@ -275,13 +260,6 @@ public class RowRepositoryTest {
 
     @Test
     public void fieldsChangedTest() {
-        fieldsChangedTest(1);
-        fieldsChangedTest(10);
-        fieldsChangedTest(40);
-        fieldsChangedTest(1000);
-    }
-
-    private void fieldsChangedTest(int bufferSize) {
         int lastId = 750;
         createFiles(lastId);
         final ModelService modelService = new ModelServiceImpl("", true, new ObjectConverterImpl(new DataCompressorImpl()), null);
@@ -350,13 +328,6 @@ public class RowRepositoryTest {
 
     @Test
     public void concurrentTest() {
-        concurrentTest(1);
-        concurrentTest(10);
-        concurrentTest(40);
-        concurrentTest(1000);
-    }
-
-    private void concurrentTest(int bufferSize) {
         int lastId = 250;
         final int max = 100;
         createFiles(lastId);
@@ -424,13 +395,6 @@ public class RowRepositoryTest {
 
     @Test
     public void sizeTest() {
-        sizeTest(1);
-        sizeTest(10);
-        sizeTest(40);
-        sizeTest(1000);
-    }
-
-    private void sizeTest(int bufferSize) {
         int lastId = 750;
         createFiles(lastId);
         final RowRepository rowRepository = prepareRepository(bufferSize);

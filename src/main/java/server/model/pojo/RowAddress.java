@@ -5,7 +5,6 @@ import java.util.Objects;
 public class RowAddress extends TableType {
     private static final long serialVersionUID = 8553571533963610104L;
     private final String filePath;
-    private final int id;
     private long position;
     private int size;
     private int previous = -1;
@@ -52,10 +51,6 @@ public class RowAddress extends TableType {
 
     public void setNext(int next) {
         this.next = next;
-    }
-
-    public int getId() {
-        return id;
     }
 
     @Override

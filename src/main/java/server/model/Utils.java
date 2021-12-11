@@ -55,8 +55,28 @@ public class Utils {
         return sb.toString();
     }
 
+    public static <T> void compareAndRun(T actual, T previous, Runnable action) {
+        if (!actual.equals(previous)) {
+            action.run();
+        }
+    }
+
     private static boolean isWindows() {
         return OSType.WIN.equals(OS_TYPE);
+    }
+
+    public static boolean isNullOrEmpty(byte[] bytes) {
+        if (bytes == null) {
+            return true;
+        }
+        boolean isEmpty;
+        for (byte bit : bytes) {
+            isEmpty = bit == 0;
+            if (!isEmpty) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private enum OSType {

@@ -81,8 +81,8 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
     private StoppableStream<Row> stream(ICondition iCondition, int from, int size) {
         final IndexService.SearchResult searchResult = indexService.search(iCondition, size);
         return new BaseStoppableStream<Row>() {
-            private final StoppableStream<RowAddress> rowAddressStream = searchResult.found ?
-                    rowIdRepository.stream(searchResult.idSet) : rowIdRepository.stream();
+            private final StoppableBatchStream<RowAddress> rowAddressStream = searchResult.found ?
+                    rowIdRepository.batchStream(RowIdRepository.Type.Read, searchResult.idSet) : rowIdRepository.batchStream();
             private StoppableStream<Buffer.Element<Row>> bufferStream;
 
             @Override
@@ -98,6 +98,13 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                             } else {
                                 skipped.getAndIncrement();
                             }
+                        }
+                    });
+                    rowAddressStream.addOnBatchEnd(() -> {
+                        try {
+                            chainInputStream.close();
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
                         }
                     });
                     rowAddressStream.forEach(rowAddressConsumer);
@@ -153,12 +160,17 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                 buffer.add(new Row(id, null), Buffer.State.DELETED);
                 return;
             }
+            if (Utils.isNullOrEmpty(bytes)) {
+                return;
+            }
             consumer.accept(objectConverter.fromBytes(Row.class, bytes));
         });
     }
 
     private boolean processRowAddress(int id, Consumer<RowAddress> consumer) {
-        return LockService.doInLock(rowReadWriteLock.readLock(), rowIdRepository.getRowFileName(id), () -> rowIdRepository.process(id, consumer));
+        return rowIdRepository.process(id, rowAddress -> {
+            LockService.doInLock(rowReadWriteLock.readLock(), rowIdRepository.getRowFileName(id), () -> consumer.accept(rowAddress));
+        });
     }
 
     @Override
@@ -196,18 +208,21 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     }
                     return;
                 }
-                if (fileName.get() == null) {
-                    fileName.set(rowAddress.getFilePath());
-                    chainInputStream.init(fileName.get());
-                } else if (!fileName.get().equals(rowAddress.getFilePath())) {
+                Utils.compareAndRun(rowAddress.getFilePath(), fileName.get(), () -> {
                     lastPosition.set(0);
                     fileName.set(rowAddress.getFilePath());
                     chainInputStream.init(fileName.get());
-                }
+                });
                 fileHelper.skip(chainInputStream.getStream(), rowAddress.getPosition() - lastPosition.get());
+                if (chainInputStream.getStream() == null) {
+                    return;
+                }
                 lastPosition.set(rowAddress.getPosition() + rowAddress.getSize());
                 final byte[] bytes = new byte[rowAddress.getSize()];
                 chainInputStream.getStream().read(bytes);
+                if (Utils.isNullOrEmpty(bytes)) {
+                    return;
+                }
                 final Row row = objectConverter.fromBytes(Row.class, bytes);
                 rowConsumer.accept(row);
             } catch (IOException e) {
@@ -238,7 +253,15 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     log.info("processed deleted fields " + counter.get() + " rows");
                 }
             });
-            rowIdRepository.stream().forEach(rowAddressConsumer);
+            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream();
+            stream.addOnBatchEnd(() -> {
+                try {
+                    chainInputStream.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            stream.forEach(rowAddressConsumer);
             log.info("processing deleted fields to rows done, count " + counter.get());
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -255,7 +278,15 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     log.info("processed inserted indexes " + counter.get() + " rows");
                 }
             });
-            rowIdRepository.stream().forEach(rowAddressConsumer);
+            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream();
+            stream.addOnBatchEnd(() -> {
+                try {
+                    chainInputStream.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            stream.forEach(rowAddressConsumer);
             log.info("processing inserted indexes to rows done, count " + counter.get());
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -266,10 +297,12 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         return list -> {
             final Map<Integer, Buffer.Element<Row>> map = list.stream().collect(Collectors.toMap(element -> element.getValue().getId(), Function.identity()));
             final List<Runnable> afterBatchActions = new ArrayList<>();
-            fileHelper.collect(rowIdRepository.batchStream(map.keySet(), () -> {
+            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(RowIdRepository.Type.Write, map.keySet());
+            stream.addOnBatchEnd(() -> {
                 afterBatchActions.forEach(Runnable::run);
                 afterBatchActions.clear();
-            }), collectBean -> {
+            });
+            fileHelper.collect(stream, collectBean -> {
                 final Buffer.Element<Row> element = map.get(collectBean.rowAddress.getId());
                 final Row row = element.getValue();
                 final byte[] rowBytes = objectConverter.toBytes(row);

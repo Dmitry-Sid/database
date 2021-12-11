@@ -4,8 +4,8 @@ import server.model.lock.Lock;
 
 public class ChainedLock<T> implements Chained<T> {
     protected final Lock<T> lock;
-    protected volatile boolean closed = true;
-    protected volatile T currentValue;
+    private volatile boolean closed = true;
+    private volatile T currentValue;
 
     public ChainedLock(Lock<T> lock) {
         this.lock = lock;
@@ -27,6 +27,7 @@ public class ChainedLock<T> implements Chained<T> {
 
     /**
      * Для переопределения в наследниках
+     *
      * @param value
      */
     protected void initOthers(T value) {

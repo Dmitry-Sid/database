@@ -4,7 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.model.ChainedLock;
 import server.model.FileHelper;
-import server.model.StoppableStream;
+import server.model.StoppableBatchStream;
+import server.model.Utils;
 import server.model.lock.Lock;
 import server.model.lock.LockService;
 import server.model.lock.ReadWriteLock;
@@ -85,7 +86,7 @@ public class FileHelperImpl implements FileHelper {
     }
 
     @Override
-    public void collect(StoppableStream<RowAddress> stoppableStream, Consumer<CollectBean> consumer) {
+    public void collect(StoppableBatchStream<RowAddress> stoppableStream, Consumer<CollectBean> consumer) {
         final String[] inputFileName = {null};
         final String[] tempFileName = {null};
         final long[] inputLastPosition = {0};
@@ -93,22 +94,27 @@ public class FileHelperImpl implements FileHelper {
              ChainStream<OutputStream> chainOutputStream = getChainOutputStream()) {
             log.info("processing saved rows");
             final AtomicLong counter = new AtomicLong();
+            stoppableStream.addOnBatchEnd(() -> {
+                try {
+                    writeToEnd(chainInputStream, chainOutputStream);
+                    chainInputStream.close();
+                    chainOutputStream.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                if (inputFileName[0] != null) {
+                    saveTempFile(tempFileName[0], inputFileName[0]);
+                }
+            });
             stoppableStream.forEach(rowAddress -> {
                 try {
-                    if (inputFileName[0] == null) {
+                    Utils.compareAndRun(rowAddress.getFilePath(), inputFileName[0], () -> {
+                        inputLastPosition[0] = 0;
                         inputFileName[0] = rowAddress.getFilePath();
                         tempFileName[0] = getTempFile(inputFileName[0]);
-                        chainInputStream.init(inputFileName[0]);
-                        chainOutputStream.init(tempFileName[0]);
-                    } else if (!inputFileName[0].equals(rowAddress.getFilePath())) {
-                        writeToEnd(chainInputStream, chainOutputStream);
-                        inputLastPosition[0] = 0;
                         chainInputStream.init(rowAddress.getFilePath());
                         chainOutputStream.init(getTempFile(rowAddress.getFilePath()));
-                        saveTempFile(tempFileName[0], inputFileName[0]);
-                        inputFileName[0] = rowAddress.getFilePath();
-                        tempFileName[0] = getTempFile(inputFileName[0]);
-                    }
+                    });
                     boolean found = false;
                     if (chainInputStream.getStream() != null) {
                         while (true) {
@@ -134,17 +140,6 @@ public class FileHelperImpl implements FileHelper {
                     }
                 } catch (IOException e) {
                     throw new RuntimeException(e);
-                }
-            }, () -> {
-                try {
-                    writeToEnd(chainInputStream, chainOutputStream);
-                    chainInputStream.close();
-                    chainOutputStream.close();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                if (inputFileName[0] != null) {
-                    saveTempFile(tempFileName[0], inputFileName[0]);
                 }
             });
             log.info("processing saved rows done, count " + counter.get());
@@ -175,7 +170,11 @@ public class FileHelperImpl implements FileHelper {
 
     private boolean deleteAndRename(File fileFrom, File fileTo) {
         if (!fileTo.exists() || delete(fileTo)) {
-            return rename(fileFrom, fileTo);
+            final boolean renamed = rename(fileFrom, fileTo);
+            if (isFileEmpty(fileTo)) {
+                delete(fileTo);
+            }
+            return renamed;
         }
         return false;
     }
@@ -200,6 +199,19 @@ public class FileHelperImpl implements FileHelper {
             return false;
         }
         return true;
+    }
+
+    private boolean isFileEmpty(File fileTo) {
+        try (BufferedReader br = new BufferedReader(new FileReader(fileTo))) {
+            if (br.readLine() == null) {
+                return true;
+            }
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
     private abstract static class ChainLockStream<T extends Closeable> extends ChainedLock<String> implements ChainStream<T> {
@@ -231,7 +243,6 @@ public class FileHelperImpl implements FileHelper {
                 try {
                     currentStream.close();
                     currentStream = null;
-                    closed = true;
                 } catch (IOException e) {
                     log.warn(e.toString());
                     throw new RuntimeException(e);

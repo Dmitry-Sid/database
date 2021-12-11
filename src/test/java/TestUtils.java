@@ -8,8 +8,11 @@ import server.model.pojo.RowAddress;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -88,7 +91,7 @@ public class TestUtils {
     }
 
     public static Set<Integer> prepareBoundsBatch(int lastId, int maxIdSize) {
-        final Set<Integer> set = Collections.synchronizedSet(new LinkedHashSet<>());
+        final Set<Integer> set = new CopyOnWriteArraySet<>();
         for (int i = 0; i <= lastId / maxIdSize; i++) {
             set.add(i + 1);
         }

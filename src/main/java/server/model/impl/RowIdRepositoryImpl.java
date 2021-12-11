@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -43,7 +44,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         if (file.exists()) {
             this.variables = objectConverter.fromFile(Variables.class, this.variablesFileName);
         } else {
-            this.variables = new Variables(new AtomicInteger(0), Collections.synchronizedSet(new LinkedHashSet<>()), new ConcurrentHashMap<>());
+            this.variables = new Variables(new AtomicInteger(0), new CopyOnWriteArraySet<>(), new ConcurrentHashMap<>());
         }
         this.maxIdSize = maxIdSize;
     }
@@ -94,6 +95,16 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         changed = true;
     }
 
+    @Override
+    public StoppableBatchStream<RowAddress> batchStream() {
+        return new BatchStream(readWriteLock.readLock(), true);
+    }
+
+    @Override
+    public StoppableBatchStream<RowAddress> batchStream(Type type, Set<Integer> idSet) {
+        return new BatchStream(Type.Read == type ? readWriteLock.readLock() : readWriteLock.writeLock(), idSet, Type.Write == type);
+    }
+
     private RowAddress createRowAddress(int id) {
         return new RowAddress(getRowFileName(id), id, 0, 0);
     }
@@ -107,21 +118,6 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         while ((rowAddressNext = cachedRowAddresses.rowAddressMap.get(rowAddressNext.getNext())) != null) {
             rowAddressNext.setPosition(rowAddressNext.getPosition() + (sizeAfter - sizeBefore));
         }
-    }
-
-    @Override
-    public StoppableStream<RowAddress> stream() {
-        return new RowAddressStream();
-    }
-
-    @Override
-    public StoppableStream<RowAddress> stream(Set<Integer> idSet) {
-        return new RowAddressStream(idSet);
-    }
-
-    @Override
-    public StoppableStream<RowAddress> batchStream(Set<Integer> idSet, Runnable afterBatch) {
-        return new BatchStream(readWriteLock.writeLock(), idSet, afterBatch, true);
     }
 
     private void stream(Map<Integer, RowAddress> rowAddressMap, Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker) {
@@ -249,6 +245,11 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         }
     }
 
+    private Set<Integer> sortedSet(Set<Integer> set) {
+        return set.stream().sorted(Integer::compareTo)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
     public static class Variables implements Serializable {
         private static final long serialVersionUID = 1228422981455428546L;
         private final AtomicInteger lastId;
@@ -273,91 +274,65 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         }
     }
 
-    private class RowAddressStream extends BaseStoppableStream<RowAddress> {
+    private class BatchStream extends BaseStoppableBatchStream<RowAddress> {
+        private final Lock<String> lock;
         private final boolean full;
         private final Set<Integer> idSet;
+        private final boolean create;
 
-        private RowAddressStream() {
-            this.full = true;
-            this.idSet = null;
-        }
-
-        private RowAddressStream(Set<Integer> idSet) {
+        private BatchStream(Lock<String> lock, Set<Integer> idSet, boolean create) {
+            this.lock = lock;
             this.full = false;
             this.idSet = idSet;
+            this.create = create;
+        }
+
+        private BatchStream(Lock<String> lock, boolean full) {
+            this.lock = lock;
+            this.full = full;
+            this.idSet = null;
+            this.create = false;
         }
 
         @Override
         public void forEach(Consumer<RowAddress> consumer) {
             if (full) {
-                for (int value : new HashSet<>(variables.idBatches)) {
-                    if (stopChecker.get()) {
-                        return;
-                    }
-                    processRowAddresses(readWriteLock.readLock(), filesIdPath + value, false,
+                forEach(variables.idBatches, value -> {
+                    processRowAddresses(lock, filesIdPath + value, false,
                             cachedRowAddresses -> stream(cachedRowAddresses.rowAddressMap, consumer, stopChecker));
-                }
-            } else if (idSet != null) {
-                new BatchStream(readWriteLock.readLock(), idSet, null, false).forEach(consumer);
+                });
+            } else {
+                forEach(idSet, value -> {
+                    if (!process(value, lock, consumer) && create) {
+                        add(value, consumer);
+                    }
+                });
             }
         }
-    }
 
-    private class BatchStream extends BaseStoppableStream<RowAddress> {
-        private final Lock<String> lock;
-        private final Set<Integer> idSet;
-        private final Runnable onBatchEnd;
-        private final boolean create;
-
-        private BatchStream(Lock<String> lock, Set<Integer> idSet, Runnable afterBatch, boolean create) {
-            this.lock = lock;
-            this.idSet = idSet;
-            this.onBatchEnd = afterBatch;
-            this.create = create;
-        }
-
-        @Override
-        public void forEach(Consumer<RowAddress> consumer) {
-            forEach(consumer, null);
-        }
-
-        @Override
-        public void forEach(Consumer<RowAddress> consumer, Runnable onStreamEnd) {
-            if (idSet == null) {
+        private void forEach(Set<Integer> set, Consumer<Integer> consumer) {
+            if (set == null) {
                 return;
             }
             String fileName = null;
             try (ChainedLock<String> chainedLock = new ChainedLock<>(lock)) {
-                for (int id : sortedSet(idSet)) {
+                for (int value : sortedSet(set)) {
                     if (stopChecker.get()) {
                         return;
                     }
                     if (fileName == null) {
-                        fileName = getRowIdFileName(id);
+                        fileName = getRowIdFileName(value);
                         chainedLock.init(fileName);
-                    } else if (!fileName.equals(getRowIdFileName(id))) {
-                        if (onBatchEnd != null) {
-                            onBatchEnd.run();
-                        }
-                        fileName = getRowIdFileName(id);
+                    } else if (!fileName.equals(getRowIdFileName(value))) {
+                        onBatchEnd.forEach(Runnable::run);
+                        fileName = getRowIdFileName(value);
                         chainedLock.init(fileName);
                     }
-                    if (!process(id, lock, consumer) && create) {
-                        add(id, consumer);
-                    }
+                    consumer.accept(value);
                 }
-                if (onStreamEnd != null) {
-                    onStreamEnd.run();
-                }
-                if (onBatchEnd != null) {
-                    onBatchEnd.run();
-                }
+                onStreamEnd.forEach(Runnable::run);
+                onBatchEnd.forEach(Runnable::run);
             }
         }
-    }
-
-    private Set<Integer> sortedSet(Set<Integer> set) {
-        return set.stream().sorted(Integer::compareTo)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 }

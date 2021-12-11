@@ -368,7 +368,7 @@ public class RowIdRepositoryTest {
         TestUtils.doAndSleep(rowIdRepository, () -> {
             {
                 final AtomicInteger counter = new AtomicInteger();
-                rowIdRepository.stream().forEach(rowAddress -> {
+                rowIdRepository.batchStream().forEach(rowAddress -> {
                     assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> {
                         assertEquals(rowAddress, rowAddressProcessed);
                     }));
@@ -379,7 +379,7 @@ public class RowIdRepositoryTest {
             {
                 final Set<Integer> idSet = new HashSet<>(Arrays.asList(10, 55, 155, 44, 749, 750, 900));
                 final AtomicInteger counter = new AtomicInteger();
-                rowIdRepository.stream(idSet).forEach(rowAddress -> {
+                rowIdRepository.batchStream(RowIdRepository.Type.Read, idSet).forEach(rowAddress -> {
                     assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> {
                         assertEquals(rowAddress, rowAddressProcessed);
                     }));
@@ -389,7 +389,7 @@ public class RowIdRepositoryTest {
             }
             {
                 final AtomicInteger counter = new AtomicInteger();
-                final StoppableStream<RowAddress> stream = rowIdRepository.stream();
+                final StoppableStream<RowAddress> stream = rowIdRepository.batchStream();
                 stream.forEach(rowAddress -> {
                     assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> {
                         assertEquals(rowAddress, rowAddressProcessed);
@@ -427,7 +427,7 @@ public class RowIdRepositoryTest {
             });
             final Thread thread3 = new Thread(() -> {
                 for (int i = 1; i < max; i++) {
-                    rowIdRepository.stream().forEach(rowAddress -> {
+                    rowIdRepository.batchStream().forEach(rowAddress -> {
                     });
                 }
                 System.out.println(Thread.currentThread().getName() + " finished");

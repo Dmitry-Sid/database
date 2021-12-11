@@ -5,7 +5,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.model.DataCompressor;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -19,7 +22,7 @@ public class DataCompressorImpl implements DataCompressor {
                 outputStream.write(input);
             }
             return bous.toByteArray();
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("error while compressing data", e);
             throw new RuntimeException(e);
         }
@@ -29,7 +32,7 @@ public class DataCompressorImpl implements DataCompressor {
     public OutputStream compress(OutputStream output) {
         try {
             return new GZIPOutputStream(output);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("error while compressing inputStream", e);
             throw new RuntimeException(e);
         }
@@ -39,7 +42,7 @@ public class DataCompressorImpl implements DataCompressor {
     public byte[] decompress(byte[] input) {
         try (InputStream inputStream = decompress(new ByteArrayInputStream(input))) {
             return IOUtils.toByteArray(inputStream);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("error while compressing data", e);
             throw new RuntimeException(e);
         }
@@ -49,7 +52,7 @@ public class DataCompressorImpl implements DataCompressor {
     public InputStream decompress(InputStream input) {
         try {
             return new GZIPInputStream(input);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("error while decompressing inputStream", e);
             throw new RuntimeException(e);
         }
