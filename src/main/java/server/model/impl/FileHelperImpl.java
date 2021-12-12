@@ -24,7 +24,6 @@ public class FileHelperImpl implements FileHelper {
         LockService.doInLock(readWriteLock.writeLock(), fileName, () -> {
             try (BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(fileName, append))) {
                 output.write(bytes);
-                output.flush();
             } catch (IOException e) {
                 throw new RuntimeException();
             }
@@ -94,21 +93,23 @@ public class FileHelperImpl implements FileHelper {
              ChainStream<OutputStream> chainOutputStream = getChainOutputStream()) {
             log.info("processing saved rows");
             final AtomicLong counter = new AtomicLong();
-            stoppableStream.addOnBatchEnd(() -> {
-                try {
-                    writeToEnd(chainInputStream, chainOutputStream);
-                    chainInputStream.close();
-                    chainOutputStream.close();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+            final Runnable saveTempFileRunnable = () -> {
+                if (!chainInputStream.isClosed()) {
+                    try {
+                        writeToEnd(chainInputStream, chainOutputStream);
+                        chainInputStream.close();
+                        chainOutputStream.close();
+                        saveTempFile(tempFileName[0], inputFileName[0]);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
-                if (inputFileName[0] != null) {
-                    saveTempFile(tempFileName[0], inputFileName[0]);
-                }
-            });
+            };
+            stoppableStream.addOnBatchEnd(saveTempFileRunnable);
             stoppableStream.forEach(rowAddress -> {
                 try {
                     Utils.compareAndRun(rowAddress.getFilePath(), inputFileName[0], () -> {
+                        saveTempFileRunnable.run();
                         inputLastPosition[0] = 0;
                         inputFileName[0] = rowAddress.getFilePath();
                         tempFileName[0] = getTempFile(inputFileName[0]);
@@ -149,12 +150,6 @@ public class FileHelperImpl implements FileHelper {
         }
     }
 
-    private void saveTempFile(String tempFileName, String inputFileName) {
-        LockService.doInLock(readWriteLock.writeLock(), inputFileName, () -> {
-            deleteAndRename(new File(tempFileName), new File(inputFileName));
-        });
-    }
-
     private void writeToEnd(ChainStream<InputStream> chainInputStream, ChainStream<OutputStream> chainOutputStream) throws IOException {
         if (chainInputStream.getStream() != null) {
             int bit;
@@ -164,17 +159,17 @@ public class FileHelperImpl implements FileHelper {
         }
     }
 
-    private String getTempFile(String fileName) {
-        return fileName + ".tmp";
+    private void saveTempFile(String tempFileName, String inputFileName) {
+        LockService.doInLock(readWriteLock.writeLock(), inputFileName, () -> {
+            if (!replace(new File(tempFileName), new File(inputFileName))) {
+                throw new RuntimeException("can't replace files");
+            }
+        });
     }
 
-    private boolean deleteAndRename(File fileFrom, File fileTo) {
+    private boolean replace(File fileFrom, File fileTo) {
         if (!fileTo.exists() || delete(fileTo)) {
-            final boolean renamed = rename(fileFrom, fileTo);
-            if (isFileEmpty(fileTo)) {
-                delete(fileTo);
-            }
-            return renamed;
+            return rename(fileFrom, fileTo);
         }
         return false;
     }
@@ -201,17 +196,8 @@ public class FileHelperImpl implements FileHelper {
         return true;
     }
 
-    private boolean isFileEmpty(File fileTo) {
-        try (BufferedReader br = new BufferedReader(new FileReader(fileTo))) {
-            if (br.readLine() == null) {
-                return true;
-            }
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return false;
+    private String getTempFile(String fileName) {
+        return fileName + ".tmp";
     }
 
     private abstract static class ChainLockStream<T extends Closeable> extends ChainedLock<String> implements ChainStream<T> {

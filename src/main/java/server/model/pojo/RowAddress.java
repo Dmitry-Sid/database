@@ -9,6 +9,7 @@ public class RowAddress extends TableType {
     private int size;
     private int previous = -1;
     private int next = -1;
+    private boolean saved;
 
     public RowAddress(String filePath, int id, long position, int size) {
         this.filePath = filePath;
@@ -51,6 +52,14 @@ public class RowAddress extends TableType {
 
     public void setNext(int next) {
         this.next = next;
+    }
+
+    public boolean isSaved() {
+        return saved;
+    }
+
+    public void setSaved(boolean saved) {
+        this.saved = saved;
     }
 
     @Override

@@ -124,9 +124,37 @@ public class RowIdRepositoryTest {
         final int lastId = 750;
         createFiles(lastId);
         final RowIdRepository rowIdRepository = prepareRowIdRepository(maxIdSize);
+        TestUtils.doAndSleep(rowIdRepository, () -> {
+            try {
+                rowIdRepository.add(10, rowAddress -> rowAddress.setSize(10));
+                fail("never");
+            } catch (Exception e) {
+                assertEquals("cannot add existing rowId 10", e.getMessage());
+            }
+            final int id = rowIdRepository.newId();
+            rowIdRepository.add(id, rowAddress -> {
+            });
+            assertFalse(rowIdRepository.process(id, rowAddress -> fail("never")));
+            rowIdRepository.save(id, rowAddress -> rowAddress.setSize(10));
+            assertTrue(rowIdRepository.process(751, rowAddress -> {
+                assertEquals(filesRowPath + "/" + filesRowPath + 4, rowAddress.getFilePath());
+                assertEquals(751, rowAddress.getId());
+                assertEquals(0, rowAddress.getPosition());
+                assertEquals(10, rowAddress.getSize());
+                assertEquals(-1, rowAddress.getPrevious());
+                assertEquals(-1, rowAddress.getNext());
+            }));
+        });
+    }
+
+    @Test
+    public void saveTest() {
+        final int lastId = 750;
+        createFiles(lastId);
+        final RowIdRepository rowIdRepository = prepareRowIdRepository(maxIdSize);
         {
             TestUtils.doAndSleep(rowIdRepository, () -> {
-                rowIdRepository.add(rowIdRepository.newId(), rowAddress -> {
+                rowIdRepository.save(rowIdRepository.newId(), rowAddress -> {
                     rowAddress.setSize(10);
                 });
                 assertTrue(rowIdRepository.process(250, rowAddress -> {
@@ -158,7 +186,7 @@ public class RowIdRepositoryTest {
                     assertEquals(rowAddressSize, rowAddress.getSize());
                     assertEquals(-1, rowAddress.getNext());
                 }));
-                rowIdRepository.add(rowIdRepository.newId(), rowAddress -> {
+                rowIdRepository.save(rowIdRepository.newId(), rowAddress -> {
                     rowAddress.setSize(67);
                 });
                 assertTrue(rowIdRepository.process(250, rowAddress -> {
@@ -213,10 +241,10 @@ public class RowIdRepositoryTest {
         }
         {
             TestUtils.doAndSleep(rowIdRepository, () -> {
-                rowIdRepository.add(501, rowAddress -> {
+                rowIdRepository.save(501, rowAddress -> {
                     rowAddress.setSize(14);
                 });
-                rowIdRepository.add(250, rowAddress -> {
+                rowIdRepository.save(250, rowAddress -> {
                     rowAddress.setSize(7);
                 });
                 assertTrue(rowIdRepository.process(501, rowAddress -> {
@@ -265,7 +293,7 @@ public class RowIdRepositoryTest {
                     final RowAddress rowAddressNext = new RowAddress(filesRowPath + "/" + filesRowPath + 2, 500, 1245, rowAddressSize);
                     assertEquals(rowAddressNext.getId(), rowAddress.getNext());
                 }));
-                rowIdRepository.add(100, rowAddress -> {
+                rowIdRepository.save(100, rowAddress -> {
                     rowAddress.setSize(15);
                 });
                 assertTrue(rowIdRepository.process(99, rowAddress -> {
@@ -353,7 +381,7 @@ public class RowIdRepositoryTest {
             }));
             rowIdRepository.delete(750);
             final int[] id = new int[1];
-            rowIdRepository.add(rowIdRepository.newId(), rowAddress -> {
+            rowIdRepository.save(rowIdRepository.newId(), rowAddress -> {
                 id[0] = rowAddress.getId();
             });
             assertEquals(751, id[0]);
@@ -379,7 +407,7 @@ public class RowIdRepositoryTest {
             {
                 final Set<Integer> idSet = new HashSet<>(Arrays.asList(10, 55, 155, 44, 749, 750, 900));
                 final AtomicInteger counter = new AtomicInteger();
-                rowIdRepository.batchStream(RowIdRepository.Type.Read, idSet).forEach(rowAddress -> {
+                rowIdRepository.batchStream(idSet).forEach(rowAddress -> {
                     assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> {
                         assertEquals(rowAddress, rowAddressProcessed);
                     }));
@@ -415,7 +443,7 @@ public class RowIdRepositoryTest {
             final Thread thread1 = new Thread(() -> {
                 for (int i = 1; i < max; i++) {
                     int finalI = i;
-                    rowIdRepository.add(i, rowAddress -> rowAddress.setSize(rowAddressSize + finalI));
+                    rowIdRepository.save(i, rowAddress -> rowAddress.setSize(rowAddressSize + finalI));
                 }
                 System.out.println(Thread.currentThread().getName() + " finished");
             });

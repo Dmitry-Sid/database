@@ -1,15 +1,19 @@
+import org.apache.commons.io.FileUtils;
 import org.junit.Test;
-import server.model.FileHelper;
-import server.model.ObjectConverter;
+import server.model.*;
 import server.model.impl.DataCompressorImpl;
 import server.model.impl.FileHelperImpl;
 import server.model.impl.ObjectConverterImpl;
+import server.model.pojo.Pair;
 import server.model.pojo.Row;
 import server.model.pojo.RowAddress;
 
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import static org.junit.Assert.*;
 
@@ -84,61 +88,6 @@ public class FileHelperTest {
             new File("test").delete();
         }
     }
-
-   /* @Test
-    public void collectTest() {
-        try {
-            final byte[] bytes1 = new byte[]{1, 3, 4, 8, 6};
-            final byte[] bytes2 = new byte[]{2, 9, 11, 4, 7};
-            final RowAddress rowAddress = new RowAddress("test", 1, 0, 5);
-            fileHelper.write("test", bytes1, true);
-            final byte[] bytes3 = new byte[5];
-            fileHelper.collect(new FileHelper.CollectBean(rowAddress, (inputStream, outputStream) -> {
-                inputStream.read(bytes3);
-                outputStream.write(bytes2);
-            }, null));
-            TestUtils.assertBytes(bytes1, bytes3);
-            TestUtils.assertBytes(bytes2, fileHelper.read(rowAddress));
-        } finally {
-            new File("test").delete();
-        }
-        try {
-            final byte[] bytes1 = new byte[]{1, 3, 4, 8, 6};
-            final byte[] bytes2 = new byte[]{2, 9, 11, 4, 7};
-            final byte[] bytes3 = new byte[]{5, 8, 12, 94, 16};
-            final RowAddress rowAddress1 = new RowAddress("test", 1, 0, 5);
-            final RowAddress rowAddress2 = new RowAddress("test", 2, 5, 5);
-            final RowAddress rowAddress3 = new RowAddress("test", 3, 10, 5);
-            fileHelper.write("test", bytes1, true);
-            fileHelper.write("test", bytes2, true);
-            fileHelper.write("test", bytes3, true);
-            TestUtils.assertBytes(bytes1, fileHelper.read(rowAddress1));
-            TestUtils.assertBytes(bytes2, fileHelper.read(rowAddress2));
-            TestUtils.assertBytes(bytes3, fileHelper.read(rowAddress3));
-            final byte[] bytes6 = new byte[5];
-            fileHelper.collect(new FileHelper.CollectBean(rowAddress1, (inputStream, outputStream) -> {
-                inputStream.read(bytes6);
-            }, null));
-            TestUtils.assertBytes(bytes1, bytes6);
-            TestUtils.assertBytes(new byte[5], fileHelper.read(rowAddress3));
-            final byte[] bytes7 = new byte[5];
-            fileHelper.collect(new FileHelper.CollectBean(rowAddress1, (inputStream, outputStream) -> {
-                inputStream.read(bytes7);
-                outputStream.write(bytes7);
-            }, null));
-            TestUtils.assertBytes(bytes2, bytes7);
-            TestUtils.assertBytes(bytes2, fileHelper.read(rowAddress1));
-            TestUtils.assertBytes(bytes3, fileHelper.read(rowAddress2));
-            final byte[] bytes8 = new byte[5];
-            fileHelper.collect(new FileHelper.CollectBean(rowAddress1, (inputStream, outputStream) -> {
-                inputStream.skip(5);
-                outputStream.write(bytes8);
-            }, null));
-            TestUtils.assertBytes(bytes8, fileHelper.read(rowAddress1));
-        } finally {
-            new File("test").delete();
-        }
-    }*/
 
     @Test
     public void chainInputStreamTest() throws IOException {
@@ -215,130 +164,77 @@ public class FileHelperTest {
             }
         }
     }
-/*
-    @Test
-    public void collectListTest() {
-        try {
 
-            final boolean[] processed = new boolean[4];
-            final boolean[] processedRunnableList = new boolean[4];
-            final List<byte[]> byteList = new ArrayList<>();
-            final List<RowAddress> rowAddresses = new ArrayList<>();
-            final List<FileHelper.CollectBean> list = new ArrayList<>();
-            {
-                final String fileName = "temp1";
-                final int size = 5;
-                final byte[] bytesAdded = new byte[5];
-                for (int i = 0; i < size; i++) {
-                    bytesAdded[i] = (byte) i;
+    @Test
+    public void collectTest() throws IOException {
+        final String directory = "row";
+        Utils.createDirectoryTree(new File(directory));
+        try {
+            final Pair<List<Row>, List<RowAddress>> pair = makePair(directory, 0);
+            for (int i = 0; i < 6; i++) {
+                final byte[] bytes = objectConverter.toBytes(pair.getFirst().get(i));
+                fileHelper.write(pair.getSecond().get(i).getFilePath(), bytes, true);
+            }
+            for (int i = 0; i < 6; i++) {
+                TestUtils.assertBytes(objectConverter.toBytes(pair.getFirst().get(i)), fileHelper.read(pair.getSecond().get(i)));
+            }
+            final StoppableBatchStream<RowAddress> stream = new BaseStoppableBatchStream<RowAddress>() {
+                @Override
+                public void forEach(Consumer<RowAddress> consumer) {
+                    pair.getSecond().forEach(rowAddress -> {
+                        if (rowAddress.getId() == 4) {
+                            onBatchEnd.forEach(Runnable::run);
+                        }
+                        consumer.accept(rowAddress);
+                    });
+                    onBatchEnd.forEach(Runnable::run);
                 }
-                fileHelper.write(fileName, bytesAdded, true);
-                final RowAddress rowAddress = new RowAddress(fileName, 0, 0, 5);
-                final FileHelper.InputOutputConsumer inputOutputConsumer = (inputStream, outputStream) -> {
-                    final byte[] oldBytes = new byte[rowAddress.getSize()];
-                    inputStream.read(oldBytes);
-                    TestUtils.assertBytes(bytesAdded, oldBytes);
-                    processed[0] = true;
-                    final byte[] bytes = new byte[rowAddress.getSize() + 2];
-                    for (int i = 0; i < bytes.length; i++) {
-                        bytes[i] = (byte) i;
-                    }
-                    byteList.add(bytes);
-                    outputStream.write(bytes);
-                    rowAddresses.add(new RowAddress(fileName, 0, 0, rowAddress.getSize() + 2));
-                };
-                list.add(new FileHelper.CollectBean(rowAddress, inputOutputConsumer, () -> processedRunnableList[0] = true));
-            }
-            {
-                final String fileName = "temp1";
-                final int size = 6;
-                final byte[] bytesAdded = new byte[size];
-                for (int i = 0; i < size; i++) {
-                    bytesAdded[i] = (byte) i;
+            };
+            final Pair<List<Row>, List<RowAddress>> changedPair = makePair(directory, 1);
+            final AtomicInteger counter = new AtomicInteger(0);
+            fileHelper.collect(stream, collectBean -> {
+                assertEquals(pair.getSecond().get(counter.get()), collectBean.rowAddress);
+                fileHelper.skip(collectBean.inputStream, collectBean.rowAddress.getSize());
+                try {
+                    collectBean.outputStream.write(objectConverter.toBytes(changedPair.getFirst().get(counter.getAndIncrement())));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
-                fileHelper.write(fileName, bytesAdded, true);
-                final RowAddress rowAddress = new RowAddress(fileName, 2, 5, size);
-                final FileHelper.InputOutputConsumer inputOutputConsumer = (inputStream, outputStream) -> {
-                    final byte[] oldBytes = new byte[rowAddress.getSize()];
-                    inputStream.read(oldBytes);
-                    TestUtils.assertBytes(bytesAdded, oldBytes);
-                    processed[1] = true;
-                    final byte[] bytes = new byte[rowAddress.getSize() - 1];
-                    for (int i = 0; i < bytes.length; i++) {
-                        bytes[i] = (byte) i;
-                    }
-                    byteList.add(bytes);
-                    outputStream.write(bytes);
-                    rowAddresses.add(new RowAddress(fileName, 1, 7, rowAddress.getSize() - 1));
-                };
-                list.add(new FileHelper.CollectBean(rowAddress, inputOutputConsumer, () -> processedRunnableList[1] = true));
-            }
-            {
-                final String fileName = "temp1";
-                final int size = 7;
-                final byte[] bytesAdded = new byte[size];
-                for (int i = 0; i < size; i++) {
-                    bytesAdded[i] = (byte) i;
-                }
-                fileHelper.write(fileName, bytesAdded, true);
-                byteList.add(bytesAdded);
-                rowAddresses.add(new RowAddress("temp1", 2, 12, size));
-            }
-            {
-                final String fileName = "temp2";
-                final int size = 7;
-                final byte[] bytesAdded = new byte[size];
-                for (int i = 0; i < size; i++) {
-                    bytesAdded[i] = (byte) i;
-                }
-                fileHelper.write(fileName, bytesAdded, true);
-                final RowAddress rowAddress = new RowAddress(fileName, 3, 0, size);
-                final FileHelper.InputOutputConsumer inputOutputConsumer = (inputStream, outputStream) -> {
-                    final byte[] oldBytes = new byte[rowAddress.getSize()];
-                    inputStream.read(oldBytes);
-                    TestUtils.assertBytes(bytesAdded, oldBytes);
-                    processed[2] = true;
-                    final byte[] bytes = new byte[rowAddress.getSize() + 3];
-                    for (int i = 0; i < bytes.length; i++) {
-                        bytes[i] = (byte) i;
-                    }
-                    byteList.add(bytes);
-                    outputStream.write(bytes);
-                    rowAddresses.add(new RowAddress(fileName, 3, 0, rowAddress.getSize() + 3));
-                };
-                list.add(new FileHelper.CollectBean(rowAddress, inputOutputConsumer, () -> processedRunnableList[2] = true));
-            }
-            {
-                final String fileName = "temp2";
-                final RowAddress rowAddress = new RowAddress(fileName, 0, 7, 9);
-                final FileHelper.InputOutputConsumer inputOutputConsumer = (inputStream, outputStream) -> {
-                    processed[3] = true;
-                    final byte[] bytes = new byte[rowAddress.getSize()];
-                    for (int i = 0; i < bytes.length; i++) {
-                        bytes[i] = (byte) i;
-                    }
-                    byteList.add(bytes);
-                    outputStream.write(bytes);
-                    rowAddresses.add(new RowAddress(fileName, 3, 10, rowAddress.getSize()));
-                };
-                list.add(new FileHelper.CollectBean(rowAddress, inputOutputConsumer, () -> processedRunnableList[3] = true));
-            }
-            fileHelper.collect(list);
-            for (boolean processedSingle : processed) {
-                assertTrue(processedSingle);
-            }
-            for (boolean processedRunnable : processedRunnableList) {
-                assertTrue(processedRunnable);
-            }
-            assertEquals(5, rowAddresses.size());
-            int i = 0;
-            for (RowAddress rowAddress : rowAddresses) {
-                TestUtils.assertBytes(byteList.get(i), fileHelper.read(rowAddress));
-                i++;
+            });
+            for (int i = 0; i < 6; i++) {
+                TestUtils.assertBytes(objectConverter.toBytes(changedPair.getFirst().get(i)), fileHelper.read(changedPair.getSecond().get(i)));
             }
         } finally {
-            new File("temp1").delete();
-            new File("temp2").delete();
+            assertEquals(0, Objects.requireNonNull(new File(directory).listFiles((dir, name) -> name.endsWith(".tmp"))).length);
+            FileUtils.deleteDirectory(new File(directory));
         }
-    }*/
+    }
+
+    private Pair<List<Row>, List<RowAddress>> makePair(String directory, int additionalParameter) {
+        final List<Row> rowList = new ArrayList<>();
+        final List<RowAddress> rowAddressList = new ArrayList<>();
+        long lastPosition = 0;
+        for (int i = 0; i < 6; i++) {
+            rowList.add(TestUtils.generateRow(i, i + additionalParameter));
+            final byte[] bytes = objectConverter.toBytes(rowList.get(i));
+            final int fileNumber;
+            if (i == 0 || i == 1) {
+                fileNumber = 1;
+            } else if (i == 2 || i == 3) {
+                fileNumber = 2;
+                if (i == 2) {
+                    lastPosition = 0;
+                }
+            } else {
+                fileNumber = 3;
+                if (i == 4) {
+                    lastPosition = 0;
+                }
+            }
+            final RowAddress rowAddress = new RowAddress(directory + "/row" + fileNumber, i, lastPosition, bytes.length);
+            rowAddressList.add(rowAddress);
+            lastPosition += bytes.length;
+        }
+        return new Pair<>(rowList, rowAddressList);
+    }
 }

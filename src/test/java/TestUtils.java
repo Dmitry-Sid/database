@@ -74,6 +74,7 @@ public class TestUtils {
                     rowAddressPrevious = null;
                 }
                 rowAddress = new RowAddress(filesRowPath + getRowFileNumber(id, maxRowSize), id, lastEndPosition, rowMap == null ? rowAddressSize : rowMap.get(id).length);
+                rowAddress.setSaved(true);
                 lastEndPosition += rowAddress.getSize();
                 if (rowAddressPrevious != null) {
                     rowAddressPrevious.setNext(rowAddress.getId());

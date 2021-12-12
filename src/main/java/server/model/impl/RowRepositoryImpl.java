@@ -53,7 +53,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
     public void add(Row row) {
         boolean added = false;
         if (row.getId() == 0) {
-            row.setId(rowIdRepository.newId());
+            rowIdRepository.add(rowIdRepository.newId(), rowAddress -> row.setId(rowAddress.getId()));
             added = true;
         }
         if (added) {
@@ -82,7 +82,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         final IndexService.SearchResult searchResult = indexService.search(iCondition, size);
         return new BaseStoppableStream<Row>() {
             private final StoppableBatchStream<RowAddress> rowAddressStream = searchResult.found ?
-                    rowIdRepository.batchStream(RowIdRepository.Type.Read, searchResult.idSet) : rowIdRepository.batchStream();
+                    rowIdRepository.batchStream(searchResult.idSet) : rowIdRepository.batchStream();
             private StoppableStream<Buffer.Element<Row>> bufferStream;
 
             @Override
@@ -160,17 +160,12 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                 buffer.add(new Row(id, null), Buffer.State.DELETED);
                 return;
             }
-            if (Utils.isNullOrEmpty(bytes)) {
-                return;
-            }
             consumer.accept(objectConverter.fromBytes(Row.class, bytes));
         });
     }
 
     private boolean processRowAddress(int id, Consumer<RowAddress> consumer) {
-        return rowIdRepository.process(id, rowAddress -> {
-            LockService.doInLock(rowReadWriteLock.readLock(), rowIdRepository.getRowFileName(id), () -> consumer.accept(rowAddress));
-        });
+        return rowIdRepository.process(id, rowAddress -> LockService.doInLock(rowReadWriteLock.readLock(), rowIdRepository.getRowFileName(id), () -> consumer.accept(rowAddress)));
     }
 
     @Override
@@ -214,14 +209,11 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     chainInputStream.init(fileName.get());
                 });
                 fileHelper.skip(chainInputStream.getStream(), rowAddress.getPosition() - lastPosition.get());
-                if (chainInputStream.getStream() == null) {
-                    return;
-                }
                 lastPosition.set(rowAddress.getPosition() + rowAddress.getSize());
                 final byte[] bytes = new byte[rowAddress.getSize()];
-                chainInputStream.getStream().read(bytes);
-                if (Utils.isNullOrEmpty(bytes)) {
-                    return;
+                final int actual = chainInputStream.getStream().read(bytes);
+                if (actual != bytes.length) {
+                    throw new RuntimeException("actual bytes size " + actual + " is not equal " + bytes.length);
                 }
                 final Row row = objectConverter.fromBytes(Row.class, bytes);
                 rowConsumer.accept(row);
@@ -297,7 +289,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         return list -> {
             final Map<Integer, Buffer.Element<Row>> map = list.stream().collect(Collectors.toMap(element -> element.getValue().getId(), Function.identity()));
             final List<Runnable> afterBatchActions = new ArrayList<>();
-            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(RowIdRepository.Type.Write, map.keySet());
+            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(map.keySet());
             stream.addOnBatchEnd(() -> {
                 afterBatchActions.forEach(Runnable::run);
                 afterBatchActions.clear();
@@ -308,12 +300,12 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                 final byte[] rowBytes = objectConverter.toBytes(row);
                 switch (element.getState()) {
                     case ADDED:
-                        collectBean.rowAddress.setSize(rowBytes.length);
                         try {
                             collectBean.outputStream.write(rowBytes);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
+                        afterBatchActions.add(() -> rowIdRepository.save(collectBean.rowAddress.getId(), rowAddress -> rowAddress.setSize(rowBytes.length)));
                         break;
                     case UPDATED:
                         fileHelper.skip(collectBean.inputStream, collectBean.rowAddress.getSize());
@@ -322,7 +314,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                        afterBatchActions.add(() -> rowIdRepository.add(row.getId(), rowAddressToSave -> rowAddressToSave.setSize(rowBytes.length)));
+                        afterBatchActions.add(() -> rowIdRepository.save(row.getId(), rowAddressToSave -> rowAddressToSave.setSize(rowBytes.length)));
                         break;
                     case DELETED:
                         fileHelper.skip(collectBean.inputStream, collectBean.rowAddress.getSize());

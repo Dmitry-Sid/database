@@ -3,7 +3,6 @@ package server.model;
 import server.model.pojo.RowAddress;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.function.Consumer;
@@ -21,10 +20,6 @@ public interface FileHelper {
     ChainStream<OutputStream> getChainOutputStream();
 
     void collect(StoppableBatchStream<RowAddress> stream, Consumer<CollectBean> consumer);
-
-    interface InputOutputConsumer {
-        void accept(InputStream inputStream, OutputStream outputStream) throws IOException;
-    }
 
     interface ChainStream<T extends Closeable> extends Chained<String> {
         T getStream();

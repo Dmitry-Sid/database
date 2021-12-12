@@ -74,6 +74,7 @@ public class RowRepositoryTest {
 
     @After
     public void after() throws IOException {
+        assertEquals(0, Objects.requireNonNull(new File(filesRowPath).listFiles((dir, name) -> name.endsWith(".tmp"))).length);
         FileUtils.deleteDirectory(new File(filesIdPath));
         FileUtils.deleteDirectory(new File(filesRowPath));
     }
