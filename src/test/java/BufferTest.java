@@ -21,9 +21,7 @@ public class BufferTest {
 
     private void fullTest(int maxSize) {
         final AtomicInteger flushedConsumerCounter = new AtomicInteger();
-        final Buffer<Row> buffer = new BufferImpl<>(maxSize, list -> {
-            list.forEach(value -> flushedConsumerCounter.incrementAndGet());
-        });
+        final Buffer<Row> buffer = new BufferImpl<>(maxSize, list -> list.forEach(value -> flushedConsumerCounter.incrementAndGet()));
         for (int i = 0; i < maxSize - 1; i++) {
             final Map<String, Comparable> map = new HashMap<>();
             map.put("field", Integer.toString(i));
@@ -144,7 +142,21 @@ public class BufferTest {
         buffer.flush();
         counter.set(0);
         previous.set(0);
-        buffer.stream().forEach(value -> {
+        StoppableStream<Buffer.Element<Row>> stream = buffer.stream();
+        final boolean[] onStreamEnd = new boolean[]{false, false};
+        stream.addOnStreamEnd(() -> {
+            assertEquals(maxSize, counter.get());
+            assertEquals(maxSize, buffer.size());
+            assertEquals(maxSize + 2, flushedConsumerCounter.get());
+            onStreamEnd[0] = true;
+        });
+        stream.addOnStreamEnd(() -> {
+            assertEquals(maxSize, counter.get());
+            assertEquals(maxSize, buffer.size());
+            assertEquals(maxSize + 2, flushedConsumerCounter.get());
+            onStreamEnd[1] = true;
+        });
+        stream.forEach(value -> {
             counter.incrementAndGet();
             assertEquals(value, buffer.get(value.getValue().getId()));
             assertTrue(value.isFlushed());
@@ -154,15 +166,17 @@ public class BufferTest {
         assertEquals(maxSize, counter.get());
         assertEquals(maxSize, buffer.size());
         assertEquals(maxSize + 2, flushedConsumerCounter.get());
+        assertTrue(onStreamEnd[0]);
+        assertTrue(onStreamEnd[1]);
 
         counter.set(0);
-        final StoppableStream<Buffer.Element<Row>> stream = buffer.stream();
-        stream.forEach(value -> {
+        final StoppableStream<Buffer.Element<Row>> stream2 = buffer.stream();
+        stream2.forEach(value -> {
             counter.incrementAndGet();
             assertEquals(value, buffer.get(value.getValue().getId()));
             assertTrue(value.isFlushed());
             if (counter.get() >= Math.ceil(maxSize / 2)) {
-                stream.stop();
+                stream2.stop();
             }
         });
         assertEquals((int) Math.ceil(maxSize / 2), counter.get());

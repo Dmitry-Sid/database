@@ -64,6 +64,7 @@ public class BufferImpl<V extends TableType> implements Buffer<V> {
                     }
                     consumer.accept(element);
                 }
+                onStreamEnd.forEach(Runnable::run);
             }
         };
     }
