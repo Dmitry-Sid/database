@@ -4,6 +4,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import server.model.RowIdRepository;
+import server.model.StoppableBatchStream;
 import server.model.StoppableStream;
 import server.model.Utils;
 import server.model.impl.DataCompressorImpl;
@@ -14,8 +15,10 @@ import server.model.pojo.RowAddress;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
@@ -396,24 +399,86 @@ public class RowIdRepositoryTest {
         TestUtils.doAndSleep(rowIdRepository, () -> {
             {
                 final AtomicInteger counter = new AtomicInteger();
-                rowIdRepository.batchStream().forEach(rowAddress -> {
-                    assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> {
-                        assertEquals(rowAddress, rowAddressProcessed);
-                    }));
+                final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream();
+                final boolean[] batchEnd = new boolean[]{false, false, false, false};
+                final boolean[] streamEnd = new boolean[]{false, false};
+                stream.addOnBatchEnd(() -> {
+                    assertTrue(counter.get() == maxIdSize || counter.get() == lastId);
+                    if (counter.get() == maxIdSize) {
+                        batchEnd[0] = true;
+                    } else {
+                        batchEnd[1] = true;
+                    }
+                });
+                stream.addOnBatchEnd(() -> {
+                    assertTrue(counter.get() == maxIdSize || counter.get() == lastId);
+                    if (counter.get() == maxIdSize) {
+                        batchEnd[2] = true;
+                    } else {
+                        batchEnd[3] = true;
+                    }
+                });
+                stream.addOnStreamEnd(() -> {
+                    assertEquals(lastId, counter.get());
+                    streamEnd[0] = true;
+                });
+                stream.addOnStreamEnd(() -> {
+                    assertEquals(lastId, counter.get());
+                    streamEnd[1] = true;
+                });
+                stream.forEach(rowAddress -> {
+                    assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> assertEquals(rowAddress, rowAddressProcessed)));
                     counter.incrementAndGet();
                 });
                 assertEquals(lastId, counter.get());
+                assertTrue(batchEnd[0]);
+                assertTrue(batchEnd[1]);
+                assertTrue(batchEnd[2]);
+                assertTrue(batchEnd[3]);
+                assertTrue(streamEnd[0]);
+                assertTrue(streamEnd[1]);
             }
             {
                 final Set<Integer> idSet = new HashSet<>(Arrays.asList(10, 55, 155, 44, 749, 750, 900));
                 final AtomicInteger counter = new AtomicInteger();
-                rowIdRepository.batchStream(idSet).forEach(rowAddress -> {
-                    assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> {
-                        assertEquals(rowAddress, rowAddressProcessed);
-                    }));
+                final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(idSet, RowIdRepository.StreamType.Read);
+                final boolean[] batchEnd = new boolean[]{false, false, false, false};
+                final boolean[] streamEnd = new boolean[]{false, false};
+                stream.addOnBatchEnd(() -> {
+                    assertTrue(counter.get() == 4 || counter.get() == idSet.size() - 1);
+                    if (counter.get() == 4) {
+                        batchEnd[0] = true;
+                    } else {
+                        batchEnd[1] = true;
+                    }
+                });
+                stream.addOnBatchEnd(() -> {
+                    assertTrue(counter.get() == 4 || counter.get() == idSet.size() - 1);
+                    if (counter.get() == 4) {
+                        batchEnd[2] = true;
+                    } else {
+                        batchEnd[3] = true;
+                    }
+                });
+                stream.addOnStreamEnd(() -> {
+                    assertEquals(idSet.size() - 1, counter.get());
+                    streamEnd[0] = true;
+                });
+                stream.addOnStreamEnd(() -> {
+                    assertEquals(idSet.size() - 1, counter.get());
+                    streamEnd[1] = true;
+                });
+                stream.forEach(rowAddress -> {
+                    assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> assertEquals(rowAddress, rowAddressProcessed)));
                     counter.incrementAndGet();
                 });
                 assertEquals(idSet.size() - 1, counter.get());
+                assertTrue(batchEnd[0]);
+                assertTrue(batchEnd[1]);
+                assertTrue(batchEnd[2]);
+                assertTrue(batchEnd[3]);
+                assertTrue(streamEnd[0]);
+                assertTrue(streamEnd[1]);
             }
             {
                 final AtomicInteger counter = new AtomicInteger();
@@ -429,6 +494,43 @@ public class RowIdRepositoryTest {
                 assertEquals(500, counter.get());
             }
         });
+    }
+
+    @Test
+    public void streamTypeTest() throws InterruptedException {
+        final int lastId = 750;
+        createFiles(lastId);
+        final RowIdRepository rowIdRepository = prepareRowIdRepository(maxIdSize);
+        rowIdRepository.stop();
+        Thread.sleep(3000);
+        final ExecutorService executorService = Executors.newCachedThreadPool();
+        {
+            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(new HashSet<>(Collections.singletonList(1)), RowIdRepository.StreamType.Read);
+            final Future<Void> future = executorService.submit(() -> {
+                stream.forEach(rowAddress -> rowIdRepository.delete(rowAddress.getId()));
+                return null;
+            });
+            try {
+                future.get(1000, TimeUnit.MILLISECONDS);
+                fail("never");
+            } catch (InterruptedException | ExecutionException e) {
+                fail("never");
+            } catch (TimeoutException e) {
+                assertTrue(true);
+            }
+        }
+        {
+            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(new HashSet<>(Collections.singletonList(750)), RowIdRepository.StreamType.Write);
+            final Future<Void> future = executorService.submit(() -> {
+                stream.forEach(rowAddress -> rowIdRepository.delete(rowAddress.getId()));
+                return null;
+            });
+            try {
+                future.get(1000, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                fail("never");
+            }
+        }
     }
 
     @Test

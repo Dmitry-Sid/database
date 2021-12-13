@@ -82,7 +82,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         final IndexService.SearchResult searchResult = indexService.search(iCondition, size);
         return new BaseStoppableStream<Row>() {
             private final StoppableBatchStream<RowAddress> rowAddressStream = searchResult.found ?
-                    rowIdRepository.batchStream(searchResult.idSet) : rowIdRepository.batchStream();
+                    rowIdRepository.batchStream(searchResult.idSet, RowIdRepository.StreamType.Read) : rowIdRepository.batchStream();
             private StoppableStream<Buffer.Element<Row>> bufferStream;
 
             @Override
@@ -289,7 +289,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         return list -> {
             final Map<Integer, Buffer.Element<Row>> map = list.stream().collect(Collectors.toMap(element -> element.getValue().getId(), Function.identity()));
             final List<Runnable> afterBatchActions = new ArrayList<>();
-            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(map.keySet());
+            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(map.keySet(), RowIdRepository.StreamType.Write);
             stream.addOnBatchEnd(() -> {
                 afterBatchActions.forEach(Runnable::run);
                 afterBatchActions.clear();

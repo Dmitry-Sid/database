@@ -16,6 +16,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdRepository {
@@ -115,8 +116,8 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     }
 
     @Override
-    public StoppableBatchStream<RowAddress> batchStream(Set<Integer> idSet) {
-        return new BatchStream(idSet);
+    public StoppableBatchStream<RowAddress> batchStream(Set<Integer> idSet, StreamType streamType) {
+        return new BatchStream(idSet, streamType);
     }
 
     private RowAddress createRowAddress(int id) {
@@ -288,53 +289,52 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     private class BatchStream extends BaseStoppableBatchStream<RowAddress> {
         private final boolean full;
         private final Set<Integer> idSet;
+        private final Lock<String> lock;
 
         private BatchStream(boolean full) {
             this.full = full;
             this.idSet = null;
+            this.lock = readWriteLock.readLock();
         }
 
-        private BatchStream(Set<Integer> idSet) {
+        private BatchStream(Set<Integer> idSet, StreamType streamType) {
             this.full = false;
             this.idSet = idSet;
+            this.lock = streamType == StreamType.Write ? readWriteLock.writeLock() : readWriteLock.readLock();
         }
 
         @Override
         public void forEach(Consumer<RowAddress> consumer) {
             if (full) {
-                forEach(variables.idBatches, value -> processRowAddresses(readWriteLock.readLock(), filesIdPath + value, false,
+                forEach(variables.idBatches, value -> filesIdPath + value, value -> processRowAddresses(lock, filesIdPath + value, false,
                         cachedRowAddresses -> stream(cachedRowAddresses.rowAddressMap, consumer, stopChecker)));
             } else {
-                forEach(idSet, value -> process(value, true, consumer));
+                forEach(idSet, RowIdRepositoryImpl.this::getRowIdFileName, value -> process(value, true, consumer));
             }
         }
 
-        private void forEach(Set<Integer> set, Consumer<Integer> consumer) {
+        private void forEach(Set<Integer> set, Function<Integer, String> fileFunction, Consumer<Integer> consumer) {
             if (set == null) {
                 return;
             }
             final String[] fileName = {null};
-            try (ChainedLock<String> chainedLock = new ChainedLock<>(readWriteLock.readLock())) {
+            try (ChainedLock<String> chainedLock = new ChainedLock<>(lock)) {
                 for (int value : sortedSet(set)) {
                     if (stopChecker.get()) {
                         return;
                     }
-                    Utils.compareAndRun(getRowIdFileName(value), fileName[0], () -> {
-                        if (!chainedLock.isClosed()) {
-                            chainedLock.close();
-                            LockService.doInLock(readWriteLock.writeLock(), fileName[0], () -> onBatchEnd.forEach(Runnable::run));
+                    Utils.compareAndRun(fileFunction.apply(value), fileName[0], () -> {
+                        if (fileName[0] != null) {
+                            onBatchEnd.forEach(Runnable::run);
                         }
-                        fileName[0] = getRowIdFileName(value);
+                        fileName[0] = fileFunction.apply(value);
                         chainedLock.init(fileName[0]);
                     });
                     consumer.accept(value);
                 }
                 if (fileName[0] != null) {
-                    chainedLock.close();
-                    LockService.doInLock(readWriteLock.writeLock(), fileName[0], () -> {
-                        onStreamEnd.forEach(Runnable::run);
-                        onBatchEnd.forEach(Runnable::run);
-                    });
+                    onStreamEnd.forEach(Runnable::run);
+                    onBatchEnd.forEach(Runnable::run);
                 }
             }
         }
