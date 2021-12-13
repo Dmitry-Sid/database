@@ -287,6 +287,9 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
 
     private Consumer<List<Buffer.Element<Row>>> bufferConsumer() {
         return list -> {
+            if (list.isEmpty()) {
+                return;
+            }
             final Map<Integer, Buffer.Element<Row>> map = list.stream().collect(Collectors.toMap(element -> element.getValue().getId(), Function.identity()));
             final List<Runnable> afterBatchActions = new ArrayList<>();
             final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(map.keySet(), RowIdRepository.StreamType.Write);

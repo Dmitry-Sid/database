@@ -28,14 +28,14 @@ public class RowListController extends BaseController {
 
     public RowListController(TableManager tableManager, PersistentFields persistentFields) {
         super(tableManager, persistentFields);
-      /*  for (int i = 0; i < 10; i++) {
+        /*for (int i = 0; i < 10; i++) {
             for (int j = 0; j < 100_000; j++) {
                 final Map<String, Comparable> map = new HashMap<>();
                 map.put("firstName", "firstName" + j);
                 map.put("lastName", "lastName" + j);
                 map.put("age", j);
                 map.put("money", j + 0.5);
-                rowRepository.add(new Row(0, map));
+                tableManager.getServiceHolder("test").rowRepository.add(new Row(0, map));
             }
         }*/
     }
