@@ -89,6 +89,13 @@ public class RowListController extends BaseController {
         return "search";
     }
 
+    @GetMapping("/delete")
+    public String deleteRow(int id) throws UnsupportedEncodingException {
+        tableManager.getServiceHolder(persistentFields.getTableName()).rowRepository.delete(id);
+        persistentFields.getTableFields().getRows().removeIf(row -> id == row.getId());
+        return "redirect:/search?searchRequest=" + URLEncoder.encode(StringUtils.trimToEmpty(persistentFields.getTableFields().getSearchRequest()), "UTF-8");
+    }
+
     @PostMapping
     public String setSearchRequest(@RequestParam String searchRequest) throws UnsupportedEncodingException {
         persistentFields.setTableFields(new PersistentFields.TableFields(searchRequest, null, null));
