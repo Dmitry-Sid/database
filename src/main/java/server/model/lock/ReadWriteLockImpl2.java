@@ -36,20 +36,31 @@ public class ReadWriteLockImpl2<T> extends BaseReadWriteLock<T> {
 
         @Override
         protected void innerLock(T value) {
-            java.util.concurrent.locks.ReadWriteLock readWriteLock;
-            synchronized (LOCK) {
-                readWriteLock = map.get(value);
-                if (readWriteLock == null) {
-                    readWriteLock = new ReentrantReadWriteLock();
-                    map.put(value, readWriteLock);
+            try {
+                if (value == null) {
+                    throw new IllegalArgumentException("value cannot be null");
                 }
+                java.util.concurrent.locks.ReadWriteLock readWriteLock;
+                synchronized (LOCK) {
+                    readWriteLock = map.get(value);
+                    if (readWriteLock == null) {
+                        readWriteLock = new ReentrantReadWriteLock();
+                        map.put(value, readWriteLock);
+                    }
+                }
+                function.apply(readWriteLock).lock();
+            } catch (Exception e) {
+                log.error("error while locking value " + value, e);
+                throw e;
             }
-            function.apply(readWriteLock).lock();
         }
 
         @Override
         protected void innerUnLock(T value) {
             try {
+                if (value == null) {
+                    throw new IllegalArgumentException("value cannot be null");
+                }
                 java.util.concurrent.locks.ReadWriteLock readWriteLock;
                 synchronized (LOCK) {
                     readWriteLock = map.get(value);
@@ -59,7 +70,7 @@ public class ReadWriteLockImpl2<T> extends BaseReadWriteLock<T> {
                 }
                 function.apply(readWriteLock).unlock();
             } catch (Exception e) {
-                log.error("error", e);
+                log.error("error while unlocking value " + value, e);
                 throw e;
             }
         }

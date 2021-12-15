@@ -42,7 +42,6 @@ public class RowRepositoryTest {
         });
     }
 
-
     private static IndexService mockIndexService() {
         try {
             final IndexService indexService = mock(IndexService.class);

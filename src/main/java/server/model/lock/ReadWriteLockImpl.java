@@ -56,26 +56,31 @@ public class ReadWriteLockImpl<T> extends BaseReadWriteLock<T> {
         @Override
         protected void innerLock(T value) {
             synchronized (LOCK) {
-                if (value == null) {
-                    return;
-                }
-                Counter global;
-                Counter local;
-                while (true) {
-                    global = lockedObjects.getOrDefault(value, new Counter());
-                    local = threadLocal.get().getOrDefault(value, new Counter());
-                    if (waitFunction.apply(local, global)) {
-                        try {
-                            LOCK.wait(100);
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        }
-                    } else {
-                        break;
+                try {
+                    if (value == null) {
+                        throw new IllegalArgumentException("value cannot be null");
                     }
+                    Counter global;
+                    Counter local;
+                    while (true) {
+                        global = lockedObjects.getOrDefault(value, new Counter());
+                        local = threadLocal.get().getOrDefault(value, new Counter());
+                        if (waitFunction.apply(local, global)) {
+                            try {
+                                LOCK.wait(100);
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                    applyAndPutCounter(value, local, changeFunction, threadLocal.get());
+                    applyAndPutCounter(value, global, changeFunction, lockedObjects);
+                } catch (Exception e) {
+                    log.error("error while locking value " + value, e);
+                    throw e;
                 }
-                applyAndPutCounter(value, local, changeFunction, threadLocal.get());
-                applyAndPutCounter(value, global, changeFunction, lockedObjects);
             }
         }
 
@@ -91,20 +96,25 @@ public class ReadWriteLockImpl<T> extends BaseReadWriteLock<T> {
         @Override
         protected void innerUnLock(T value) {
             synchronized (LOCK) {
-                if (value == null) {
-                    return;
-                }
                 try {
-                    final Counter local = threadLocal.get().get(value);
-                    if (local == null || changeFunction.apply(local).get() <= 0) {
-                        throw new IllegalStateException("try to unlock not acquired value : " + value + ", thread : " + Thread.currentThread());
-                    } else {
-                        applyAndRemoveCounter(value, local, threadLocal.get());
-                        applyAndRemoveCounter(value, lockedObjects.get(value), lockedObjects);
+                    if (value == null) {
+                        throw new IllegalArgumentException("value cannot be null");
                     }
-                    LOCK.notifyAll();
+                    try {
+                        final Counter local = threadLocal.get().get(value);
+                        if (local == null || changeFunction.apply(local).get() <= 0) {
+                            throw new IllegalStateException("try to unlock not acquired value : " + value + ", thread : " + Thread.currentThread());
+                        } else {
+                            applyAndRemoveCounter(value, local, threadLocal.get());
+                            applyAndRemoveCounter(value, lockedObjects.get(value), lockedObjects);
+                        }
+                        LOCK.notifyAll();
+                    } catch (Exception e) {
+                        log.error("error", e);
+                        throw e;
+                    }
                 } catch (Exception e) {
-                    log.error("error", e);
+                    log.error("error while unlocking value " + value, e);
                     throw e;
                 }
             }

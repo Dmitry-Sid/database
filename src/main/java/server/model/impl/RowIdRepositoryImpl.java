@@ -141,8 +141,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         processRowAddresses(readWriteLock.writeLock(), rowIdFileName, false, cachedRowAddresses -> {
             final RowAddress rowAddress = cachedRowAddresses.rowAddressMap.get(id);
             if (rowAddress == null) {
-                log.warn("rowAddress not found, id : " + id);
-                return;
+                throw new IllegalStateException("rowAddress not found, id : " + id);
             }
             transform(cachedRowAddresses, rowAddress, rowAddress.getSize(), 0);
             if (cachedRowAddresses.rowAddressMap.get(rowAddress.getPrevious()) != null) {

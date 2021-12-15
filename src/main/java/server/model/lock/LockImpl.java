@@ -15,48 +15,59 @@ public class LockImpl<T> implements Lock<T> {
     private final Set<T> lockedObjects = new HashSet<>();
     private final ThreadLocal<Map<T, Integer>> threadLocal = ThreadLocal.withInitial(HashMap::new);
 
+    @Override
     public synchronized void lock(T value) {
-        if (value == null) {
-            return;
-        }
-        Integer count;
-        while (true) {
-            count = threadLocal.get().get(value);
-            if (lockedObjects.contains(value) && count == null) {
-                try {
-                    wait(100);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            } else {
-                break;
+        try {
+            if (value == null) {
+                throw new IllegalArgumentException("value cannot be null");
             }
-        }
-        count = threadLocal.get().get(value);
-        if (count == null) {
-            count = 0;
-        }
-        threadLocal.get().put(value, ++count);
-        if (threadLocal.get().get(value) == 1) {
-            lockedObjects.add(value);
+            Integer count;
+            while (true) {
+                count = threadLocal.get().get(value);
+                if (lockedObjects.contains(value) && count == null) {
+                    try {
+                        wait(100);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                } else {
+                    break;
+                }
+            }
+            count = threadLocal.get().get(value);
+            if (count == null) {
+                count = 0;
+            }
+            threadLocal.get().put(value, ++count);
+            if (threadLocal.get().get(value) == 1) {
+                lockedObjects.add(value);
+            }
+        } catch (Exception e) {
+            log.error("error while locking value " + value, e);
+            throw e;
         }
     }
 
+    @Override
     public synchronized void unlock(T value) {
-        if (value == null) {
-            return;
-        }
-        final Integer count = threadLocal.get().get(value);
-        if (count == null || count <= 0) {
-            log.warn("try to unlock not acquired value : " + value + ", thread : " + Thread.currentThread());
-            return;
-        }
-        if (count == 1) {
-            threadLocal.get().remove(value);
-            lockedObjects.remove(value);
-            notifyAll();
-        } else {
-            threadLocal.get().put(value, count - 1);
+        try {
+            if (value == null) {
+                throw new IllegalArgumentException("value cannot be null");
+            }
+            final Integer count = threadLocal.get().get(value);
+            if (count == null || count <= 0) {
+                throw new IllegalStateException("try to unlock not acquired value : " + value + ", thread : " + Thread.currentThread());
+            }
+            if (count == 1) {
+                threadLocal.get().remove(value);
+                lockedObjects.remove(value);
+                notifyAll();
+            } else {
+                threadLocal.get().put(value, count - 1);
+            }
+        } catch (Exception e) {
+            log.error("error while unlocking value " + value, e);
+            throw e;
         }
     }
 }

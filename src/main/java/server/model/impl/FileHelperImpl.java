@@ -14,6 +14,7 @@ import server.model.pojo.RowAddress;
 import java.io.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class FileHelperImpl implements FileHelper {
     private static final Logger log = LoggerFactory.getLogger(FileHelperImpl.class);
@@ -76,12 +77,27 @@ public class FileHelperImpl implements FileHelper {
 
     @Override
     public ChainStream<InputStream> getChainInputStream() {
-        return new ChainLockInputStream(readWriteLock.readLock());
+        return new ChainLockStream<>(readWriteLock.readLock(), value -> {
+            if (!new File(value).exists()) {
+                return null;
+            }
+            try {
+                return new BufferedInputStream(new FileInputStream(value));
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     @Override
     public ChainStream<OutputStream> getChainOutputStream() {
-        return new ChainLockOutputStream(readWriteLock.writeLock());
+        return new ChainLockStream<>(readWriteLock.writeLock(), value -> {
+            try {
+                return new BufferedOutputStream(new FileOutputStream(value), 10000);
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     @Override
@@ -169,7 +185,21 @@ public class FileHelperImpl implements FileHelper {
 
     private boolean replace(File fileFrom, File fileTo) {
         if (!fileTo.exists() || delete(fileTo)) {
+            if (isFileEmpty(fileFrom)) {
+                return delete(fileFrom);
+            }
             return rename(fileFrom, fileTo);
+        }
+        return false;
+    }
+
+    private boolean isFileEmpty(File file) {
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            if (br.readLine() == null) {
+                return true;
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
         return false;
     }
@@ -179,8 +209,7 @@ public class FileHelperImpl implements FileHelper {
             return false;
         }
         if (!file.delete()) {
-            log.warn("cannot delete file : " + file.getAbsolutePath());
-            return false;
+            throw new RuntimeException("cannot delete file : " + file.getAbsolutePath());
         }
         return true;
     }
@@ -190,8 +219,7 @@ public class FileHelperImpl implements FileHelper {
             return false;
         }
         if (!fileFrom.renameTo(fileTo)) {
-            log.warn("cannot rename file " + fileFrom.getAbsolutePath() + " to " + fileTo.getName());
-            return false;
+            throw new RuntimeException("cannot rename file " + fileFrom.getAbsolutePath() + " to " + fileTo.getName());
         }
         return true;
     }
@@ -200,23 +228,23 @@ public class FileHelperImpl implements FileHelper {
         return fileName + ".tmp";
     }
 
-    private abstract static class ChainLockStream<T extends Closeable> extends ChainedLock<String> implements ChainStream<T> {
-        protected T currentStream;
+    private static class ChainLockStream<T extends Closeable> extends ChainedLock<String> implements ChainStream<T> {
+        private final Function<String, T> streamFunction;
+        private T currentStream;
 
-        private ChainLockStream(Lock<String> lock) {
+        private ChainLockStream(Lock<String> lock, Function<String, T> streamFunction) {
             super(lock);
+            this.streamFunction = streamFunction;
         }
 
         @Override
         protected void initOthers(String value) {
             try {
-                currentStream = createStream(value);
+                currentStream = streamFunction.apply(value);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
-
-        protected abstract T createStream(String fileName) throws Exception;
 
         @Override
         public T getStream() {
@@ -230,36 +258,11 @@ public class FileHelperImpl implements FileHelper {
                     currentStream.close();
                     currentStream = null;
                 } catch (IOException e) {
-                    log.warn(e.toString());
+                    log.error("error while closing stream", e);
                     throw new RuntimeException(e);
                 }
             }
             super.close();
-        }
-    }
-
-    private static class ChainLockInputStream extends ChainLockStream<InputStream> {
-        private ChainLockInputStream(Lock<String> lock) {
-            super(lock);
-        }
-
-        @Override
-        protected InputStream createStream(String fileName) throws FileNotFoundException {
-            if (!new File(fileName).exists()) {
-                return null;
-            }
-            return new BufferedInputStream(new FileInputStream(fileName));
-        }
-    }
-
-    private static class ChainLockOutputStream extends ChainLockStream<OutputStream> {
-        private ChainLockOutputStream(Lock<String> lock) {
-            super(lock);
-        }
-
-        @Override
-        protected OutputStream createStream(String fileName) throws Exception {
-            return new BufferedOutputStream(new FileOutputStream(fileName), 10000);
         }
     }
 }
