@@ -5,8 +5,11 @@ import server.model.impl.BufferImpl;
 import server.model.pojo.Row;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static org.junit.Assert.*;
 
@@ -184,7 +187,13 @@ public class BufferTest {
 
     @Test
     public void stateTest() {
-        final Buffer<Row> buffer = new BufferImpl<>(10, null);
+        final AtomicReference<Consumer<List<Buffer.Element<Row>>>> consumerReference = new AtomicReference<>();
+        final Buffer<Row> buffer = new BufferImpl<>(10, list -> {
+            if (consumerReference.get() == null) {
+                return;
+            }
+            consumerReference.get().accept(list);
+        });
         {
             final Map<String, Comparable> map = new HashMap<>();
             map.put("field", Integer.toString(1));
@@ -225,5 +234,21 @@ public class BufferTest {
         }
         assertFalse(buffer.get(1).isFlushed());
         assertEquals(Buffer.State.UPDATED, buffer.get(1).getState());
+
+        buffer.flush();
+
+        {
+            final Map<String, Comparable> map = new HashMap<>();
+            map.put("field", Integer.toString(1));
+            buffer.add(new Row(3, map), Buffer.State.READ);
+        }
+        assertTrue(buffer.get(3).isFlushed());
+        final boolean[] flushed = new boolean[]{false};
+        consumerReference.set(list -> {
+            assertEquals(0, list.size());
+            flushed[0] = true;
+        });
+        buffer.flush();
+        assertTrue(flushed[0]);
     }
 }

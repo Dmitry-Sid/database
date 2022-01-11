@@ -160,7 +160,9 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                 buffer.add(new Row(id, null), Buffer.State.DELETED);
                 return;
             }
-            consumer.accept(objectConverter.fromBytes(Row.class, bytes));
+            final Row row = objectConverter.fromBytes(Row.class, bytes);
+            buffer.add(row, Buffer.State.READ);
+            consumer.accept(row);
         });
     }
 
@@ -216,6 +218,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     throw new RuntimeException("actual bytes size " + actual + " is not equal " + bytes.length);
                 }
                 final Row row = objectConverter.fromBytes(Row.class, bytes);
+                buffer.add(row, Buffer.State.READ);
                 rowConsumer.accept(row);
             } catch (IOException e) {
                 throw new RuntimeException(e);

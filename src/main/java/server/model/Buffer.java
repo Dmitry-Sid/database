@@ -17,7 +17,7 @@ public interface Buffer<V extends TableType> {
     void flush();
 
     enum State {
-        ADDED, UPDATED, DELETED
+        ADDED, UPDATED, DELETED, READ
     }
 
     class Element<V> {
@@ -39,7 +39,7 @@ public interface Buffer<V extends TableType> {
         }
 
         public boolean isFlushed() {
-            return flushed;
+            return flushed || State.READ == state;
         }
 
         public void setFlushed(boolean flushed) {

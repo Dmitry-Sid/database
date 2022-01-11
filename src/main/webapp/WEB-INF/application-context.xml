@@ -50,7 +50,7 @@
         <constructor-arg index="6" ref="indexService"/>
         <constructor-arg index="7" ref="conditionService"/>
         <constructor-arg index="8" ref="modelService"/>
-        <constructor-arg index="9" value="10000"/>
+        <constructor-arg index="9" value="100000"/>
     </bean>
 
     <bean id="rowIdRepository" class="server.model.impl.RowIdRepositoryImpl" parent="tableService">
