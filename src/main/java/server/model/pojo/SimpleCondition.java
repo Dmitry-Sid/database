@@ -5,7 +5,7 @@ import server.model.ConditionException;
 
 import java.util.Objects;
 
-public class SimpleCondition implements ICondition {
+public class SimpleCondition implements FieldCondition {
     private final SimpleType type;
     private final String field;
     private final Comparable value;

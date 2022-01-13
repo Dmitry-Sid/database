@@ -95,7 +95,7 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
         throw new IllegalArgumentException("Unknown condition class : " + condition.getClass());
     }
 
-    private SearchResult searchResult(ComplexCondition condition, int size) {
+    private SearchResult searchResult(ComplexCondition<ICondition> condition, int size) {
         SearchResult searchResult = null;
         for (ICondition innerCondition : condition.getConditions()) {
             final SearchResult searchResultInner = searchResult(innerCondition, -1);

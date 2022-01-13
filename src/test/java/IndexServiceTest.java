@@ -5,10 +5,7 @@ import server.model.FieldKeeper;
 import server.model.IndexService;
 import server.model.impl.ConditionServiceImpl;
 import server.model.impl.IndexServiceImpl;
-import server.model.pojo.ComplexCondition;
-import server.model.pojo.EmptyCondition;
-import server.model.pojo.ICondition;
-import server.model.pojo.SimpleCondition;
+import server.model.pojo.*;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -133,7 +130,7 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = ComplexCondition.make(ICondition.ComplexType.OR,
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                     SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
                     SimpleCondition.make(ICondition.SimpleType.GT, "String", "se"));
             final IndexService.SearchResult searchResult = indexService.search(condition, -1);
@@ -146,7 +143,7 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = ComplexCondition.make(ICondition.ComplexType.OR,
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                     SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
                     SimpleCondition.make(ICondition.SimpleType.GT, "String", "se"));
             final IndexService.SearchResult searchResult = indexService.search(condition, 44);
@@ -154,7 +151,7 @@ public class IndexServiceTest {
             assertEquals(44, searchResult.idSet.size());
         }
         {
-            final ICondition condition = ComplexCondition.make(ICondition.ComplexType.AND,
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.AND,
                     SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
                     SimpleCondition.make(ICondition.SimpleType.GT, "String", "se"));
             final IndexService.SearchResult searchResult = indexService.search(condition, -1);
@@ -167,7 +164,7 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = ComplexCondition.make(ICondition.ComplexType.AND,
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.AND,
                     SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
                     SimpleCondition.make(ICondition.SimpleType.GT, "String", "se"));
             final IndexService.SearchResult searchResult = indexService.search(condition, 25);
@@ -176,7 +173,7 @@ public class IndexServiceTest {
             final AtomicInteger i = new AtomicInteger();
         }
         {
-            final ICondition condition = ComplexCondition.make(ICondition.ComplexType.OR,
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                     SimpleCondition.make(ICondition.SimpleType.LT, "int", 20),
                     SimpleCondition.make(ICondition.SimpleType.GT, "String", "se"));
             final IndexService.SearchResult searchResult = indexService.search(condition, -1);
@@ -189,7 +186,7 @@ public class IndexServiceTest {
             });
         }
         {
-            final ICondition condition = ComplexCondition.make(ICondition.ComplexType.AND,
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.AND,
                     SimpleCondition.make(ICondition.SimpleType.LT, "int", 20),
                     SimpleCondition.make(ICondition.SimpleType.LT, "String", "te"));
             final IndexService.SearchResult searchResult = indexService.search(condition, -1);
