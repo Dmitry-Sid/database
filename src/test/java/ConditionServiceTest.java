@@ -320,8 +320,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int EQ 20;int EQ 50)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("cannot be more than one EQ condition inside AND condition, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=EQ, field='int', value=20}".equals(e.getMessage()) ||
-                                    "cannot be more than one EQ condition inside AND condition, conditionFirst SimpleCondition{type=EQ, field='int', value=20}, conditionSecond SimpleCondition{type=EQ, field='int', value=50}".equals(e.getMessage()));
+                            assertEquals("cannot be more than one EQ condition inside AND condition, conditionFirst SimpleCondition{type=EQ, field='int', value=20}, conditionSecond SimpleCondition{type=EQ, field='int', value=50}", e.getMessage());
                         }
                     }
                 }
@@ -332,8 +331,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int LT 20;int EQ 50)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("EQ condition cannot have greater or equal value than LT value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=LT, field='int', value=20}".equals(e.getMessage()) ||
-                                    "LT condition cannot have lower or equal value than EQ value, conditionFirst SimpleCondition{type=LT, field='int', value=20}, conditionSecond SimpleCondition{type=EQ, field='int', value=50}".equals(e.getMessage()));
+                            assertEquals("EQ condition cannot have greater or equal value than LT value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=LT, field='int', value=20}", e.getMessage());
                         }
                     }
                     {
@@ -341,8 +339,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int LT 20;int EQ 20)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("EQ condition cannot have greater or equal value than LT value, conditionFirst SimpleCondition{type=EQ, field='int', value=20}, conditionSecond SimpleCondition{type=LT, field='int', value=20}".equals(e.getMessage()) ||
-                                    "LT condition cannot have lower or equal value than EQ value, conditionFirst SimpleCondition{type=LT, field='int', value=20}, conditionSecond SimpleCondition{type=EQ, field='int', value=20}".equals(e.getMessage()));
+                            assertEquals("EQ condition cannot have greater or equal value than LT value, conditionFirst SimpleCondition{type=EQ, field='int', value=20}, conditionSecond SimpleCondition{type=LT, field='int', value=20}", e.getMessage());
                         }
                     }
                     {
@@ -357,8 +354,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int LTE 20;int EQ 50)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("EQ condition cannot have greater value than LTE value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=LTE, field='int', value=20}".equals(e.getMessage()) ||
-                                    "LTE condition cannot have lower value than EQ value, conditionFirst SimpleCondition{type=LTE, field='int', value=20}, conditionSecond SimpleCondition{type=EQ, field='int', value=50}".equals(e.getMessage()));
+                            assertEquals("EQ condition cannot have greater value than LTE value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=LTE, field='int', value=20}", e.getMessage());
                         }
                     }
                     {
@@ -377,8 +373,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int GT 80;int EQ 50)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("EQ condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=GT, field='int', value=80}".equals(e.getMessage()) ||
-                                    "GT condition cannot have greater or equal value than EQ value, conditionFirst SimpleCondition{type=GT, field='int', value=80}, conditionSecond SimpleCondition{type=EQ, field='int', value=50}".equals(e.getMessage()));
+                            assertEquals("EQ condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=GT, field='int', value=80}", e.getMessage());
                         }
                     }
                     {
@@ -386,8 +381,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int GT 80;int EQ 80)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("EQ condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=EQ, field='int', value=80}, conditionSecond SimpleCondition{type=GT, field='int', value=80}".equals(e.getMessage()) ||
-                                    "GT condition cannot have greater or equal value than EQ value, conditionFirst SimpleCondition{type=GT, field='int', value=80}, conditionSecond SimpleCondition{type=EQ, field='int', value=80}".equals(e.getMessage()));
+                            assertEquals("EQ condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=EQ, field='int', value=80}, conditionSecond SimpleCondition{type=GT, field='int', value=80}", e.getMessage());
                         }
                     }
                     {
@@ -402,9 +396,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int GTE 80;int EQ 50)");
                             fail();
                         } catch (ConditionException e) {
-
-                            assertTrue("EQ condition cannot have lower value than GTE value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=GTE, field='int', value=80}".equals(e.getMessage()) ||
-                                    "GTE condition cannot have greater value than EQ value, conditionFirst SimpleCondition{type=GTE, field='int', value=80}, conditionSecond SimpleCondition{type=EQ, field='int', value=50}".equals(e.getMessage()));
+                            assertEquals("EQ condition cannot have lower value than GTE value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=GTE, field='int', value=80}", e.getMessage());
                         }
                     }
                     {
@@ -423,8 +415,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(String LIKE xe;String EQ test)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("LIKE condition cannot have other value than EQ value, conditionFirst SimpleCondition{type=LIKE, field='String', value=xe}, conditionSecond SimpleCondition{type=EQ, field='String', value=test}".equals(e.getMessage()) ||
-                                    "EQ condition cannot have other value than LIKE value, conditionFirst SimpleCondition{type=EQ, field='String', value=test}, conditionSecond SimpleCondition{type=LIKE, field='String', value=xe}".equals(e.getMessage()));
+                            assertEquals("EQ condition cannot have other value than LIKE value, conditionFirst SimpleCondition{type=EQ, field='String', value=test}, conditionSecond SimpleCondition{type=LIKE, field='String', value=xe}", e.getMessage());
                         }
                     }
                     {
@@ -432,8 +423,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(String LIKE etest;String EQ test)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("LIKE condition cannot have other value than EQ value, conditionFirst SimpleCondition{type=LIKE, field='String', value=etest}, conditionSecond SimpleCondition{type=EQ, field='String', value=test}".equals(e.getMessage()) ||
-                                    "EQ condition cannot have other value than LIKE value, conditionFirst SimpleCondition{type=EQ, field='String', value=test}, conditionSecond SimpleCondition{type=LIKE, field='String', value=etest}".equals(e.getMessage()));
+                            assertEquals("EQ condition cannot have other value than LIKE value, conditionFirst SimpleCondition{type=EQ, field='String', value=test}, conditionSecond SimpleCondition{type=LIKE, field='String', value=etest}", e.getMessage());
                         }
                     }
                     {
@@ -448,8 +438,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(String EQ test;String NOT test)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("EQ condition cannot have same value as NOT value, conditionFirst SimpleCondition{type=EQ, field='String', value=test}, conditionSecond SimpleCondition{type=NOT, field='String', value=test}".equals(e.getMessage()) ||
-                                    "NOT condition cannot have same value as EQ value, conditionFirst SimpleCondition{type=NOT, field='String', value=test}, conditionSecond SimpleCondition{type=EQ, field='String', value=test}".equals(e.getMessage()));
+                            assertEquals("EQ condition cannot have same value as NOT value, conditionFirst SimpleCondition{type=EQ, field='String', value=test}, conditionSecond SimpleCondition{type=NOT, field='String', value=test}", e.getMessage());
                         }
                     }
                     {
@@ -467,8 +456,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int EQ 50;int LT 20)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("EQ condition cannot have greater or equal value than LT value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=LT, field='int', value=20}".equals(e.getMessage()) ||
-                                    "LT condition cannot have lower or equal value than EQ value, conditionFirst SimpleCondition{type=LT, field='int', value=20}, conditionSecond SimpleCondition{type=EQ, field='int', value=50}".equals(e.getMessage()));
+                            assertEquals("EQ condition cannot have greater or equal value than LT value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=LT, field='int', value=20}", e.getMessage());
                         }
                     }
                     {
@@ -476,8 +464,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int EQ 20;int LT 20)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("EQ condition cannot have greater or equal value than LT value, conditionFirst SimpleCondition{type=EQ, field='int', value=20}, conditionSecond SimpleCondition{type=LT, field='int', value=20}".equals(e.getMessage()) ||
-                                    "LT condition cannot have lower or equal value than EQ value, conditionFirst SimpleCondition{type=LT, field='int', value=20}, conditionSecond SimpleCondition{type=EQ, field='int', value=20}".equals(e.getMessage()));
+                            assertEquals("EQ condition cannot have greater or equal value than LT value, conditionFirst SimpleCondition{type=EQ, field='int', value=20}, conditionSecond SimpleCondition{type=LT, field='int', value=20}", e.getMessage());
                         }
                     }
                     {
@@ -522,8 +509,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int GT 50;int LT 10)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("LT condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=LT, field='int', value=10}, conditionSecond SimpleCondition{type=GT, field='int', value=50}".equals(e.getMessage()) ||
-                                    "GT condition cannot have greater or equal value than LT value, conditionSecond SimpleCondition{type=GT, field='int', value=50}, conditionSecond SimpleCondition{type=LT, field='int', value=10}".equals(e.getMessage()));
+                            assertEquals("LT condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=LT, field='int', value=10}, conditionSecond SimpleCondition{type=GT, field='int', value=50}", e.getMessage());
                         }
                     }
                     {
@@ -531,8 +517,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int GT 50;int LT 50)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("LT condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=LT, field='int', value=50}, conditionSecond SimpleCondition{type=GT, field='int', value=50}".equals(e.getMessage()) ||
-                                    "GT condition cannot have greater or equal value than LT value, conditionFirst SimpleCondition{type=GT, field='int', value=50}, conditionSecond SimpleCondition{type=LT, field='int', value=50}".equals(e.getMessage()));
+                            assertEquals("LT condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=LT, field='int', value=50}, conditionSecond SimpleCondition{type=GT, field='int', value=50}", e.getMessage());
                         }
                     }
                     {
@@ -549,8 +534,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int GTE 50;int LT 10)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("LT condition cannot have lower or equal value than GTE value, conditionFirst SimpleCondition{type=LT, field='int', value=10}, conditionSecond SimpleCondition{type=GTE, field='int', value=50}".equals(e.getMessage()) ||
-                                    "GTE condition cannot have greater or equal value than LT value, conditionSecond SimpleCondition{type=GTE, field='int', value=50}, conditionSecond SimpleCondition{type=LT, field='int', value=10}".equals(e.getMessage()));
+                            assertEquals("LT condition cannot have lower or equal value than GTE value, conditionFirst SimpleCondition{type=LT, field='int', value=10}, conditionSecond SimpleCondition{type=GTE, field='int', value=50}", e.getMessage());
                         }
                     }
                     {
@@ -558,8 +542,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int GTE 50;int LT 50)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("LT condition cannot have lower or equal value than GTE value, conditionFirst SimpleCondition{type=LT, field='int', value=50}, conditionSecond SimpleCondition{type=GTE, field='int', value=50}".equals(e.getMessage()) ||
-                                    "GTE condition cannot have greater or equal value than LT value, conditionFirst SimpleCondition{type=GTE, field='int', value=50}, conditionSecond SimpleCondition{type=LT, field='int', value=50}".equals(e.getMessage()));
+                            assertEquals("LT condition cannot have lower or equal value than GTE value, conditionFirst SimpleCondition{type=LT, field='int', value=50}, conditionSecond SimpleCondition{type=GTE, field='int', value=50}", e.getMessage());
                         }
                     }
                     {
@@ -617,8 +600,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int EQ 50;int LTE 20)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("EQ condition cannot have greater value than LTE value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=LTE, field='int', value=20}".equals(e.getMessage()) ||
-                                    "LTE condition cannot have lower value than EQ value, conditionFirst SimpleCondition{type=LTE, field='int', value=20}, conditionSecond SimpleCondition{type=EQ, field='int', value=50}".equals(e.getMessage()));
+                            assertEquals("EQ condition cannot have greater value than LTE value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=LTE, field='int', value=20}", e.getMessage());
                         }
                     }
                     {
@@ -667,8 +649,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int GT 50;int LTE 10)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("LTE condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=LTE, field='int', value=10}, conditionSecond SimpleCondition{type=GT, field='int', value=50}".equals(e.getMessage()) ||
-                                    "GT condition cannot have greater or equal value than LTE value, conditionFirst SimpleCondition{type=GT, field='int', value=50}, conditionSecond SimpleCondition{type=LTE, field='int', value=10}".equals(e.getMessage()));
+                            assertEquals("LTE condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=LTE, field='int', value=10}, conditionSecond SimpleCondition{type=GT, field='int', value=50}", e.getMessage());
                         }
                     }
                     {
@@ -676,8 +657,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int GT 50;int LTE 50)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("LTE condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=LTE, field='int', value=50}, conditionSecond SimpleCondition{type=GT, field='int', value=50}".equals(e.getMessage()) ||
-                                    "GT condition cannot have greater or equal value than LTE value, conditionFirst SimpleCondition{type=GT, field='int', value=50}, conditionSecond SimpleCondition{type=LTE, field='int', value=50}".equals(e.getMessage()));
+                            assertEquals("LTE condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=LTE, field='int', value=50}, conditionSecond SimpleCondition{type=GT, field='int', value=50}", e.getMessage());
                         }
                     }
                     {
@@ -694,8 +674,7 @@ public class ConditionServiceTest {
                             conditionService.parse("AND(int GTE 50;int LTE 10)");
                             fail();
                         } catch (ConditionException e) {
-                            assertTrue("LTE condition cannot have lower value than GTE value, conditionFirst SimpleCondition{type=LTE, field='int', value=10}, conditionSecond SimpleCondition{type=GTE, field='int', value=50}".equals(e.getMessage()) ||
-                                    "GTE condition cannot have greater value than LTE value, conditionFirst SimpleCondition{type=GTE, field='int', value=50}, conditionSecond SimpleCondition{type=LTE, field='int', value=10}".equals(e.getMessage()));
+                            assertEquals("LTE condition cannot have lower value than GTE value, conditionFirst SimpleCondition{type=LTE, field='int', value=10}, conditionSecond SimpleCondition{type=GTE, field='int', value=50}", e.getMessage());
                         }
                     }
                     {

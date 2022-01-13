@@ -16,7 +16,7 @@ public class FieldComplexCondition extends AbstractComplexCondition<SimpleCondit
         if (conditions == null || conditions.length == 0) {
             throw new ConditionException("empty inner conditions");
         }
-        final Set<SimpleCondition> conditionSet = new LinkedHashSet<>();
+        final Set<SimpleCondition> conditionSet = new HashSet<>();
         String field = null;
         for (ICondition condition : conditions) {
             if (!(condition instanceof SimpleCondition)) {
