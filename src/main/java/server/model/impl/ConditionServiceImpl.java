@@ -217,10 +217,28 @@ public class ConditionServiceImpl implements ConditionService {
                                 break;
                             }
                             case LIKE: {
-                                for (SimpleCondition not : notSet) {
-                                    final String s = (String) not.getValue();
-                                    if (s.contains((String) condition.getValue())) {
-                                        throw makeConditionException("LIKE condition cannot have same value as NOT value", condition, eq.get());
+                                if (like.get() != null) {
+                                    final String s1 = (String) condition.getValue();
+                                    final String s2 = (String) like.get().getValue();
+                                    if (s1.contains(s2)) {
+                                        if (s1.length() > s2.length()) {
+                                            remove(fieldConditions, like);
+                                        } else {
+                                            continue;
+                                        }
+                                    } else if (s2.contains(s1)) {
+                                        continue;
+                                    } else {
+                                        throw makeConditionException("LIKE condition cannot have other value than LIKE value", condition, like.get());
+                                    }
+                                }
+                                for (Iterator<SimpleCondition> iterator = notSet.iterator(); iterator.hasNext(); ) {
+                                    final SimpleCondition not = iterator.next();
+                                    final String s1 = (String) condition.getValue();
+                                    final String s2 = (String) not.getValue();
+                                    if (s1.contains(s2) && s1.length() > s2.length()) {
+                                        fieldConditions.remove(not);
+                                        iterator.remove();
                                     }
                                 }
                                 like.set(condition);

@@ -435,7 +435,7 @@ public class ConditionServiceTest {
                 {
                     {
                         try {
-                            conditionService.parse("AND(String EQ test;String NOT test)");
+                            conditionService.parse("AND(String NOT test;String EQ test;)");
                             fail();
                         } catch (ConditionException e) {
                             assertEquals("EQ condition cannot have same value as NOT value, conditionFirst SimpleCondition{type=EQ, field='String', value=test}, conditionSecond SimpleCondition{type=NOT, field='String', value=test}", e.getMessage());
@@ -443,7 +443,7 @@ public class ConditionServiceTest {
                     }
                     {
                         final ICondition condition = SimpleCondition.make(ICondition.SimpleType.EQ, "String", "test");
-                        assertEquals(condition, conditionService.parse("AND(String EQ test;String NOT testx)"));
+                        assertEquals(condition, conditionService.parse("AND(String NOT testx;String EQ test;)"));
                     }
                 }
             }
@@ -577,17 +577,17 @@ public class ConditionServiceTest {
                 {
                     {
                         final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LT, "int", 10);
-                        assertEquals(condition, conditionService.parse("AND(int LT 10;int NOT 50)"));
+                        assertEquals(condition, conditionService.parse("AND(int NOT 50;int LT 10)"));
                     }
                     {
                         final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LT, "int", 10);
-                        assertEquals(condition, conditionService.parse("AND(int LT 10;int NOT 10)"));
+                        assertEquals(condition, conditionService.parse("AND(int NOT 10;int LT 10)"));
                     }
                     {
                         final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
                                 SimpleCondition.make(ICondition.SimpleType.LT, "int", 50),
                                 SimpleCondition.make(ICondition.SimpleType.NOT, "int", 10));
-                        assertEquals(condition, conditionService.parse("AND(int LT 50;int NOT 10)"));
+                        assertEquals(condition, conditionService.parse("AND(int NOT 10;int LT 50)"));
                     }
                 }
             }
@@ -713,6 +713,494 @@ public class ConditionServiceTest {
                 {
                     {
                         final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LTE, "int", 10);
+                        assertEquals(condition, conditionService.parse("AND(int NOT 50;int LTE 10)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LTE, "int", 10),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "int", 10));
+                        assertEquals(condition, conditionService.parse("AND(int NOT 10;int LTE 10)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LTE, "int", 50),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "int", 10));
+                        assertEquals(condition, conditionService.parse("AND(int NOT 10;int LTE 50)"));
+                    }
+                }
+            }
+            // GT
+            {
+                //EQ
+                {
+                    {
+                        try {
+                            conditionService.parse("AND(int EQ 50;int GT 80)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("EQ condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=GT, field='int', value=80}", e.getMessage());
+                        }
+                    }
+                    {
+                        try {
+                            conditionService.parse("AND(int EQ 20;int GT 20)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("EQ condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=EQ, field='int', value=20}, conditionSecond SimpleCondition{type=GT, field='int', value=20}", e.getMessage());
+                        }
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.EQ, "int", 30);
+                        assertEquals(condition, conditionService.parse("AND(int EQ 30;int GT 20)"));
+                    }
+                }
+                // LT
+                {
+                    {
+                        try {
+                            conditionService.parse("AND(int LT 10;int GT 50)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("LT condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=LT, field='int', value=10}, conditionSecond SimpleCondition{type=GT, field='int', value=50}", e.getMessage());
+                        }
+                    }
+                    {
+                        try {
+                            conditionService.parse("AND(int LT 50;int GT 50)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("LT condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=LT, field='int', value=50}, conditionSecond SimpleCondition{type=GT, field='int', value=50}", e.getMessage());
+                        }
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GT, "int", 10),
+                                SimpleCondition.make(ICondition.SimpleType.LT, "int", 50));
+                        assertEquals(condition, conditionService.parse("AND(int LT 50;int GT 10)"));
+                    }
+                }
+                // LTE
+                {
+                    {
+                        try {
+                            conditionService.parse("AND(int LTE 50;int GT 100)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("LTE condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=LTE, field='int', value=50}, conditionSecond SimpleCondition{type=GT, field='int', value=100}", e.getMessage());
+                        }
+                    }
+                    {
+                        try {
+                            conditionService.parse("AND(int LTE 50;int GT 50)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("LTE condition cannot have lower or equal value than GT value, conditionFirst SimpleCondition{type=LTE, field='int', value=50}, conditionSecond SimpleCondition{type=GT, field='int', value=50}", e.getMessage());
+                        }
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GT, "int", 10),
+                                SimpleCondition.make(ICondition.SimpleType.LTE, "int", 50));
+                        assertEquals(condition, conditionService.parse("AND(int GT 10;int LTE 50)"));
+                    }
+                }
+                // GT
+                {
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 10);
+                        assertEquals(condition, conditionService.parse("AND(int GT 10;int GT 10)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 20);
+                        assertEquals(condition, conditionService.parse("AND(int GT 20;int GT 10)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 30);
+                        assertEquals(condition, conditionService.parse("AND(int GT 20;int GT 30)"));
+                    }
+                }
+                // GTE
+                {
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 20);
+                        assertEquals(condition, conditionService.parse("AND(int GTE 10;int GT 20)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 20);
+                        assertEquals(condition, conditionService.parse("AND(int GTE 20;int GT 20)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GTE, "int", 20);
+                        assertEquals(condition, conditionService.parse("AND(int GTE 20;int GT 10)"));
+                    }
+                }
+                // LIKE - doesn't affect
+                {
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.GT, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String LIKE test;String GT test)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test1"),
+                                SimpleCondition.make(ICondition.SimpleType.GT, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String LIKE test1;String GT test)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.GT, "String", "test1"));
+                        assertEquals(condition, conditionService.parse("AND(String LIKE test;String GT test1)"));
+                    }
+                }
+                // NOT
+                {
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 60);
+                        assertEquals(condition, conditionService.parse("AND(int NOT 50;int GT 60)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 10);
+                        assertEquals(condition, conditionService.parse("AND(int NOT 10;int GT 10)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GT, "int", 10),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "int", 50));
+                        assertEquals(condition, conditionService.parse("AND(int NOT 50;int GT 10)"));
+                    }
+                }
+            }
+            // GTE
+            {
+                // EQ
+                {
+                    {
+                        try {
+                            conditionService.parse("AND(int EQ 50;int GTE 80)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("EQ condition cannot have lower value than GTE value, conditionFirst SimpleCondition{type=EQ, field='int', value=50}, conditionSecond SimpleCondition{type=GTE, field='int', value=80}", e.getMessage());
+                        }
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.EQ, "int", 80);
+                        assertEquals(condition, conditionService.parse("AND(int EQ 80;int GTE 80)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.EQ, "int", 90);
+                        assertEquals(condition, conditionService.parse("AND(int EQ 90;int GTE 80)"));
+                    }
+                }
+                // LT
+                {
+                    {
+                        try {
+                            conditionService.parse("AND(int LT 10;int GTE 50)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("LT condition cannot have lower or equal value than GTE value, conditionFirst SimpleCondition{type=LT, field='int', value=10}, conditionSecond SimpleCondition{type=GTE, field='int', value=50}", e.getMessage());
+                        }
+                    }
+                    {
+                        try {
+                            conditionService.parse("AND(int LT 50;int GTE 50)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("LT condition cannot have lower or equal value than GTE value, conditionFirst SimpleCondition{type=LT, field='int', value=50}, conditionSecond SimpleCondition{type=GTE, field='int', value=50}", e.getMessage());
+                        }
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "int", 10),
+                                SimpleCondition.make(ICondition.SimpleType.LT, "int", 50));
+                        assertEquals(condition, conditionService.parse("AND(int LT 50;int GTE 10)"));
+                    }
+                }
+                // LTE
+                {
+                    {
+                        try {
+                            conditionService.parse("AND(int LTE 10;int GTE 50)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("LTE condition cannot have lower value than GTE value, conditionFirst SimpleCondition{type=LTE, field='int', value=10}, conditionSecond SimpleCondition{type=GTE, field='int', value=50}", e.getMessage());
+                        }
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.EQ, "int", 10);
+                        assertEquals(condition, conditionService.parse("AND(int LTE 10;int GTE 10)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "int", 10),
+                                SimpleCondition.make(ICondition.SimpleType.LTE, "int", 50));
+                        assertEquals(condition, conditionService.parse("AND(int LTE 50;int GTE 10)"));
+                    }
+                }
+                // GT
+                {
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 20);
+                        assertEquals(condition, conditionService.parse("AND(int GT 20;int GTE 10)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 20);
+                        assertEquals(condition, conditionService.parse("AND(int GT 20;int GTE 20)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GTE, "int", 20);
+                        assertEquals(condition, conditionService.parse("AND(int GT 10;int GTE 20)"));
+                    }
+                }
+                // GTE
+                {
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GTE, "int", 10);
+                        assertEquals(condition, conditionService.parse("AND(int GTE 10;int GTE 10)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GTE, "int", 20);
+                        assertEquals(condition, conditionService.parse("AND(int GTE 20;int GTE 10)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GTE, "int", 30);
+                        assertEquals(condition, conditionService.parse("AND(int GTE 20;int GTE 30)"));
+                    }
+                }
+                // LIKE - doesn't affect
+                {
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String LIKE test;String GTE test)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test1"),
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String LIKE test1;String GTE test)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test1"));
+                        assertEquals(condition, conditionService.parse("AND(String LIKE test;String GTE test1)"));
+                    }
+                }
+                // NOT
+                {
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GTE, "int", 60);
+                        assertEquals(condition, conditionService.parse("AND(int NOT 50;int GTE 60)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "int", 10),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "int", 10));
+                        assertEquals(condition, conditionService.parse("AND(int NOT 10;int GTE 10)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "int", 10),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "int", 50));
+                        assertEquals(condition, conditionService.parse("AND(int NOT 50;int GTE 10)"));
+                    }
+                }
+            }
+            // LIKE
+            {
+                // EQ
+                {
+                    {
+                        try {
+                            conditionService.parse("AND(String EQ test;String LIKE xe)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("EQ condition cannot have other value than LIKE value, conditionFirst SimpleCondition{type=EQ, field='String', value=test}, conditionSecond SimpleCondition{type=LIKE, field='String', value=xe}", e.getMessage());
+                        }
+                    }
+                    {
+                        try {
+                            conditionService.parse("AND(String EQ test;String LIKE etest)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("EQ condition cannot have other value than LIKE value, conditionFirst SimpleCondition{type=EQ, field='String', value=test}, conditionSecond SimpleCondition{type=LIKE, field='String', value=etest}", e.getMessage());
+                        }
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.EQ, "String", "test");
+                        assertEquals(condition, conditionService.parse("AND(String EQ test;String LIKE est;)"));
+                    }
+                }
+                // LT - doesn't affect
+                {
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.LT, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String LT test;String LIKE test)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test1"),
+                                SimpleCondition.make(ICondition.SimpleType.LT, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String LT test;String LIKE test1)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.LT, "String", "test1"));
+                        assertEquals(condition, conditionService.parse("AND(String LT test1;String LIKE test)"));
+                    }
+                }
+                // LTE - doesn't affect
+                {
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.LTE, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String LTE test;String LIKE test)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test1"),
+                                SimpleCondition.make(ICondition.SimpleType.LTE, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String LTE test;String LIKE test1)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.LTE, "String", "test1"));
+                        assertEquals(condition, conditionService.parse("AND(String LTE test1;String LIKE test)"));
+                    }
+                }
+                // GT - doesn't affect
+                {
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.GT, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String GT test;String LIKE test)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test1"),
+                                SimpleCondition.make(ICondition.SimpleType.GT, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String GT test;String LIKE test1)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.GT, "String", "test1"));
+                        assertEquals(condition, conditionService.parse("AND(String GT test1;String LIKE test)"));
+                    }
+                }
+                // GTE - doesn't affect
+                {
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String GTE test;String LIKE test)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test1"),
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String GTE test;String LIKE test1)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test1"));
+                        assertEquals(condition, conditionService.parse("AND(String GTE test1;String LIKE test)"));
+                    }
+                }
+                // LIKE
+                {
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test");
+                        assertEquals(condition, conditionService.parse("AND(String LIKE tes;String LIKE test)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test");
+                        assertEquals(condition, conditionService.parse("AND(String LIKE test;String LIKE tes)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test");
+                        assertEquals(condition, conditionService.parse("AND(String LIKE test;String LIKE test)"));
+                    }
+                    {
+                        try {
+                            conditionService.parse("AND(String LIKE test1;String LIKE test2)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("LIKE condition cannot have other value than LIKE value, conditionFirst SimpleCondition{type=LIKE, field='String', value=test1}, conditionSecond SimpleCondition{type=LIKE, field='String', value=test2}", e.getMessage());
+                        }
+                    }
+                }
+                // NOT
+                {
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String NOT test;String LIKE test)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test1");
+                        assertEquals(condition, conditionService.parse("AND(String NOT test;String LIKE test1)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "String", "test1"));
+                        assertEquals(condition, conditionService.parse("AND(String NOT test1;String LIKE test)"));
+                    }
+                }
+            }
+            // NOT
+            {
+                // EQ
+                {
+                    {
+                        try {
+                            conditionService.parse("AND(String EQ test;String NOT test)");
+                            fail();
+                        } catch (ConditionException e) {
+                            assertEquals("EQ condition cannot have same value as NOT value, conditionFirst SimpleCondition{type=EQ, field='String', value=test}, conditionSecond SimpleCondition{type=NOT, field='String', value=test}", e.getMessage());
+                        }
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.EQ, "String", "test");
+                        assertEquals(condition, conditionService.parse("AND(String EQ test;String NOT testx)"));
+                    }
+                }
+                // LT
+                {
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LT, "int", 10);
+                        assertEquals(condition, conditionService.parse("AND(int LT 10;int NOT 50)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LT, "int", 10);
+                        assertEquals(condition, conditionService.parse("AND(int LT 10;int NOT 10)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LT, "int", 50),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "int", 10));
+                        assertEquals(condition, conditionService.parse("AND(int LT 50;int NOT 10)"));
+                    }
+                }
+                // LTE
+                {
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LTE, "int", 10);
                         assertEquals(condition, conditionService.parse("AND(int LTE 10;int NOT 50)"));
                     }
                     {
@@ -726,6 +1214,74 @@ public class ConditionServiceTest {
                                 SimpleCondition.make(ICondition.SimpleType.LTE, "int", 50),
                                 SimpleCondition.make(ICondition.SimpleType.NOT, "int", 10));
                         assertEquals(condition, conditionService.parse("AND(int LTE 50;int NOT 10)"));
+                    }
+                }
+                // GT
+                {
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 60);
+                        assertEquals(condition, conditionService.parse("AND(int GT 60;int NOT 50)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GT, "int", 10);
+                        assertEquals(condition, conditionService.parse("AND(int GT 10;int NOT 10)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GT, "int", 10),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "int", 50));
+                        assertEquals(condition, conditionService.parse("AND(int GT 10;int NOT 50)"));
+                    }
+                }
+                // GTE - doesn't affect
+                {
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.GTE, "int", 60);
+                        assertEquals(condition, conditionService.parse("AND(int GTE 60;int NOT 50)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "int", 10),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "int", 10));
+                        assertEquals(condition, conditionService.parse("AND(int GTE 10;int NOT 10)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "int", 10),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "int", 50));
+                        assertEquals(condition, conditionService.parse("AND(int GTE 10;int NOT 50)"));
+                    }
+                }
+                // LIKE
+                {
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "String", "test"));
+                        assertEquals(condition, conditionService.parse("AND(String LIKE test;String NOT test)"));
+                    }
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test1");
+                        assertEquals(condition, conditionService.parse("AND(String LIKE test1;String NOT test)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "String", "test1"));
+                        assertEquals(condition, conditionService.parse("AND(String LIKE test;String NOT test1)"));
+                    }
+                }
+                // NOT
+                {
+                    {
+                        final ICondition condition = SimpleCondition.make(ICondition.SimpleType.NOT, "int", 50);
+                        assertEquals(condition, conditionService.parse("AND(int NOT 50;int NOT 50)"));
+                    }
+                    {
+                        final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "int", 50),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "int", 60));
+                        assertEquals(condition, conditionService.parse("AND(int NOT 50;int NOT 60)"));
                     }
                 }
             }
