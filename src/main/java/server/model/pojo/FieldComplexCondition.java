@@ -2,10 +2,7 @@ package server.model.pojo;
 
 import server.model.ConditionException;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 public class FieldComplexCondition extends AbstractComplexCondition<SimpleCondition> implements FieldCondition {
     private final String field;
@@ -19,7 +16,7 @@ public class FieldComplexCondition extends AbstractComplexCondition<SimpleCondit
         if (conditions == null || conditions.length == 0) {
             throw new ConditionException("empty inner conditions");
         }
-        final Set<SimpleCondition> conditionSet = new HashSet<>();
+        final Set<SimpleCondition> conditionSet = new LinkedHashSet<>();
         String field = null;
         for (ICondition condition : conditions) {
             if (!(condition instanceof SimpleCondition)) {

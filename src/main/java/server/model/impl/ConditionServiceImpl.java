@@ -70,13 +70,13 @@ public class ConditionServiceImpl implements ConditionService {
         return parseSimpleCondition(formatted);
     }
 
-    private ICondition transform(ComplexCondition complexCondition) throws ConditionException {
+    private ICondition transform(ComplexCondition<ICondition> complexCondition) throws ConditionException {
         final ICondition.ComplexType complexType = complexCondition.getType();
         final Map<String, Collection<SimpleCondition>> conditionMap = new LinkedHashMap<>();
         if (!checkAndFillMap(complexCondition, complexType, conditionMap)) {
             return complexCondition;
         }
-        final Set<ICondition> fieldsConditions = new HashSet<>();
+        final Set<ICondition> fieldsConditions = new LinkedHashSet<>();
         for (Collection<SimpleCondition> conditions : conditionMap.values()) {
             final Set<SimpleCondition> fieldConditions = new HashSet<>();
             final AtomicReference<SimpleCondition> lt = new AtomicReference<>();
@@ -140,8 +140,8 @@ public class ConditionServiceImpl implements ConditionService {
                                     }
                                     continue;
                                 }
-                                check(condition, gt, v -> v <= 0, "LT condition cannot have lower or equal value than GT value");
-                                check(condition, gte, v -> v <= 0, "LT condition cannot have lower or equal value than GTE value");
+                                check(condition, gt, v -> v > 0, "LT condition cannot have lower or equal value than GT value");
+                                check(condition, gte, v -> v > 0, "LT condition cannot have lower or equal value than GTE value");
                                 for (Iterator<SimpleCondition> iterator = notSet.iterator(); iterator.hasNext(); ) {
                                     if (checkAndRemove(condition, new AtomicReference<>(iterator.next()), fieldConditions, v -> v <= 0, null)) {
                                         iterator.remove();
@@ -175,8 +175,17 @@ public class ConditionServiceImpl implements ConditionService {
                                     }
                                     continue;
                                 }
-                                check(condition, gt, v -> v <= 0, "LTE condition cannot have lower or equal value than GT value");
-                                check(condition, gte, v -> v < 0, "LT condition cannot have lower value than GTE value");
+                                check(condition, gt, v -> v > 0, "LTE condition cannot have lower or equal value than GT value");
+                                if (gte.get() != null) {
+                                    check(condition, gte, v -> v >= 0, "LTE condition cannot have lower value than GTE value");
+                                    if (condition.getValue().compareTo(gte.get().getValue()) == 0) {
+                                        remove(fieldConditions, gte);
+                                        final SimpleCondition simpleCondition = SimpleCondition.make(EQ, condition.getField(), condition.getValue());
+                                        fieldConditions.add(simpleCondition);
+                                        eq.set(simpleCondition);
+                                        continue;
+                                    }
+                                }
                                 for (Iterator<SimpleCondition> iterator = notSet.iterator(); iterator.hasNext(); ) {
                                     if (checkAndRemove(condition, new AtomicReference<>(iterator.next()), fieldConditions, v -> v < 0, null)) {
                                         iterator.remove();
@@ -202,8 +211,8 @@ public class ConditionServiceImpl implements ConditionService {
                                         continue;
                                     }
                                 }
-                                check(condition, lt, v -> v >= 0, "GT condition cannot have greater or equal value than LT value");
-                                check(condition, lte, v -> v >= 0, "GT condition cannot have greater or equal value than LTE value");
+                                check(condition, lt, v -> v < 0, "GT condition cannot have greater or equal value than LT value");
+                                check(condition, lte, v -> v < 0, "GT condition cannot have greater or equal value than LTE value");
                                 if (gte.get() != null) {
                                     if (condition.getValue().compareTo(gte.get().getValue()) >= 0) {
                                         remove(fieldConditions, gte);
@@ -237,8 +246,17 @@ public class ConditionServiceImpl implements ConditionService {
                                         continue;
                                     }
                                 }
-                                check(condition, lt, v -> v >= 0, "GTE condition cannot have greater or equal value than LT value");
-                                check(condition, lte, v -> v > 0, "GTE condition cannot have greater value than LTE value");
+                                check(condition, lt, v -> v < 0, "GTE condition cannot have greater or equal value than LT value");
+                                if (lte.get() != null) {
+                                    check(condition, lte, v -> v <= 0, "GTE condition cannot have greater value than LTE value");
+                                    if (condition.getValue().compareTo(lte.get().getValue()) == 0) {
+                                        remove(fieldConditions, lte);
+                                        final SimpleCondition simpleCondition = SimpleCondition.make(EQ, condition.getField(), condition.getValue());
+                                        fieldConditions.add(simpleCondition);
+                                        eq.set(simpleCondition);
+                                        continue;
+                                    }
+                                }
                                 if (gt.get() != null) {
                                     if (condition.getValue().compareTo(gt.get().getValue()) > 0) {
                                         remove(fieldConditions, gt);
@@ -274,21 +292,20 @@ public class ConditionServiceImpl implements ConditionService {
                                 break;
                             }
                             case NOT: {
-                                check(condition, eq, v -> v == 0, "NOT condition cannot have same value as EQ value");
-                                if (checkAndAdd(condition, lt, fieldConditions, v -> v <= 0)) {
-                                    notSet.add(condition);
+                                if (eq.get() != null) {
+                                    check(condition, eq, v -> v != 0, "NOT condition cannot have same value as EQ value");
                                     continue;
                                 }
-                                if (checkAndAdd(condition, lte, fieldConditions, v -> v < 0)) {
-                                    notSet.add(condition);
+                                if (!check(condition, lt, v -> v < 0, null)) {
                                     continue;
                                 }
-                                if (checkAndAdd(condition, gt, fieldConditions, v -> v >= 0)) {
-                                    notSet.add(condition);
+                                if (!check(condition, lte, v -> v <= 0, null)) {
                                     continue;
                                 }
-                                if (checkAndAdd(condition, gte, fieldConditions, v -> v > 0)) {
-                                    notSet.add(condition);
+                                if (!check(condition, gt, v -> v > 0, null)) {
+                                    continue;
+                                }
+                                if (!check(condition, gte, v -> v >= 0, null)) {
                                     continue;
                                 }
                                 notSet.add(condition);
@@ -528,10 +545,14 @@ public class ConditionServiceImpl implements ConditionService {
         atomicReference.set(null);
     }
 
-    private void check(SimpleCondition conditionFirst, AtomicReference<SimpleCondition> conditionSecond, Function<Integer, Boolean> function, String error) throws ConditionException {
-        if (conditionSecond.get() != null && function.apply(conditionFirst.getValue().compareTo(conditionSecond.get().getValue()))) {
+    private boolean check(SimpleCondition conditionFirst, AtomicReference<SimpleCondition> conditionSecond, Function<Integer, Boolean> function, String error) throws ConditionException {
+        if (conditionSecond.get() == null || function.apply(conditionFirst.getValue().compareTo(conditionSecond.get().getValue()))) {
+            return true;
+        }
+        if (error != null) {
             throw makeConditionException(error, conditionFirst, conditionSecond.get());
         }
+        return false;
     }
 
     private ConditionException makeConditionException(String error, SimpleCondition conditionFirst, SimpleCondition conditionSecond) {
@@ -577,7 +598,7 @@ public class ConditionServiceImpl implements ConditionService {
         return true;
     }
 
-    private ComplexCondition parseComplexCondition(String input) throws ConditionException {
+    private ComplexCondition<ICondition> parseComplexCondition(String input) throws ConditionException {
         final int first = input.indexOf("(");
         if (first < 0) {
             throw new ConditionException("cannot find ( for ComplexCondition, input : " + input);

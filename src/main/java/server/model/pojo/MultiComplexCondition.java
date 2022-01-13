@@ -4,6 +4,7 @@ import server.model.ConditionException;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 public class MultiComplexCondition extends AbstractComplexCondition<ICondition> {
@@ -16,7 +17,7 @@ public class MultiComplexCondition extends AbstractComplexCondition<ICondition> 
         if (conditions == null || conditions.length == 0) {
             throw new ConditionException("empty inner conditions");
         }
-        final Set<ICondition> conditionSet = new HashSet<>();
+        final Set<ICondition> conditionSet = new LinkedHashSet<>();
         for (ICondition iCondition : conditions) {
             if (iCondition instanceof EmptyCondition) {
                 throw new ConditionException("inner condition cannot be empty");
