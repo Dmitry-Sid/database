@@ -10,7 +10,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static server.model.pojo.ICondition.SimpleType.EQ;
 import static server.model.pojo.ICondition.SimpleType.NOT;
@@ -155,16 +154,7 @@ public class ConditionServiceImpl implements ConditionService {
                                     }
                                 };
                                 check(condition, gt, v -> v > 0, "LTE condition cannot have lower or equal value than GT value");
-                                if (gte.get() != null) {
-                                    check(condition, gte, v -> v >= 0, "LTE condition cannot have lower value than GTE value");
-                                    if (condition.getValue().compareTo(gte.get().getValue()) == 0) {
-                                        remove(fieldConditions, gte);
-                                        final SimpleCondition simpleCondition = SimpleCondition.make(EQ, condition.getField(), condition.getValue());
-                                        fieldConditions.add(simpleCondition);
-                                        eq.set(simpleCondition);
-                                        continue;
-                                    }
-                                }
+                                check(condition, gte, v -> v >= 0, "LTE condition cannot have lower value than GTE value");
                                 for (Iterator<SimpleCondition> iterator = notSet.iterator(); iterator.hasNext(); ) {
                                     if (checkAndRemove(condition, new AtomicReference<>(iterator.next()), fieldConditions, v -> v < 0, null)) {
                                         iterator.remove();
@@ -261,29 +251,28 @@ public class ConditionServiceImpl implements ConditionService {
                     for (SimpleCondition condition : sort(conditions)) {
                         switch (condition.getType()) {
                             case EQ: {
-                                if (checkAndAdd(condition, lt, fieldConditions, v -> v >= 0)) {
-                                    eqSet.add(condition);
+                                if (!check(condition, lt, v -> v >= 0, null)) {
                                     continue;
                                 }
-                                if (checkAndAdd(condition, lte, fieldConditions, v -> v > 0)) {
-                                    eqSet.add(condition);
+                                if (!check(condition, lte, v -> v > 0, null)) {
                                     continue;
                                 }
-                                if (checkAndAdd(condition, gt, fieldConditions, v -> v <= 0)) {
-                                    eqSet.add(condition);
+                                if (!check(condition, gt, v -> v <= 0, null)) {
                                     continue;
                                 }
-                                if (checkAndAdd(condition, gte, fieldConditions, v -> v < 0)) {
-                                    eqSet.add(condition);
+                                if (!check(condition, gte, v -> v < 0, null)) {
                                     continue;
                                 }
-                                if (checkAndRemove(condition, not, fieldConditions, v -> v == 0, null)) {
+                                if (not.get() != null) {
+                                    if (condition.getValue().compareTo(not.get().getValue()) == 0) {
+                                        remove(fieldConditions, not);
+                                    }
                                     continue;
                                 }
                                 boolean contains = false;
                                 for (SimpleCondition like : likeSet) {
-                                    final String s = (String) like.getValue();
-                                    if (s.contains((String) condition.getValue())) {
+                                    final String s = (String) condition.getValue();
+                                    if (s.contains((String) like.getValue())) {
                                         contains = true;
                                         break;
                                     }
@@ -296,114 +285,87 @@ public class ConditionServiceImpl implements ConditionService {
                                 break;
                             }
                             case LT: {
-                                for (Iterator<SimpleCondition> iterator = eqSet.iterator(); iterator.hasNext(); ) {
-                                    if (checkAndRemove(condition, new AtomicReference<>(iterator.next()), fieldConditions, v -> v > 0, null)) {
-                                        iterator.remove();
-                                    }
+                                if (lte.get() != null && !checkAndRemove(condition, lte, fieldConditions, v -> v > 0, null)) {
+                                    continue;
                                 }
-                                checkAndRemove(condition, lte, fieldConditions, v -> v >= 0, null);
-                                if (checkAndRemove(condition, gt, fieldConditions, v -> v >= 0, null)) {
+                                if (checkAndRemove(condition, gt, fieldConditions, v -> v > 0, null)) {
                                     continue;
                                 }
                                 if (checkAndRemove(condition, gte, fieldConditions, v -> v >= 0, null)) {
                                     continue;
                                 }
-                                if (checkAndRemove(condition, not, fieldConditions, v -> v > 0, null)) {
+                                if (not.get() != null) {
+                                    checkAndRemove(condition, not, fieldConditions, v -> v > 0, null);
                                     continue;
                                 }
-                                if (lt.get() == null || condition.getValue().compareTo(lt.get().getValue()) > 0) {
-                                    if (lt.get() != null) {
-                                        remove(fieldConditions, lt);
-                                    }
-                                    lt.set(condition);
-                                    fieldConditions.add(condition);
+                                if (lt.get() != null && !checkAndRemove(condition, lt, fieldConditions, v -> v > 0, null)) {
+                                    continue;
                                 }
+                                lt.set(condition);
+                                fieldConditions.add(condition);
                                 break;
                             }
                             case LTE: {
-                                for (Iterator<SimpleCondition> iterator = eqSet.iterator(); iterator.hasNext(); ) {
-                                    if (checkAndRemove(condition, new AtomicReference<>(iterator.next()), fieldConditions, v -> v >= 0, null)) {
-                                        iterator.remove();
-                                    }
-                                }
-                                checkAndRemove(condition, lt, fieldConditions, v -> v >= 0, null);
                                 if (checkAndRemove(condition, gt, fieldConditions, v -> v >= 0, null)) {
                                     continue;
                                 }
                                 if (checkAndRemove(condition, gte, fieldConditions, v -> v >= 0, null)) {
                                     continue;
                                 }
-                                if (checkAndRemove(condition, not, fieldConditions, v -> v >= 0, null)) {
+                                if (not.get() != null) {
+                                    checkAndRemove(condition, not, fieldConditions, v -> v >= 0, null);
                                     continue;
                                 }
-                                if (lte.get() == null || condition.getValue().compareTo(lte.get().getValue()) > 0) {
-                                    if (lte.get() != null) {
-                                        remove(fieldConditions, lte);
-                                    }
-                                    lte.set(condition);
-                                    fieldConditions.add(condition);
+                                if (lte.get() != null && !checkAndRemove(condition, lte, fieldConditions, v -> v > 0, null)) {
+                                    continue;
                                 }
+                                lte.set(condition);
+                                fieldConditions.add(condition);
                                 break;
                             }
                             case GT: {
-                                for (Iterator<SimpleCondition> iterator = eqSet.iterator(); iterator.hasNext(); ) {
-                                    if (checkAndRemove(condition, new AtomicReference<>(iterator.next()), fieldConditions, v -> v < 0, null)) {
-                                        iterator.remove();
-                                    }
-                                }
-                                checkAndRemove(condition, gte, fieldConditions, v -> v <= 0, null);
-                                if (checkAndRemove(condition, lt, fieldConditions, v -> v <= 0, null)) {
+                                if (gte.get() != null && !checkAndRemove(condition, gte, fieldConditions, v -> v < 0, null)) {
                                     continue;
                                 }
-                                if (checkAndRemove(condition, lte, fieldConditions, v -> v <= 0, null)) {
+                                if (not.get() != null) {
+                                    checkAndRemove(condition, not, fieldConditions, v -> v < 0, null);
                                     continue;
                                 }
-                                if (checkAndRemove(condition, not, fieldConditions, v -> v < 0, null)) {
+                                if (gt.get() != null && !checkAndRemove(condition, gt, fieldConditions, v -> v < 0, null)) {
                                     continue;
                                 }
-                                if (gt.get() == null || condition.getValue().compareTo(gt.get().getValue()) > 0) {
-                                    if (gt.get() != null) {
-                                        remove(fieldConditions, gt);
-                                    }
-                                    gt.set(condition);
-                                    fieldConditions.add(condition);
-                                }
+                                gt.set(condition);
+                                fieldConditions.add(condition);
                                 break;
                             }
                             case GTE: {
-                                for (Iterator<SimpleCondition> iterator = eqSet.iterator(); iterator.hasNext(); ) {
-                                    if (checkAndRemove(condition, new AtomicReference<>(iterator.next()), fieldConditions, v -> v <= 0, null)) {
-                                        iterator.remove();
-                                    }
-                                }
-                                checkAndRemove(condition, gt, fieldConditions, v -> v <= 0, null);
-                                if (checkAndRemove(condition, lt, fieldConditions, v -> v <= 0, null)) {
+                                if (not.get() != null) {
+                                    checkAndRemove(condition, not, fieldConditions, v -> v <= 0, null);
                                     continue;
                                 }
-                                if (checkAndRemove(condition, lte, fieldConditions, v -> v <= 0, null)) {
+                                if (gte.get() != null && !checkAndRemove(condition, gte, fieldConditions, v -> v < 0, null)) {
                                     continue;
                                 }
-                                if (checkAndRemove(condition, not, fieldConditions, v -> v <= 0, null)) {
-                                    continue;
-                                }
-                                if (gte.get() == null || condition.getValue().compareTo(gte.get().getValue()) < 0) {
-                                    if (gte.get() != null) {
-                                        remove(fieldConditions, gte);
-                                    }
-                                    gte.set(condition);
-                                    fieldConditions.add(condition);
-                                }
+                                gte.set(condition);
+                                fieldConditions.add(condition);
                                 break;
                             }
                             case LIKE: {
-                                for (Iterator<SimpleCondition> iterator = Stream.concat(eqSet.stream(), likeSet.stream()).iterator(); iterator.hasNext(); ) {
-                                    final SimpleCondition eq = iterator.next();
+                                boolean skip = false;
+                                for (Iterator<SimpleCondition> iterator = likeSet.iterator(); iterator.hasNext(); ) {
+                                    final SimpleCondition like = iterator.next();
                                     final String s1 = (String) condition.getValue();
-                                    final String s2 = (String) eq.getValue();
+                                    final String s2 = (String) like.getValue();
                                     if (s1.contains(s2)) {
-                                        remove(fieldConditions, new AtomicReference<>(eq));
+                                        skip = true;
+                                        break;
+                                    } else if (s2.contains(s1)) {
+                                        remove(fieldConditions, new AtomicReference<>(like));
                                         iterator.remove();
                                     }
+                                }
+                                if (skip) {
+                                    continue;
                                 }
                                 likeSet.add(condition);
                                 fieldConditions.add(condition);
@@ -413,22 +375,6 @@ public class ConditionServiceImpl implements ConditionService {
                                 if (not.get() != null) {
                                     remove(fieldConditions, not);
                                     continue;
-                                }
-                                checkAndRemove(condition, lt, fieldConditions, v -> v <= 0, null);
-                                if (lte.get() != null) {
-                                    if (condition.getValue().compareTo(lte.get().getValue()) > 0) {
-                                        fieldConditions.remove(lte.get());
-                                    } else {
-                                        continue;
-                                    }
-                                }
-                                checkAndRemove(condition, gt, fieldConditions, v -> v >= 0, null);
-                                if (gte.get() != null) {
-                                    if (condition.getValue().compareTo(gte.get().getValue()) < 0) {
-                                        fieldConditions.remove(gte.get());
-                                    } else {
-                                        continue;
-                                    }
                                 }
                                 not.set(condition);
                                 fieldConditions.add(condition);
@@ -472,7 +418,7 @@ public class ConditionServiceImpl implements ConditionService {
 
     private <T extends ICondition> ICondition makeCondition(ICondition.ComplexType complexType, Collection<T> conditions) throws ConditionException {
         if (conditions.size() == 0) {
-            throw new ConditionException("not conditions at all");
+            return ICondition.empty;
         }
         final Set<ICondition> conditionSet = new HashSet<>();
         String field = null;
@@ -532,14 +478,6 @@ public class ConditionServiceImpl implements ConditionService {
             return true;
         } else if (error != null) {
             throw makeConditionException(error, conditionFirst, conditionSecond.get());
-        }
-        return false;
-    }
-
-    private boolean checkAndAdd(SimpleCondition condition, AtomicReference<SimpleCondition> compared, Collection<SimpleCondition> fieldConditions, Function<Integer, Boolean> function) {
-        if (compared.get() == null || function.apply(condition.getValue().compareTo(compared.get().getValue()))) {
-            fieldConditions.add(condition);
-            return true;
         }
         return false;
     }
