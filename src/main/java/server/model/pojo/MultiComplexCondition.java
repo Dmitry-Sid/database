@@ -19,7 +19,7 @@ public class MultiComplexCondition extends AbstractComplexCondition<ICondition> 
         final Set<ICondition> conditionSet = new HashSet<>();
         for (ICondition iCondition : conditions) {
             if (iCondition instanceof EmptyCondition) {
-                throw new ConditionException("inner condition cannot be empty");
+                continue;
             }
             conditionSet.add(iCondition);
         }

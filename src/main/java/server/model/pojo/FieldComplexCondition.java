@@ -2,7 +2,10 @@ package server.model.pojo;
 
 import server.model.ConditionException;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
 
 public class FieldComplexCondition extends AbstractComplexCondition<SimpleCondition> implements FieldCondition {
     private final String field;
@@ -42,15 +45,6 @@ public class FieldComplexCondition extends AbstractComplexCondition<SimpleCondit
 
     public String getField() {
         return field;
-    }
-
-    public Set<SimpleCondition> getConditions() {
-        return conditions;
-    }
-
-    @Override
-    public ComplexType getType() {
-        return null;
     }
 
     @Override

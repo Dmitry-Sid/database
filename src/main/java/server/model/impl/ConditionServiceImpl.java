@@ -95,10 +95,8 @@ public class ConditionServiceImpl implements ConditionService {
                                 checkAndRemove(condition, lte, fieldConditions, v -> v <= 0, "EQ condition cannot have greater value than LTE value");
                                 checkAndRemove(condition, gt, fieldConditions, v -> v > 0, "EQ condition cannot have lower or equal value than GT value");
                                 checkAndRemove(condition, gte, fieldConditions, v -> v >= 0, "EQ condition cannot have lower value than GTE value");
-                                for (Iterator<SimpleCondition> iterator = notSet.iterator(); iterator.hasNext(); ) {
-                                    if (checkAndRemove(condition, new AtomicReference<>(iterator.next()), fieldConditions, v -> v != 0, "EQ condition cannot have same value as NOT value")) {
-                                        iterator.remove();
-                                    }
+                                for (SimpleCondition simpleCondition : notSet) {
+                                    checkAndRemove(condition, new AtomicReference<>(simpleCondition), fieldConditions, v -> v != 0, "EQ condition cannot have same value as NOT value");
                                 }
                                 if (like.get() != null) {
                                     final String s = (String) condition.getValue();
@@ -135,10 +133,8 @@ public class ConditionServiceImpl implements ConditionService {
                                 }
                                 check(condition, gt, v -> v > 0, "LT condition cannot have lower or equal value than GT value");
                                 check(condition, gte, v -> v > 0, "LT condition cannot have lower or equal value than GTE value");
-                                for (Iterator<SimpleCondition> iterator = notSet.iterator(); iterator.hasNext(); ) {
-                                    if (checkAndRemove(condition, new AtomicReference<>(iterator.next()), fieldConditions, v -> v <= 0, null)) {
-                                        iterator.remove();
-                                    }
+                                for (SimpleCondition simpleCondition : notSet) {
+                                    checkAndRemove(condition, new AtomicReference<>(simpleCondition), fieldConditions, v -> v <= 0, null);
                                 }
                                 addRunnable.run();
                                 break;
@@ -155,10 +151,8 @@ public class ConditionServiceImpl implements ConditionService {
                                 };
                                 check(condition, gt, v -> v > 0, "LTE condition cannot have lower or equal value than GT value");
                                 check(condition, gte, v -> v >= 0, "LTE condition cannot have lower value than GTE value");
-                                for (Iterator<SimpleCondition> iterator = notSet.iterator(); iterator.hasNext(); ) {
-                                    if (checkAndRemove(condition, new AtomicReference<>(iterator.next()), fieldConditions, v -> v < 0, null)) {
-                                        iterator.remove();
-                                    }
+                                for (SimpleCondition simpleCondition : notSet) {
+                                    checkAndRemove(condition, new AtomicReference<>(simpleCondition), fieldConditions, v -> v < 0, null);
                                 }
                                 addRunnable.run();
                                 break;
@@ -180,10 +174,8 @@ public class ConditionServiceImpl implements ConditionService {
                                     }
                                     continue;
                                 }
-                                for (Iterator<SimpleCondition> iterator = notSet.iterator(); iterator.hasNext(); ) {
-                                    if (checkAndRemove(condition, new AtomicReference<>(iterator.next()), fieldConditions, v -> v >= 0, null)) {
-                                        iterator.remove();
-                                    }
+                                for (SimpleCondition simpleCondition : notSet) {
+                                    checkAndRemove(condition, new AtomicReference<>(simpleCondition), fieldConditions, v -> v >= 0, null);
                                 }
                                 addRunnable.run();
                                 break;
@@ -198,10 +190,8 @@ public class ConditionServiceImpl implements ConditionService {
                                         fieldConditions.add(condition);
                                     }
                                 };
-                                for (Iterator<SimpleCondition> iterator = notSet.iterator(); iterator.hasNext(); ) {
-                                    if (checkAndRemove(condition, new AtomicReference<>(iterator.next()), fieldConditions, v -> v > 0, null)) {
-                                        iterator.remove();
-                                    }
+                                for (SimpleCondition simpleCondition : notSet) {
+                                    checkAndRemove(condition, new AtomicReference<>(simpleCondition), fieldConditions, v -> v > 0, null);
                                 }
                                 addRunnable.run();
                                 break;
@@ -222,13 +212,11 @@ public class ConditionServiceImpl implements ConditionService {
                                         throw makeConditionException("LIKE condition cannot have other value than LIKE value", condition, like.get());
                                     }
                                 }
-                                for (Iterator<SimpleCondition> iterator = notSet.iterator(); iterator.hasNext(); ) {
-                                    final SimpleCondition not = iterator.next();
+                                for (final SimpleCondition not : notSet) {
                                     final String s1 = (String) condition.getValue();
                                     final String s2 = (String) not.getValue();
                                     if (s1.contains(s2) && s1.length() > s2.length()) {
                                         fieldConditions.remove(not);
-                                        iterator.remove();
                                     }
                                 }
                                 like.set(condition);
@@ -352,8 +340,7 @@ public class ConditionServiceImpl implements ConditionService {
                             }
                             case LIKE: {
                                 boolean skip = false;
-                                for (Iterator<SimpleCondition> iterator = likeSet.iterator(); iterator.hasNext(); ) {
-                                    final SimpleCondition like = iterator.next();
+                                for (final SimpleCondition like : likeSet) {
                                     final String s1 = (String) condition.getValue();
                                     final String s2 = (String) like.getValue();
                                     if (s1.contains(s2)) {
@@ -361,7 +348,6 @@ public class ConditionServiceImpl implements ConditionService {
                                         break;
                                     } else if (s2.contains(s1)) {
                                         remove(fieldConditions, new AtomicReference<>(like));
-                                        iterator.remove();
                                     }
                                 }
                                 if (skip) {
@@ -452,7 +438,6 @@ public class ConditionServiceImpl implements ConditionService {
 
     private void remove(Collection<SimpleCondition> fieldList, AtomicReference<SimpleCondition> atomicReference) {
         fieldList.remove(atomicReference.get());
-        atomicReference.set(null);
     }
 
     private boolean check(SimpleCondition conditionFirst, AtomicReference<SimpleCondition> conditionSecond, Function<Integer, Boolean> function, String error) throws ConditionException {
