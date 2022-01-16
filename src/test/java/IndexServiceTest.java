@@ -201,6 +201,14 @@ public class IndexServiceTest {
                 i.getAndIncrement();
             });
         }
+        {
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.AND,
+                    SimpleCondition.make(ICondition.SimpleType.LT, "int", 19),
+                    SimpleCondition.make(ICondition.SimpleType.LT, "String", "te"));
+            final IndexService.SearchResult searchResult = indexService.search(condition, -1);
+            assertTrue(searchResult.found);
+            assertEquals(0, searchResult.idSet.size());
+        }
     }
 
     @Test
