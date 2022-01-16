@@ -29,6 +29,10 @@ public class ReadWriteLockImpl<T> extends BaseReadWriteLock<T> {
         return writeLock;
     }
 
+    interface WaitFunction {
+        boolean apply(Counter local, Counter global);
+    }
+
     private static class Counter {
         private final AtomicInteger readCount = new AtomicInteger(0);
         private final AtomicInteger writeCount = new AtomicInteger(0);
@@ -135,9 +139,5 @@ public class ReadWriteLockImpl<T> extends BaseReadWriteLock<T> {
             final Counter global = lockedObjects.getOrDefault(value, new Counter());
             return "local read: " + local.getReadCount() + ", local write: " + local.getWriteCount() + ", global read: " + global.getReadCount() + ", global write: " + global.getWriteCount() + ", ";
         }
-    }
-
-    interface WaitFunction {
-        boolean apply(Counter local, Counter global);
     }
 }

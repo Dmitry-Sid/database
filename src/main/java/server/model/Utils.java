@@ -1,8 +1,15 @@
 package server.model;
 
+import server.model.pojo.ComplexCondition;
+import server.model.pojo.ICondition;
+import server.model.pojo.SimpleCondition;
+
 import java.io.File;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class Utils {
@@ -60,6 +67,43 @@ public class Utils {
             action.run();
         }
     }
+
+    public static <T> Set<T> collectConditions(ICondition iCondition, Function<SimpleCondition, Collection<T>> function) {
+        if (iCondition instanceof SimpleCondition) {
+            return new HashSet<>(function.apply((SimpleCondition) iCondition));
+        }
+        final ComplexCondition<ICondition> complexCondition = (ComplexCondition<ICondition>) iCondition;
+        final Set<T> set = new HashSet<>();
+        boolean isFirst = true;
+        for (ICondition condition : complexCondition.getConditions()) {
+            if (!isFirst && ICondition.ComplexType.AND == complexCondition.getType() && set.isEmpty()) {
+                break;
+            }
+            final Collection<T> result;
+            if (condition instanceof ComplexCondition) {
+                result = collectConditions(condition, function);
+            } else {
+                result = function.apply((SimpleCondition) condition);
+            }
+            if (isFirst) {
+                set.addAll(result);
+                isFirst = false;
+                continue;
+            }
+            switch (complexCondition.getType()) {
+                case OR:
+                    set.addAll(result);
+                    break;
+                case AND:
+                    set.retainAll(result);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unknown complex type : " + complexCondition.getType());
+            }
+        }
+        return set;
+    }
+
 
     private static boolean isWindows() {
         return OSType.WIN.equals(OS_TYPE);

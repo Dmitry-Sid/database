@@ -7,12 +7,11 @@ import server.model.ModelService;
 import server.model.pojo.*;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static server.model.pojo.ICondition.SimpleType.EQ;
-import static server.model.pojo.ICondition.SimpleType.NOT;
+import static server.model.pojo.ICondition.SimpleType.*;
 
 public class ConditionServiceImpl implements ConditionService {
 
@@ -78,187 +77,153 @@ public class ConditionServiceImpl implements ConditionService {
         }
         final Set<ICondition> fieldsConditions = new HashSet<>();
         for (Collection<SimpleCondition> conditions : conditionMap.values()) {
-            final Set<SimpleCondition> fieldConditions = new HashSet<>();
-            final AtomicReference<SimpleCondition> lt = new AtomicReference<>();
-            final AtomicReference<SimpleCondition> lte = new AtomicReference<>();
-            final AtomicReference<SimpleCondition> gt = new AtomicReference<>();
-            final AtomicReference<SimpleCondition> gte = new AtomicReference<>();
+            final ConditionMemory conditionMemory;
             switch (complexType) {
-                case AND: {
-                    final AtomicReference<SimpleCondition> eq = new AtomicReference<>();
-                    final AtomicReference<SimpleCondition> like = new AtomicReference<>();
-                    final Set<SimpleCondition> notSet = new HashSet<>();
-                    for (SimpleCondition condition : sort(conditions)) {
+                case AND:
+                    conditionMemory = new AndConditionMemory();
+                    break;
+                case OR:
+                    conditionMemory = new OrConditionMemory();
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected value: " + complexType);
+            }
+            for (SimpleCondition condition : sort(conditions)) {
+                switch (complexType) {
+                    case AND: {
+                        final AndConditionMemory andConditionMemory = (AndConditionMemory) conditionMemory;
                         switch (condition.getType()) {
                             case EQ: {
-                                checkAndRemove(condition, lt, fieldConditions, v -> v < 0, "EQ condition cannot have greater or equal value than LT value");
-                                checkAndRemove(condition, lte, fieldConditions, v -> v <= 0, "EQ condition cannot have greater value than LTE value");
-                                checkAndRemove(condition, gt, fieldConditions, v -> v > 0, "EQ condition cannot have lower or equal value than GT value");
-                                checkAndRemove(condition, gte, fieldConditions, v -> v >= 0, "EQ condition cannot have lower value than GTE value");
-                                for (SimpleCondition simpleCondition : notSet) {
-                                    checkAndRemove(condition, new AtomicReference<>(simpleCondition), fieldConditions, v -> v != 0, "EQ condition cannot have same value as NOT value");
+                                checkAndRemove(condition, andConditionMemory.lt, conditionMemory.fieldConditions, v -> v < 0, "EQ condition cannot have greater or equal value than LT value");
+                                checkAndRemove(condition, andConditionMemory.lte, conditionMemory.fieldConditions, v -> v <= 0, "EQ condition cannot have greater value than LTE value");
+                                checkAndRemove(condition, andConditionMemory.gt, conditionMemory.fieldConditions, v -> v > 0, "EQ condition cannot have lower or equal value than GT value");
+                                checkAndRemove(condition, andConditionMemory.gte, conditionMemory.fieldConditions, v -> v >= 0, "EQ condition cannot have lower value than GTE value");
+                                for (SimpleCondition not : andConditionMemory.notSet) {
+                                    checkAndRemove(condition, not, conditionMemory.fieldConditions, v -> v != 0, "EQ condition cannot have same value as NOT value");
                                 }
-                                if (like.get() != null) {
+                                if (andConditionMemory.like != null) {
                                     final String s = (String) condition.getValue();
-                                    if (s.contains((String) like.get().getValue())) {
-                                        remove(fieldConditions, like);
+                                    if (s.contains((String) andConditionMemory.like.getValue())) {
+                                        conditionMemory.fieldConditions.remove(andConditionMemory.like);
                                     } else {
-                                        throw makeConditionException("EQ condition cannot have other value than LIKE value", condition, like.get());
+                                        throw makeConditionException("EQ condition cannot have other value than LIKE value", condition, andConditionMemory.like);
                                     }
                                 }
-                                if (eq.get() == null || condition.getValue().compareTo(eq.get().getValue()) == 0) {
-                                    eq.set(condition);
+                                if (andConditionMemory.eq == null || condition.getValue().compareTo(andConditionMemory.eq.getValue()) == 0) {
+                                    andConditionMemory.eq = condition;
                                 } else {
-                                    throw makeConditionException("cannot be more than one EQ condition inside AND condition", condition, eq.get());
+                                    throw makeConditionException("cannot be more than one EQ condition inside AND condition", condition, andConditionMemory.eq);
                                 }
-                                fieldConditions.add(condition);
+                                conditionMemory.fieldConditions.add(condition);
                                 break;
                             }
                             case LT: {
-                                final Runnable addRunnable = () -> {
-                                    if (lt.get() == null || condition.getValue().compareTo(lt.get().getValue()) < 0) {
-                                        if (lt.get() != null) {
-                                            remove(fieldConditions, lt);
-                                        }
-                                        lt.set(condition);
-                                        fieldConditions.add(condition);
-                                    }
-                                };
-                                if (lte.get() != null) {
-                                    if (condition.getValue().compareTo(lte.get().getValue()) <= 0) {
-                                        remove(fieldConditions, lte);
+                                final Runnable addRunnable = () -> substitute(condition, andConditionMemory.lt, conditionMemory.fieldConditions, v -> v < 0, andConditionMemory::setLt);
+                                if (andConditionMemory.lte != null) {
+                                    if (condition.getValue().compareTo(andConditionMemory.lte.getValue()) <= 0) {
+                                        conditionMemory.fieldConditions.remove(andConditionMemory.lte);
                                         addRunnable.run();
                                     }
                                     continue;
                                 }
-                                check(condition, gt, v -> v > 0, "LT condition cannot have lower or equal value than GT value");
-                                check(condition, gte, v -> v > 0, "LT condition cannot have lower or equal value than GTE value");
-                                for (SimpleCondition simpleCondition : notSet) {
-                                    checkAndRemove(condition, new AtomicReference<>(simpleCondition), fieldConditions, v -> v <= 0, null);
+                                check(condition, andConditionMemory.gt, v -> v > 0, "LT condition cannot have lower or equal value than GT value");
+                                check(condition, andConditionMemory.gte, v -> v > 0, "LT condition cannot have lower or equal value than GTE value");
+                                for (SimpleCondition not : andConditionMemory.notSet) {
+                                    checkAndRemove(condition, not, conditionMemory.fieldConditions, v -> v <= 0, null);
                                 }
                                 addRunnable.run();
                                 break;
                             }
                             case LTE: {
-                                final Runnable addRunnable = () -> {
-                                    if (lte.get() == null || condition.getValue().compareTo(lte.get().getValue()) < 0) {
-                                        if (lte.get() != null) {
-                                            remove(fieldConditions, lte);
-                                        }
-                                        lte.set(condition);
-                                        fieldConditions.add(condition);
-                                    }
-                                };
-                                check(condition, gt, v -> v > 0, "LTE condition cannot have lower or equal value than GT value");
-                                check(condition, gte, v -> v >= 0, "LTE condition cannot have lower value than GTE value");
-                                for (SimpleCondition simpleCondition : notSet) {
-                                    checkAndRemove(condition, new AtomicReference<>(simpleCondition), fieldConditions, v -> v < 0, null);
+                                check(condition, andConditionMemory.gt, v -> v > 0, "LTE condition cannot have lower or equal value than GT value");
+                                check(condition, andConditionMemory.gte, v -> v >= 0, "LTE condition cannot have lower value than GTE value");
+                                for (SimpleCondition not : andConditionMemory.notSet) {
+                                    checkAndRemove(condition, not, conditionMemory.fieldConditions, v -> v < 0, null);
                                 }
-                                addRunnable.run();
+                                substitute(condition, andConditionMemory.lte, conditionMemory.fieldConditions, v -> v < 0, andConditionMemory::setLte);
                                 break;
                             }
                             case GT: {
-                                final Runnable addRunnable = () -> {
-                                    if (gt.get() == null || condition.getValue().compareTo(gt.get().getValue()) > 0) {
-                                        if (gt.get() != null) {
-                                            remove(fieldConditions, gt);
-                                        }
-                                        gt.set(condition);
-                                        fieldConditions.add(condition);
-                                    }
-                                };
-                                if (gte.get() != null) {
-                                    if (condition.getValue().compareTo(gte.get().getValue()) >= 0) {
-                                        remove(fieldConditions, gte);
+                                final Runnable addRunnable = () -> substitute(condition, andConditionMemory.gt, conditionMemory.fieldConditions, v -> v > 0, andConditionMemory::setGt);
+                                if (andConditionMemory.gte != null) {
+                                    if (condition.getValue().compareTo(andConditionMemory.gte.getValue()) >= 0) {
+                                        conditionMemory.fieldConditions.remove(andConditionMemory.gte);
                                         addRunnable.run();
                                     }
                                     continue;
                                 }
-                                for (SimpleCondition simpleCondition : notSet) {
-                                    checkAndRemove(condition, new AtomicReference<>(simpleCondition), fieldConditions, v -> v >= 0, null);
+                                for (SimpleCondition not : andConditionMemory.notSet) {
+                                    checkAndRemove(condition, not, conditionMemory.fieldConditions, v -> v >= 0, null);
                                 }
                                 addRunnable.run();
                                 break;
                             }
                             case GTE: {
-                                final Runnable addRunnable = () -> {
-                                    if (gte.get() == null || condition.getValue().compareTo(gte.get().getValue()) > 0) {
-                                        if (gte.get() != null) {
-                                            remove(fieldConditions, gte);
-                                        }
-                                        gte.set(condition);
-                                        fieldConditions.add(condition);
-                                    }
-                                };
-                                for (SimpleCondition simpleCondition : notSet) {
-                                    checkAndRemove(condition, new AtomicReference<>(simpleCondition), fieldConditions, v -> v > 0, null);
+                                for (SimpleCondition not : andConditionMemory.notSet) {
+                                    checkAndRemove(condition, not, conditionMemory.fieldConditions, v -> v > 0, null);
                                 }
-                                addRunnable.run();
+                                substitute(condition, andConditionMemory.gte, conditionMemory.fieldConditions, v -> v > 0, andConditionMemory::setGte);
                                 break;
                             }
                             case LIKE: {
-                                if (like.get() != null) {
+                                if (andConditionMemory.like != null) {
                                     final String s1 = (String) condition.getValue();
-                                    final String s2 = (String) like.get().getValue();
+                                    final String s2 = (String) andConditionMemory.like.getValue();
                                     if (s1.contains(s2)) {
                                         if (s1.length() > s2.length()) {
-                                            remove(fieldConditions, like);
+                                            conditionMemory.fieldConditions.remove(andConditionMemory.like);
                                         } else {
                                             continue;
                                         }
                                     } else if (s2.contains(s1)) {
                                         continue;
                                     } else {
-                                        throw makeConditionException("LIKE condition cannot have other value than LIKE value", condition, like.get());
+                                        throw makeConditionException("LIKE condition cannot have other value than LIKE value", condition, andConditionMemory.like);
                                     }
                                 }
-                                for (final SimpleCondition not : notSet) {
+                                for (final SimpleCondition not : andConditionMemory.notSet) {
                                     final String s1 = (String) condition.getValue();
                                     final String s2 = (String) not.getValue();
                                     if (s1.contains(s2) && s1.length() > s2.length()) {
-                                        fieldConditions.remove(not);
+                                        conditionMemory.fieldConditions.remove(not);
                                     }
                                 }
-                                like.set(condition);
-                                fieldConditions.add(condition);
+                                andConditionMemory.like = condition;
+                                conditionMemory.fieldConditions.add(condition);
                                 break;
                             }
                             case NOT: {
-                                notSet.add(condition);
-                                fieldConditions.add(condition);
+                                andConditionMemory.notSet.add(condition);
+                                conditionMemory.fieldConditions.add(condition);
                                 break;
                             }
                         }
+                        break;
                     }
-                    break;
-                }
-                case OR: {
-                    final Set<SimpleCondition> eqSet = new HashSet<>();
-                    final Set<SimpleCondition> likeSet = new HashSet<>();
-                    final AtomicReference<SimpleCondition> not = new AtomicReference<>();
-                    for (SimpleCondition condition : sort(conditions)) {
+                    case OR: {
+                        final OrConditionMemory orConditionMemory = (OrConditionMemory) conditionMemory;
                         switch (condition.getType()) {
                             case EQ: {
-                                if (!check(condition, lt, v -> v >= 0, null)) {
+                                if (!check(condition, orConditionMemory.lt, v -> v >= 0, null)) {
                                     continue;
                                 }
-                                if (!check(condition, lte, v -> v > 0, null)) {
+                                if (!check(condition, orConditionMemory.lte, v -> v > 0, null)) {
                                     continue;
                                 }
-                                if (!check(condition, gt, v -> v <= 0, null)) {
+                                if (!check(condition, orConditionMemory.gt, v -> v <= 0, null)) {
                                     continue;
                                 }
-                                if (!check(condition, gte, v -> v < 0, null)) {
+                                if (!check(condition, orConditionMemory.gte, v -> v < 0, null)) {
                                     continue;
                                 }
-                                if (not.get() != null) {
-                                    if (condition.getValue().compareTo(not.get().getValue()) == 0) {
-                                        remove(fieldConditions, not);
+                                if (orConditionMemory.not != null) {
+                                    if (condition.getValue().compareTo(orConditionMemory.not.getValue()) == 0) {
+                                        conditionMemory.fieldConditions.remove(orConditionMemory.not);
                                     }
                                     continue;
                                 }
                                 boolean contains = false;
-                                for (SimpleCondition like : likeSet) {
+                                for (SimpleCondition like : orConditionMemory.likeSet) {
                                     final String s = (String) condition.getValue();
                                     if (s.contains((String) like.getValue())) {
                                         contains = true;
@@ -268,110 +233,111 @@ public class ConditionServiceImpl implements ConditionService {
                                 if (contains) {
                                     continue;
                                 }
-                                eqSet.add(condition);
-                                fieldConditions.add(condition);
+                                orConditionMemory.eqSet.add(condition);
+                                conditionMemory.fieldConditions.add(condition);
                                 break;
                             }
                             case LT: {
-                                if (lte.get() != null && !checkAndRemove(condition, lte, fieldConditions, v -> v > 0, null)) {
+                                if (orConditionMemory.lte != null && !checkAndRemove(condition, orConditionMemory.lte, conditionMemory.fieldConditions, v -> v > 0, null)) {
                                     continue;
                                 }
-                                if (checkAndRemove(condition, gt, fieldConditions, v -> v > 0, null)) {
+                                if (checkAndRemove(condition, orConditionMemory.gt, conditionMemory.fieldConditions, v -> v > 0, null)) {
                                     continue;
                                 }
-                                if (checkAndRemove(condition, gte, fieldConditions, v -> v >= 0, null)) {
+                                if (checkAndRemove(condition, orConditionMemory.gte, conditionMemory.fieldConditions, v -> v >= 0, null)) {
                                     continue;
                                 }
-                                if (not.get() != null) {
-                                    checkAndRemove(condition, not, fieldConditions, v -> v > 0, null);
+                                if (orConditionMemory.not != null) {
+                                    checkAndRemove(condition, orConditionMemory.not, conditionMemory.fieldConditions, v -> v > 0, null);
                                     continue;
                                 }
-                                if (lt.get() != null && !checkAndRemove(condition, lt, fieldConditions, v -> v > 0, null)) {
+                                if (orConditionMemory.lt != null && !checkAndRemove(condition, orConditionMemory.lt, conditionMemory.fieldConditions, v -> v > 0, null)) {
                                     continue;
                                 }
-                                lt.set(condition);
-                                fieldConditions.add(condition);
+                                orConditionMemory.lt = condition;
+                                conditionMemory.fieldConditions.add(condition);
                                 break;
                             }
                             case LTE: {
-                                if (checkAndRemove(condition, gt, fieldConditions, v -> v >= 0, null)) {
+                                if (checkAndRemove(condition, orConditionMemory.gt, conditionMemory.fieldConditions, v -> v >= 0, null)) {
                                     continue;
                                 }
-                                if (checkAndRemove(condition, gte, fieldConditions, v -> v >= 0, null)) {
+                                if (checkAndRemove(condition, orConditionMemory.gte, conditionMemory.fieldConditions, v -> v >= 0, null)) {
                                     continue;
                                 }
-                                if (not.get() != null) {
-                                    checkAndRemove(condition, not, fieldConditions, v -> v >= 0, null);
+                                if (orConditionMemory.not != null) {
+                                    checkAndRemove(condition, orConditionMemory.not, conditionMemory.fieldConditions, v -> v >= 0, null);
                                     continue;
                                 }
-                                if (lte.get() != null && !checkAndRemove(condition, lte, fieldConditions, v -> v > 0, null)) {
+                                if (orConditionMemory.lte != null && !checkAndRemove(condition, orConditionMemory.lte, conditionMemory.fieldConditions, v -> v > 0, null)) {
                                     continue;
                                 }
-                                lte.set(condition);
-                                fieldConditions.add(condition);
+                                orConditionMemory.lte = condition;
+                                conditionMemory.fieldConditions.add(condition);
                                 break;
                             }
                             case GT: {
-                                if (gte.get() != null && !checkAndRemove(condition, gte, fieldConditions, v -> v < 0, null)) {
+                                if (orConditionMemory.gte != null && !checkAndRemove(condition, orConditionMemory.gte, conditionMemory.fieldConditions, v -> v < 0, null)) {
                                     continue;
                                 }
-                                if (not.get() != null) {
-                                    checkAndRemove(condition, not, fieldConditions, v -> v < 0, null);
+                                if (orConditionMemory.not != null) {
+                                    checkAndRemove(condition, orConditionMemory.not, conditionMemory.fieldConditions, v -> v < 0, null);
                                     continue;
                                 }
-                                if (gt.get() != null && !checkAndRemove(condition, gt, fieldConditions, v -> v < 0, null)) {
+                                if (orConditionMemory.gt != null && !checkAndRemove(condition, orConditionMemory.gt, conditionMemory.fieldConditions, v -> v < 0, null)) {
                                     continue;
                                 }
-                                gt.set(condition);
-                                fieldConditions.add(condition);
+                                orConditionMemory.gt = condition;
+                                conditionMemory.fieldConditions.add(condition);
                                 break;
                             }
                             case GTE: {
-                                if (not.get() != null) {
-                                    checkAndRemove(condition, not, fieldConditions, v -> v <= 0, null);
+                                if (orConditionMemory.not != null) {
+                                    checkAndRemove(condition, orConditionMemory.not, conditionMemory.fieldConditions, v -> v <= 0, null);
                                     continue;
                                 }
-                                if (gte.get() != null && !checkAndRemove(condition, gte, fieldConditions, v -> v < 0, null)) {
+                                if (orConditionMemory.gte != null && !checkAndRemove(condition, orConditionMemory.gte, conditionMemory.fieldConditions, v -> v < 0, null)) {
                                     continue;
                                 }
-                                gte.set(condition);
-                                fieldConditions.add(condition);
+                                orConditionMemory.gte = condition;
+                                conditionMemory.fieldConditions.add(condition);
                                 break;
                             }
                             case LIKE: {
                                 boolean skip = false;
-                                for (final SimpleCondition like : likeSet) {
+                                for (final SimpleCondition like : orConditionMemory.likeSet) {
                                     final String s1 = (String) condition.getValue();
                                     final String s2 = (String) like.getValue();
                                     if (s1.contains(s2)) {
                                         skip = true;
                                         break;
                                     } else if (s2.contains(s1)) {
-                                        remove(fieldConditions, new AtomicReference<>(like));
+                                        conditionMemory.fieldConditions.remove(like);
                                     }
                                 }
                                 if (skip) {
                                     continue;
                                 }
-                                likeSet.add(condition);
-                                fieldConditions.add(condition);
+                                orConditionMemory.likeSet.add(condition);
+                                conditionMemory.fieldConditions.add(condition);
                                 break;
                             }
                             case NOT: {
-                                if (not.get() != null) {
-                                    remove(fieldConditions, not);
+                                if (orConditionMemory.not != null) {
+                                    conditionMemory.fieldConditions.remove(orConditionMemory.not);
                                     continue;
                                 }
-                                not.set(condition);
-                                fieldConditions.add(condition);
+                                orConditionMemory.not = condition;
+                                conditionMemory.fieldConditions.add(condition);
                                 break;
                             }
                         }
+                        break;
                     }
-                    break;
                 }
             }
-            fieldsConditions.add(makeCondition(complexType, fieldConditions));
+            simplify(conditionMemory);
+            fieldsConditions.add(makeCondition(complexType, conditionMemory.fieldConditions));
         }
         return makeCondition(complexType, fieldsConditions);
     }
@@ -400,6 +366,48 @@ public class ConditionServiceImpl implements ConditionService {
         return conditions.stream().sorted(Comparator
                 .comparing(SimpleCondition::getType, (c1, c2) -> priorityFunction.apply(c2).compareTo(priorityFunction.apply(c1)))
                 .thenComparing(SimpleCondition::getValue, (v1, v2) -> v2.compareTo(v1))).collect(Collectors.toList());
+    }
+
+    private void simplify(ConditionMemory conditionMemory) throws ConditionException {
+        if (conditionMemory instanceof AndConditionMemory) {
+            final AndConditionMemory andConditionMemory = (AndConditionMemory) conditionMemory;
+            if (andConditionMemory.lte != null && andConditionMemory.gte != null && andConditionMemory.lte.getValue().compareTo(andConditionMemory.gte.getValue()) == 0) {
+                conditionMemory.fieldConditions.remove(andConditionMemory.lte);
+                conditionMemory.fieldConditions.remove(andConditionMemory.gte);
+                conditionMemory.fieldConditions.add(SimpleCondition.make(EQ, andConditionMemory.lte.getField(), andConditionMemory.lte.getValue()));
+            }
+            for (final SimpleCondition not : andConditionMemory.notSet) {
+                if (andConditionMemory.lte != null && andConditionMemory.lte.getValue().compareTo(not.getValue()) == 0) {
+                    conditionMemory.fieldConditions.remove(not);
+                    conditionMemory.fieldConditions.remove(andConditionMemory.lte);
+                    conditionMemory.fieldConditions.add(SimpleCondition.make(LT, not.getField(), not.getValue()));
+                }
+                if (andConditionMemory.gte != null && andConditionMemory.gte.getValue().compareTo(not.getValue()) == 0) {
+                    conditionMemory.fieldConditions.remove(not);
+                    conditionMemory.fieldConditions.remove(andConditionMemory.gte);
+                    conditionMemory.fieldConditions.add(SimpleCondition.make(GT, not.getField(), not.getValue()));
+                }
+            }
+        } else if (conditionMemory instanceof OrConditionMemory) {
+            final OrConditionMemory orConditionMemory = (OrConditionMemory) conditionMemory;
+            if (orConditionMemory.lt != null && orConditionMemory.gt != null && orConditionMemory.lt.getValue().compareTo(orConditionMemory.gt.getValue()) == 0) {
+                conditionMemory.fieldConditions.remove(orConditionMemory.lt);
+                conditionMemory.fieldConditions.remove(orConditionMemory.gt);
+                conditionMemory.fieldConditions.add(SimpleCondition.make(NOT, orConditionMemory.lt.getField(), orConditionMemory.lt.getValue()));
+            }
+            for (final SimpleCondition eq : orConditionMemory.eqSet) {
+                if (orConditionMemory.lt != null && orConditionMemory.lt.getValue().compareTo(eq.getValue()) == 0) {
+                    conditionMemory.fieldConditions.remove(eq);
+                    conditionMemory.fieldConditions.remove(orConditionMemory.lt);
+                    conditionMemory.fieldConditions.add(SimpleCondition.make(LTE, eq.getField(), eq.getValue()));
+                }
+                if (orConditionMemory.gt != null && orConditionMemory.gt.getValue().compareTo(eq.getValue()) == 0) {
+                    conditionMemory.fieldConditions.remove(eq);
+                    conditionMemory.fieldConditions.remove(orConditionMemory.gt);
+                    conditionMemory.fieldConditions.add(SimpleCondition.make(GTE, eq.getField(), eq.getValue()));
+                }
+            }
+        }
     }
 
     private <T extends ICondition> ICondition makeCondition(ICondition.ComplexType complexType, Collection<T> conditions) throws ConditionException {
@@ -435,17 +443,12 @@ public class ConditionServiceImpl implements ConditionService {
         return MultiComplexCondition.make(complexType, conditionSet);
     }
 
-
-    private void remove(Collection<SimpleCondition> fieldList, AtomicReference<SimpleCondition> atomicReference) {
-        fieldList.remove(atomicReference.get());
-    }
-
-    private boolean check(SimpleCondition conditionFirst, AtomicReference<SimpleCondition> conditionSecond, Function<Integer, Boolean> function, String error) throws ConditionException {
-        if (conditionSecond.get() == null || function.apply(conditionFirst.getValue().compareTo(conditionSecond.get().getValue()))) {
+    private boolean check(SimpleCondition conditionFirst, SimpleCondition conditionSecond, Function<Integer, Boolean> function, String error) throws ConditionException {
+        if (conditionSecond == null || function.apply(conditionFirst.getValue().compareTo(conditionSecond.getValue()))) {
             return true;
         }
         if (error != null) {
-            throw makeConditionException(error, conditionFirst, conditionSecond.get());
+            throw makeConditionException(error, conditionFirst, conditionSecond);
         }
         return false;
     }
@@ -454,17 +457,27 @@ public class ConditionServiceImpl implements ConditionService {
         return new ConditionException(error + ", conditionFirst " + conditionFirst + ", conditionSecond " + conditionSecond);
     }
 
-    private boolean checkAndRemove(SimpleCondition conditionFirst, AtomicReference<SimpleCondition> conditionSecond, Collection<SimpleCondition> fieldConditions, Function<Integer, Boolean> function, String error) throws ConditionException {
-        if (conditionFirst == null || conditionSecond.get() == null) {
+    private boolean checkAndRemove(SimpleCondition conditionFirst, SimpleCondition conditionSecond, Collection<SimpleCondition> fieldConditions, Function<Integer, Boolean> function, String error) throws ConditionException {
+        if (conditionFirst == null || conditionSecond == null) {
             return false;
         }
-        if (function.apply(conditionFirst.getValue().compareTo(conditionSecond.get().getValue()))) {
-            remove(fieldConditions, conditionSecond);
+        if (function.apply(conditionFirst.getValue().compareTo(conditionSecond.getValue()))) {
+            fieldConditions.remove(conditionSecond);
             return true;
         } else if (error != null) {
-            throw makeConditionException(error, conditionFirst, conditionSecond.get());
+            throw makeConditionException(error, conditionFirst, conditionSecond);
         }
         return false;
+    }
+
+    private void substitute(SimpleCondition conditionFirst, SimpleCondition conditionSecond, Collection<SimpleCondition> fieldConditions, Function<Integer, Boolean> function, Consumer<SimpleCondition> consumer) {
+        if (conditionSecond == null || function.apply(conditionFirst.getValue().compareTo(conditionSecond.getValue()))) {
+            if (conditionSecond != null) {
+                fieldConditions.remove(conditionSecond);
+            }
+            consumer.accept(conditionFirst);
+            fieldConditions.add(conditionFirst);
+        }
     }
 
     private boolean checkAndFillMap(ComplexCondition<ICondition> complexCondition, ICondition.ComplexType complexType, Map<String, Collection<SimpleCondition>> conditionMap) {
@@ -642,6 +655,54 @@ public class ConditionServiceImpl implements ConditionService {
                 return compareResult <= 0;
             default:
                 throw new IllegalArgumentException("Unknown simple type : " + condition.getType());
+        }
+    }
+
+    private static abstract class ConditionMemory {
+        public final Set<SimpleCondition> fieldConditions = new HashSet<>();
+        public SimpleCondition lt;
+        public SimpleCondition lte;
+        public SimpleCondition gt;
+        public SimpleCondition gte;
+
+        public void setLt(SimpleCondition lt) {
+            this.lt = lt;
+        }
+
+        public void setLte(SimpleCondition lte) {
+            this.lte = lte;
+        }
+
+        public void setGt(SimpleCondition gt) {
+            this.gt = gt;
+        }
+
+        public void setGte(SimpleCondition gte) {
+            this.gte = gte;
+        }
+    }
+
+    private static class AndConditionMemory extends ConditionMemory {
+        public final Set<SimpleCondition> notSet = new HashSet<>();
+        public SimpleCondition eq;
+        public SimpleCondition like;
+
+        public void setEq(SimpleCondition eq) {
+            this.eq = eq;
+        }
+
+        public void setLike(SimpleCondition like) {
+            this.like = like;
+        }
+    }
+
+    private static class OrConditionMemory extends ConditionMemory {
+        public final Set<SimpleCondition> eqSet = new HashSet<>();
+        public final Set<SimpleCondition> likeSet = new HashSet<>();
+        public SimpleCondition not;
+
+        public void setNot(SimpleCondition not) {
+            this.not = not;
         }
     }
 }

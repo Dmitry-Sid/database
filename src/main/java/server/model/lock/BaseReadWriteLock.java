@@ -3,6 +3,19 @@ package server.model.lock;
 abstract class BaseReadWriteLock<T> implements ReadWriteLock<T> {
     private static final boolean DEBUG_MODE = false;
 
+    private String printStackTrace() {
+        final StringBuilder sb = new StringBuilder();
+        sb.append("Thread ").append(Thread.currentThread().getName());
+        for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {
+            sb.append("\t").append(ste).append("\n");
+        }
+        return sb.toString();
+    }
+
+    protected enum Type {
+        Read, Write
+    }
+
     protected abstract class BaseInnerLock implements Lock<T> {
         private final Type type;
 
@@ -39,18 +52,5 @@ abstract class BaseReadWriteLock<T> implements ReadWriteLock<T> {
         }
 
         protected abstract void innerUnLock(T value);
-    }
-
-    protected enum Type {
-        Read, Write
-    }
-
-    private String printStackTrace() {
-        final StringBuilder sb = new StringBuilder();
-        sb.append("Thread ").append(Thread.currentThread().getName());
-        for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {
-            sb.append("\t").append(ste).append("\n");
-        }
-        return sb.toString();
     }
 }

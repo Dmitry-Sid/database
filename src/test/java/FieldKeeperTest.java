@@ -3,6 +3,7 @@ import org.junit.Test;
 import server.model.ConditionException;
 import server.model.FieldKeeper;
 import server.model.impl.BPlusTree;
+import server.model.pojo.FieldComplexCondition;
 import server.model.pojo.ICondition;
 import server.model.pojo.SimpleCondition;
 
@@ -37,7 +38,7 @@ public abstract class FieldKeeperTest {
                 }
             }
             for (int i = 0; i < size; i++) {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(i));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(i));
                 list.sort(Integer::compareTo);
                 if (i % 2 == 0) {
                     assertEquals(Arrays.asList(i, i + 1000), list);
@@ -80,12 +81,12 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert(10, 2);
             fieldKeeper.insert(null, 121);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(10));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(10));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(null));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(null));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(121), list);
             }
@@ -93,17 +94,17 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert(10, 3);
             fieldKeeper.insert(9, 4);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(10));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(10));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(11));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(11));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(3), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(9));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(9));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(4), list);
             }
@@ -113,17 +114,17 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert(7, 4);
             fieldKeeper.insert(6, 4);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(7));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(7));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(4), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(6));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(6));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(2, 4), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(8));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(8));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(5), list);
             }
@@ -131,17 +132,17 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert(5, 2);
             fieldKeeper.insert(3, 3);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(4));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(4));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(5));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(5));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(2), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(3));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(3));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(3), list);
             }
@@ -150,28 +151,28 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert(2, 13);
             fieldKeeper.insert(10, 100);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(0));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(0));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(14), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(-5));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(-5));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(8), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(2));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(2));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(13), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(10));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(10));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3, 100), list);
             }
             fieldKeeper.insert(null, 65);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(null));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(null));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(65, 121), list);
             }
@@ -206,18 +207,18 @@ public abstract class FieldKeeperTest {
                     fieldKeeper.insert(13, 9);
                     fieldKeeper.insert(null, 18);
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.EQ, "int", 6), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.EQ, "int", 6), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(4), list);
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.NOT, "int", 6), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.NOT, "int", 6), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(1, 2, 3, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34), list);
                     }
                     {
                         final int size = 4;
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.NOT, "int", 6), size));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.NOT, "int", 6), size));
                         assertEquals(size, list.size());
                         for (int i = 0; i < size; i++) {
                             assertTrue(Arrays.asList(1, 2, 3, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34).contains(list.get(i)));
@@ -225,35 +226,77 @@ public abstract class FieldKeeperTest {
                     }
                     {
                         final int size = 8;
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.NOT, "int", 6), size));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.NOT, "int", 6), size));
                         assertEquals(size, list.size());
                         for (int i = 0; i < size; i++) {
                             assertTrue(Arrays.asList(1, 2, 3, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34).contains(list.get(i)));
                         }
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.GT, "int", 9), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.GT, "int", 9), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(1, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34), list);
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.GTE, "int", 9), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GT, "int", 6),
+                                SimpleCondition.make(ICondition.SimpleType.LT, "int", 10)), -1));
                         list.sort(Integer::compareTo);
-                        assertEquals(Arrays.asList(1, 3, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34), list);
+                        assertEquals(Arrays.asList(2, 3, 5), list);
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LT, "int", 10), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GT, "int", 7),
+                                SimpleCondition.make(ICondition.SimpleType.LT, "int", 9)), -1));
+                        list.sort(Integer::compareTo);
+                        assertEquals(Arrays.asList(2), list);
+                    }
+                    {
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "int", 6),
+                                SimpleCondition.make(ICondition.SimpleType.LT, "int", 10)), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(2, 3, 4, 5), list);
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LTE, "int", 10), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GT, "int", 7),
+                                SimpleCondition.make(ICondition.SimpleType.LTE, "int", 9)), -1));
+                        list.sort(Integer::compareTo);
+                        assertEquals(Arrays.asList(2, 3), list);
+                    }
+                    {
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "int", 7),
+                                SimpleCondition.make(ICondition.SimpleType.LTE, "int", 9)), -1));
+                        list.sort(Integer::compareTo);
+                        assertEquals(Arrays.asList(2, 3, 5), list);
+                    }
+                    {
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.GTE, "int", 9), -1));
+                        list.sort(Integer::compareTo);
+                        assertEquals(Arrays.asList(1, 3, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34), list);
+                    }
+                    {
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LT, "int", 10), -1));
+                        list.sort(Integer::compareTo);
+                        assertEquals(Arrays.asList(2, 3, 4, 5), list);
+                    }
+                    {
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(FieldComplexCondition.make(ICondition.ComplexType.AND,
+                                SimpleCondition.make(ICondition.SimpleType.LT, "int", 10),
+                                SimpleCondition.make(ICondition.SimpleType.NOT, "int", 6)), -1));
+                        list.sort(Integer::compareTo);
+                        assertEquals(Arrays.asList(2, 3, 5), list);
+                    }
+                    {
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LTE, "int", 10), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(1, 2, 3, 4, 5), list);
                     }
                     {
                         final int size = 3;
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LTE, "int", 10), size));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LTE, "int", 10), size));
                         assertEquals(size, list.size());
                         for (int i = 0; i < size; i++) {
                             assertTrue(Arrays.asList(1, 2, 3, 4, 5).contains(list.get(i)));
@@ -261,18 +304,18 @@ public abstract class FieldKeeperTest {
                     }
                     {
                         final int size = 50;
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LTE, "int", 10), size));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LTE, "int", 10), size));
                         list.sort(Integer::compareTo);
                         assertEquals(5, list.size());
                         assertEquals(Arrays.asList(1, 2, 3, 4, 5), list);
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.EQ, "int", null), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.EQ, "int", null), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(18), list);
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.NOT, "int", null), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.NOT, "int", null), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34), list);
                     }
@@ -296,45 +339,45 @@ public abstract class FieldKeeperTest {
                     fieldKeeper.insert("test14", 8);
                     fieldKeeper.insert("test13", 9);
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.EQ, "String", "test6"), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.EQ, "String", "test6"), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(4), list);
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.NOT, "String", "test6"), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.NOT, "String", "test6"), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(1, 2, 3, 5, 6, 7, 8, 9), list);
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LT, "String", "test9"), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LT, "String", "test9"), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(1, 2, 4, 5, 6, 7, 8, 9), list);
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LTE, "String", "test9"), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LTE, "String", "test9"), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9), list);
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.GT, "String", "test10"), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.GT, "String", "test10"), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(2, 3, 4, 5, 6, 7, 8, 9), list);
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test10"), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test10"), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9), list);
                     }
                     {
                         final int size = 3;
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test10"), size));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test10"), size));
                         assertEquals(size, list.size());
                         for (int i = 0; i < size; i++) {
                             assertTrue(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9).contains(list.get(i)));
                         }
                     }
                     {
-                        final List<Integer> list = new ArrayList(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test1"), -1));
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test1"), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(1, 6, 7, 8, 9), list);
                     }
@@ -355,12 +398,12 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert(null, 65);
             fieldKeeper.insert(null, 66);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(10));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(10));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(null));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(null));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(65, 66), list);
             }
@@ -368,17 +411,17 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert(10, 3);
             fieldKeeper.insert(9, 4);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(10));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(10));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 2, 3), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(11));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(11));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(3), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(9));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(9));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(4), list);
             }
@@ -411,7 +454,7 @@ public abstract class FieldKeeperTest {
                 assertFalse(deleteResult.fully);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(10));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(10));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 3), list);
             }
@@ -422,27 +465,27 @@ public abstract class FieldKeeperTest {
                 assertEquals(Collections.emptySet(), fieldKeeper.search(9));
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(8));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(8));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(5), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(12));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(12));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(6), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(7));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(7));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(7), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(13));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(13));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(8), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(null));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(null));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(66), list);
             }
@@ -477,7 +520,7 @@ public abstract class FieldKeeperTest {
                 assertTrue(deleteResult.fully);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(10));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(10));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(1, 3), list);
             }
@@ -488,7 +531,7 @@ public abstract class FieldKeeperTest {
                 assertEquals(Collections.emptySet(), fieldKeeper.search(9));
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(8));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(8));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(5), list);
             }
@@ -499,7 +542,7 @@ public abstract class FieldKeeperTest {
                 assertEquals(Collections.emptySet(), fieldKeeper.search(7));
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(13));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(13));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(8), list);
             }
@@ -524,18 +567,18 @@ public abstract class FieldKeeperTest {
             fieldKeeper.insert(13, 9);
             fieldKeeper.insert(null, 15);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(null));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(null));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(15), list);
             }
             fieldKeeper.transform(6, 7, 7);
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(6));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(6));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(4), list);
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(7));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(7));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(5), list);
             }
@@ -544,7 +587,7 @@ public abstract class FieldKeeperTest {
                 assertEquals(Collections.emptySet(), fieldKeeper.search(6));
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(7));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(7));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(4, 5), list);
             }
@@ -553,7 +596,7 @@ public abstract class FieldKeeperTest {
                 assertEquals(Collections.emptySet(), fieldKeeper.search(12));
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(11));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(11));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(6, 7), list);
             }
@@ -562,7 +605,7 @@ public abstract class FieldKeeperTest {
                 assertEquals(Collections.emptySet(), fieldKeeper.search(null));
             }
             {
-                final List<Integer> list = new ArrayList(fieldKeeper.search(21));
+                final List<Integer> list = new ArrayList<>(fieldKeeper.search(21));
                 list.sort(Integer::compareTo);
                 assertEquals(Arrays.asList(15), list);
             }

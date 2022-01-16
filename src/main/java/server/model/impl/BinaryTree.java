@@ -5,18 +5,18 @@ import server.model.ConditionService;
 import server.model.ObjectConverter;
 import server.model.Utils;
 import server.model.lock.LockService;
+import server.model.pojo.FieldCondition;
 import server.model.pojo.ICondition;
 import server.model.pojo.Pair;
 import server.model.pojo.SimpleCondition;
 
 import java.io.Serializable;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
+    private static final Collection<SearchDirection> BOTH = Collections.unmodifiableList(Arrays.asList(SearchDirection.LEFT, SearchDirection.RIGHT));
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     public BinaryTree(String field, String path, ObjectConverter objectConverter, ConditionService conditionService) {
@@ -123,7 +123,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
     }
 
     @Override
-    public void conditionSearchNotNull(SimpleCondition condition, Set<V> set, int size) {
+    public void conditionSearchNotNull(FieldCondition condition, Set<V> set, int size) {
         LockService.doInReadWriteLock(readWriteLock.readLock(), () -> {
             if (getVariables().root == null) {
                 return;
@@ -174,8 +174,8 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
         return (BinaryTreeVariables<U, V>) variables;
     }
 
-    private enum BinarySearchDirection {
-        LEFT, RIGHT, BOTH, NONE
+    private enum SearchDirection {
+        LEFT, RIGHT, NONE
     }
 
     private static class Node<U, V> implements Serializable {
@@ -203,11 +203,11 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
     }
 
     private class ConditionSearcher {
-        private final SimpleCondition condition;
+        private final FieldCondition condition;
         private final Set<V> set;
         private final int size;
 
-        private ConditionSearcher(SimpleCondition condition, Set<V> set, int size) {
+        private ConditionSearcher(FieldCondition condition, Set<V> set, int size) {
             this.condition = condition;
             this.set = set;
             this.size = size;
@@ -225,53 +225,51 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
             if (node.left == null && node.right == null) {
                 return;
             }
-            final BinarySearchDirection searchDirection = determineDirection(node.key);
-            if (BinarySearchDirection.NONE.equals(searchDirection)) {
+            final Set<SearchDirection> searchDirections = Utils.collectConditions(condition, condition -> determineDirections(condition, node.key));
+            if (searchDirections.contains(SearchDirection.NONE)) {
                 return;
             }
-            if ((BinarySearchDirection.LEFT.equals(searchDirection) || BinarySearchDirection.BOTH.equals(searchDirection))
-                    && node.left != null) {
+            if (searchDirections.contains(SearchDirection.LEFT) && node.left != null) {
                 search(node.left);
             }
-            if ((BinarySearchDirection.RIGHT.equals(searchDirection) || BinarySearchDirection.BOTH.equals(searchDirection))
-                    && node.right != null) {
+            if (searchDirections.contains(SearchDirection.RIGHT) && node.right != null) {
                 search(node.right);
             }
         }
 
-        private BinarySearchDirection determineDirection(U value) {
+        private Collection<SearchDirection> determineDirections(SimpleCondition condition, U value) {
             if (condition.getValue() == null) {
-                return SimpleCondition.SimpleType.EQ.equals(condition.getType()) ? BinarySearchDirection.NONE : BinarySearchDirection.BOTH;
+                return SimpleCondition.SimpleType.EQ.equals(condition.getType()) ? Collections.singletonList(SearchDirection.NONE) : BOTH;
             }
             if (ICondition.SimpleType.LIKE.equals(condition.getType())) {
                 if (condition.getValue() == null) {
-                    return BinarySearchDirection.NONE;
+                    return Collections.singletonList(SearchDirection.NONE);
                 }
-                return BinarySearchDirection.BOTH;
+                return BOTH;
             }
             final int compareResult = value.compareTo((U) condition.getValue());
             switch (condition.getType()) {
                 case EQ:
                     if (compareResult == 0) {
-                        return BinarySearchDirection.NONE;
+                        return Collections.singletonList(SearchDirection.NONE);
                     } else if (compareResult > 0) {
-                        return BinarySearchDirection.LEFT;
+                        return Collections.singletonList(SearchDirection.LEFT);
                     }
-                    return BinarySearchDirection.RIGHT;
+                    return Collections.singletonList(SearchDirection.RIGHT);
                 case NOT:
-                    return BinarySearchDirection.BOTH;
+                    return BOTH;
                 case GT:
                 case GTE:
                     if (compareResult > 0) {
-                        return BinarySearchDirection.BOTH;
+                        return BOTH;
                     }
-                    return BinarySearchDirection.RIGHT;
+                    return Collections.singletonList(SearchDirection.RIGHT);
                 case LT:
                 case LTE:
                     if (compareResult < 0) {
-                        return BinarySearchDirection.BOTH;
+                        return BOTH;
                     }
-                    return BinarySearchDirection.LEFT;
+                    return Collections.singletonList(SearchDirection.LEFT);
                 default:
                     throw new IllegalArgumentException("Unknown simple type : " + condition.getType());
             }

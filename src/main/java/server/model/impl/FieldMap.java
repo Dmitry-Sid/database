@@ -4,7 +4,7 @@ import server.model.BaseFieldKeeper;
 import server.model.ConditionService;
 import server.model.ObjectConverter;
 import server.model.Utils;
-import server.model.pojo.SimpleCondition;
+import server.model.pojo.FieldCondition;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -61,7 +61,7 @@ public class FieldMap<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> 
     }
 
     @Override
-    public void conditionSearchNotNull(SimpleCondition condition, Set<V> set, int size) {
+    public void conditionSearchNotNull(FieldCondition condition, Set<V> set, int size) {
         for (Map.Entry<U, Set<V>> entry : getVariables().valuesMap.entrySet()) {
             if (conditionService.check(entry.getKey(), condition)) {
                 if (Utils.fillToFull(set, size, entry.getValue())) {

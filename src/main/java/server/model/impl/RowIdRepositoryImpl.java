@@ -223,7 +223,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
                 }
             });
         } catch (Exception e) {
-            log.error("failed process rowAddresses file " + fileName);
+            log.error("failed process rowAddresses file " + fileName, e);
             throw e;
         }
     }

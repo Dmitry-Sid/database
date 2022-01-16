@@ -1,6 +1,6 @@
 package server.model;
 
-import server.model.pojo.SimpleCondition;
+import server.model.pojo.FieldCondition;
 
 import java.util.Set;
 
@@ -12,7 +12,7 @@ public interface FieldKeeper<U extends Comparable<U>, V> extends Destroyable {
 
     DeleteResult delete(U key, V value);
 
-    Set<V> conditionSearch(SimpleCondition condition, int size);
+    Set<V> conditionSearch(FieldCondition condition, int size);
 
     Set<V> search(U key);
 

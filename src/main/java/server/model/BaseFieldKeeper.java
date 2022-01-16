@@ -1,6 +1,6 @@
 package server.model;
 
-import server.model.pojo.SimpleCondition;
+import server.model.pojo.FieldCondition;
 
 import java.io.File;
 import java.io.Serializable;
@@ -75,7 +75,7 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
     }
 
     @Override
-    public Set<V> conditionSearch(SimpleCondition condition, int size) {
+    public Set<V> conditionSearch(FieldCondition condition, int size) {
         final Set<V> set = new HashSet<>();
         conditionSearchNotNull(condition, set, size);
         if (!Utils.isFull(set, size) && conditionService.check(null, condition)) {
@@ -96,7 +96,7 @@ public abstract class BaseFieldKeeper<U extends Comparable<U>, V> implements Fie
 
     protected abstract DeleteResult deleteNotNull(U key, V value);
 
-    protected abstract void conditionSearchNotNull(SimpleCondition condition, Set<V> set, int size);
+    protected abstract void conditionSearchNotNull(FieldCondition condition, Set<V> set, int size);
 
     protected abstract Set<V> searchNotNull(U key);
 

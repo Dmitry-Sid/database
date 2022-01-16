@@ -80,10 +80,10 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
     }
 
     private SearchResult searchResult(ICondition condition, int size) {
-        if (condition instanceof SimpleCondition) {
-            final FieldKeeper fieldKeeper = fieldKeepers.get(((SimpleCondition) condition).getField());
+        if (condition instanceof FieldCondition) {
+            final FieldKeeper fieldKeeper = fieldKeepers.get(((FieldCondition) condition).getField());
             if (fieldKeeper != null) {
-                return new SearchResult(true, fieldKeeper.conditionSearch((SimpleCondition) condition, size));
+                return new SearchResult(true, fieldKeeper.conditionSearch((FieldCondition) condition, size));
             } else {
                 return new SearchResult(false, null);
             }
@@ -97,13 +97,18 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
 
     private SearchResult searchResult(ComplexCondition<ICondition> condition, int size) {
         SearchResult searchResult = null;
+        boolean isFirst = true;
         for (ICondition innerCondition : condition.getConditions()) {
-            final SearchResult searchResultInner = searchResult(innerCondition, -1);
+            if (!isFirst && ICondition.ComplexType.AND == condition.getType() && searchResult.idSet.isEmpty()) {
+                break;
+            }
+            final SearchResult searchResultInner = searchResult(innerCondition, ICondition.ComplexType.OR == condition.getType() ? size : -1);
             if (!searchResultInner.found) {
                 return new SearchResult(false, null);
             }
-            if (searchResult == null) {
+            if (isFirst) {
                 searchResult = searchResultInner;
+                isFirst = false;
                 continue;
             }
             switch (condition.getType()) {

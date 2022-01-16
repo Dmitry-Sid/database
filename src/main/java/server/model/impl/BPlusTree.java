@@ -2,6 +2,7 @@ package server.model.impl;
 
 import server.model.*;
 import server.model.lock.LockService;
+import server.model.pojo.FieldCondition;
 import server.model.pojo.ICondition;
 import server.model.pojo.Pair;
 import server.model.pojo.SimpleCondition;
@@ -17,6 +18,7 @@ import java.util.function.Function;
 
 public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
     private static final Set<SearchDirection> ALL = new HashSet<>(Arrays.asList(SearchDirection.LEFT_DOWN, SearchDirection.RIGHT, SearchDirection.RIGHT_DOWN));
+    private static final Set<SearchDirection> NONE = Collections.emptySet();
     public final int treeFactor;
     protected final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private final Map<String, LeafNode<U, V>> map = new ConcurrentHashMap<>();
@@ -265,7 +267,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     }
 
     @Override
-    public void conditionSearchNotNull(SimpleCondition condition, Set<V> set, int size) {
+    public void conditionSearchNotNull(FieldCondition condition, Set<V> set, int size) {
         LockService.doInReadWriteLock(readWriteLock.readLock(), () -> {
             new ConditionSearcher(condition, set, size).search(getVariables().root, 0);
         });
@@ -398,7 +400,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     }
 
     private enum SearchDirection {
-        RIGHT, RIGHT_DOWN, LEFT_DOWN, NONE
+        RIGHT, RIGHT_DOWN, LEFT_DOWN
     }
 
     public static class BTreeVariables<U, V> extends Variables<U, V> {
@@ -449,11 +451,11 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     }
 
     private class ConditionSearcher {
-        private final SimpleCondition condition;
+        private final FieldCondition condition;
         private final Set<V> set;
         private final int size;
 
-        private ConditionSearcher(SimpleCondition condition, Set<V> set, int size) {
+        private ConditionSearcher(FieldCondition condition, Set<V> set, int size) {
             this.condition = condition;
             this.set = set;
             this.size = size;
@@ -472,8 +474,8 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
             if (index == node.pairs.size() - 1 && isLeaf(node)) {
                 return;
             }
-            final Set<SearchDirection> searchDirections = determineDirection(node, index);
-            if (searchDirections.contains(SearchDirection.NONE)) {
+            final Set<SearchDirection> searchDirections = Utils.collectConditions(condition, condition -> determineDirections(condition, node, index));
+            if (searchDirections.isEmpty()) {
                 return;
             }
             if (searchDirections.contains(SearchDirection.RIGHT) && index < node.pairs.size() - 1) {
@@ -489,13 +491,13 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
             }
         }
 
-        private Set<SearchDirection> determineDirection(Node<U, V> node, int index) {
+        private Set<SearchDirection> determineDirections(SimpleCondition condition, Node<U, V> node, int index) {
             if (condition.getValue() == null) {
-                return SimpleCondition.SimpleType.EQ.equals(condition.getType()) ? Collections.singleton(SearchDirection.NONE) : ALL;
+                return SimpleCondition.SimpleType.EQ.equals(condition.getType()) ? NONE : ALL;
             }
             if (ICondition.SimpleType.LIKE.equals(condition.getType())) {
                 if (condition.getValue() == null) {
-                    return Collections.singleton(SearchDirection.NONE);
+                    return NONE;
                 }
                 return ALL;
             }
@@ -508,13 +510,13 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
                 switch (condition.getType()) {
                     case EQ:
                         if (compareResult == 0) {
-                            return Collections.singleton(SearchDirection.NONE);
+                            return NONE;
                         }
                         if (compareResult > 0) {
                             if (isFirst) {
                                 return Collections.singleton(SearchDirection.LEFT_DOWN);
                             }
-                            return Collections.singleton(SearchDirection.NONE);
+                            return NONE;
                         }
                         if (isLast) {
                             return Collections.singleton(SearchDirection.RIGHT_DOWN);
@@ -557,7 +559,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
                         }
                         if (compareResultNext > 0) {
                             if (compareResult >= 0) {
-                                return Collections.singleton(SearchDirection.NONE);
+                                return NONE;
                             }
                             return Collections.singleton(SearchDirection.RIGHT_DOWN);
                         }
@@ -584,9 +586,6 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
                     default:
                         throw new IllegalArgumentException("Unknown simple type : " + condition.getType());
                 }
-            }
-            if (set.isEmpty()) {
-                return Collections.singleton(SearchDirection.NONE);
             }
             return set;
         }

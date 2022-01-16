@@ -5,7 +5,10 @@ import server.model.FieldKeeper;
 import server.model.IndexService;
 import server.model.impl.ConditionServiceImpl;
 import server.model.impl.IndexServiceImpl;
-import server.model.pojo.*;
+import server.model.pojo.EmptyCondition;
+import server.model.pojo.ICondition;
+import server.model.pojo.MultiComplexCondition;
+import server.model.pojo.SimpleCondition;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
