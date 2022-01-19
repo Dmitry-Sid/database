@@ -142,8 +142,8 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                 bufferStream = buffer.stream();
                 bufferStream.forEach(rowElement -> {
                     final Row row = rowElement.getValue();
-                    if (Buffer.State.ADDED.equals(rowElement.getState()) && !processedIdSet.contains(row.getId()) && (conditionService.check(row, iCondition))) {
-                        consumer.accept(row);
+                    if (!processedIdSet.contains(row.getId()) && conditionService.check(row, iCondition)) {
+                        consumer.accept(objectConverter.clone(row));
                     }
                 });
             }
