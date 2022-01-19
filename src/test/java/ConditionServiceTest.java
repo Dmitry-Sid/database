@@ -1299,13 +1299,13 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int EQ 20;int EQ 20)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.EQ, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.EQ, "int", 30));
                 assertEquals(condition, conditionService.parse("OR(int EQ 20;int EQ 30)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.EQ, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.EQ, "int", 30));
                 assertEquals(condition, conditionService.parse("OR(int EQ 30;int EQ 20)"));
@@ -1322,7 +1322,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int LT 20;int EQ 20)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LT, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.EQ, "int", 30));
                 assertEquals(condition, conditionService.parse("OR(int LT 20;int EQ 30)"));
@@ -1339,7 +1339,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int LTE 20;int EQ 20)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LTE, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.EQ, "int", 30));
                 assertEquals(condition, conditionService.parse("OR(int LTE 20;int EQ 30)"));
@@ -1356,7 +1356,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int GT 20;int EQ 20)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.EQ, "int", 10));
                 assertEquals(condition, conditionService.parse("OR(int GT 20;int EQ 10)"));
@@ -1373,7 +1373,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int GTE 20;int EQ 20)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.GTE, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.EQ, "int", 10));
                 assertEquals(condition, conditionService.parse("OR(int GTE 20;int EQ 10)"));
@@ -1390,7 +1390,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String EQ test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.EQ, "String", "tes"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String EQ tes)"));
@@ -1422,7 +1422,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int EQ 20;int LT 20;)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LT, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.EQ, "int", 30));
                 assertEquals(condition, conditionService.parse("OR(int EQ 30;int LT 20;)"));
@@ -1469,7 +1469,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int GT 20;int LT 30)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.LT, "int", 10));
                 assertEquals(condition, conditionService.parse("OR(int GT 20;int LT 10)"));
@@ -1486,7 +1486,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int GTE 20;int LT 30)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.GTE, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.LT, "int", 10));
                 assertEquals(condition, conditionService.parse("OR(int GTE 20;int LT 10)"));
@@ -1495,19 +1495,19 @@ public class ConditionServiceTest {
         // LIKE - doesnt't affect
         {
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.LT, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String LT test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "tes"),
                         SimpleCondition.make(ICondition.SimpleType.LT, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE tes;String LT test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.LT, "String", "tes"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String LT tes)"));
@@ -1543,7 +1543,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int EQ 20;int LTE 20)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LTE, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.EQ, "int", 30));
                 assertEquals(condition, conditionService.parse("OR(int EQ 30;int LTE 20)"));
@@ -1590,7 +1590,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int GT 20;int LTE 30)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.LTE, "int", 10));
                 assertEquals(condition, conditionService.parse("OR(int GT 20;int LTE 10)"));
@@ -1607,7 +1607,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int GTE 20;int LTE 30)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.GTE, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.LTE, "int", 10));
                 assertEquals(condition, conditionService.parse("OR(int GTE 20;int LTE 10)"));
@@ -1616,19 +1616,19 @@ public class ConditionServiceTest {
         // LIKE - doesnt't affect
         {
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.LTE, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String LTE test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "tes"),
                         SimpleCondition.make(ICondition.SimpleType.LTE, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE tes;String LTE test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.LTE, "String", "tes"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String LTE tes)"));
@@ -1664,7 +1664,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int EQ 30;int GT 20)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.EQ, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.GT, "int", 30));
                 assertEquals(condition, conditionService.parse("OR(int EQ 20;int GT 30)"));
@@ -1680,7 +1680,7 @@ public class ConditionServiceTest {
             assertEquals(condition, conditionService.parse("OR(int LT 30;int GT 20)"));
         }
         {
-            final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                     SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
                     SimpleCondition.make(ICondition.SimpleType.LT, "int", 10));
             assertEquals(condition, conditionService.parse("OR(int LT 10;int GT 20)"));
@@ -1692,7 +1692,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int LTE 20;int GT 20)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.GT, "int", 30),
                         SimpleCondition.make(ICondition.SimpleType.LTE, "int", 20));
                 assertEquals(condition, conditionService.parse("OR(int LTE 20;int GT 30)"));
@@ -1735,19 +1735,19 @@ public class ConditionServiceTest {
         // LIKE - doesnt't affect
         {
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.GT, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String GT test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "tes"),
                         SimpleCondition.make(ICondition.SimpleType.GT, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE tes;String GT test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.GT, "String", "tes"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String GT tes)"));
@@ -1783,7 +1783,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int EQ 30;int GTE 20)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.EQ, "int", 20),
                         SimpleCondition.make(ICondition.SimpleType.GTE, "int", 30));
                 assertEquals(condition, conditionService.parse("OR(int EQ 20;int GTE 30)"));
@@ -1799,7 +1799,7 @@ public class ConditionServiceTest {
             assertEquals(condition, conditionService.parse("OR(int LT 30;int GTE 20)"));
         }
         {
-            final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                     SimpleCondition.make(ICondition.SimpleType.GTE, "int", 20),
                     SimpleCondition.make(ICondition.SimpleType.LT, "int", 10));
             assertEquals(condition, conditionService.parse("OR(int LT 10;int GTE 20)"));
@@ -1811,7 +1811,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(int LTE 20;int GTE 20)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.GTE, "int", 30),
                         SimpleCondition.make(ICondition.SimpleType.LTE, "int", 20));
                 assertEquals(condition, conditionService.parse("OR(int LTE 20;int GTE 30)"));
@@ -1854,19 +1854,19 @@ public class ConditionServiceTest {
         // LIKE - doesnt't affect
         {
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String GTE test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "tes"),
                         SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE tes;String GTE test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.GTE, "String", "tes"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String GTE tes)"));
@@ -1902,7 +1902,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(String EQ test;String LIKE test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.EQ, "String", "tes"));
                 assertEquals(condition, conditionService.parse("OR(String EQ tes;String LIKE test)"));
@@ -1911,19 +1911,19 @@ public class ConditionServiceTest {
         // LT - doesnt't affect
         {
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.LT, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LT test;String LIKE test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "tes"),
                         SimpleCondition.make(ICondition.SimpleType.LT, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LT test;String LIKE tes)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.LT, "String", "tes"));
                 assertEquals(condition, conditionService.parse("OR(String LT tes;String LIKE test)"));
@@ -1932,19 +1932,19 @@ public class ConditionServiceTest {
         // LTE - doesnt't affect
         {
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.LTE, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LTE test;String LIKE test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "tes"),
                         SimpleCondition.make(ICondition.SimpleType.LTE, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LTE test;String LIKE tes)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.LTE, "String", "tes"));
                 assertEquals(condition, conditionService.parse("OR(String LTE tes;String LIKE test)"));
@@ -1953,19 +1953,19 @@ public class ConditionServiceTest {
         // GT - doesnt't affect
         {
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.GT, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String GT test;String LIKE test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "tes"),
                         SimpleCondition.make(ICondition.SimpleType.GT, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String GT test;String LIKE tes)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.GT, "String", "tes"));
                 assertEquals(condition, conditionService.parse("OR(String GT tes;String LIKE test)"));
@@ -1974,19 +1974,19 @@ public class ConditionServiceTest {
         // GTE - doesnt't affect
         {
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String GTE test;String LIKE test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "tes"),
                         SimpleCondition.make(ICondition.SimpleType.GTE, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String GTE test;String LIKE tes)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.GTE, "String", "tes"));
                 assertEquals(condition, conditionService.parse("OR(String GTE tes;String LIKE test)"));
@@ -2007,7 +2007,7 @@ public class ConditionServiceTest {
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String LIKE tes)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test1"),
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test2"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE test1;String LIKE test2)"));
@@ -2016,19 +2016,19 @@ public class ConditionServiceTest {
         // NOT - doesnt't affect
         {
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.NOT, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String NOT test;String LIKE test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.NOT, "String", "tes"),
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String NOT tes;String LIKE test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.NOT, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "tes"));
                 assertEquals(condition, conditionService.parse("OR(String NOT test;String LIKE tes)"));
@@ -2112,19 +2112,19 @@ public class ConditionServiceTest {
         // LIKE - doesn't affect
         {
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.NOT, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String NOT test)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.NOT, "String", "tes"),
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "test"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE test;String NOT tes)"));
             }
             {
-                final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+                final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                         SimpleCondition.make(ICondition.SimpleType.NOT, "String", "test"),
                         SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "tes"));
                 assertEquals(condition, conditionService.parse("OR(String LIKE tes;String NOT test)"));
@@ -2236,13 +2236,13 @@ public class ConditionServiceTest {
             assertEquals(condition, conditionService.parse("OR(OR(int GT 30;int EQ 50;OR(int GT 10;int EQ 50));OR(int GT 20;int GT 40;OR(int GT 15;int EQ 50)))"));
         }
         {
-            final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                     SimpleCondition.make(ICondition.SimpleType.GT, "int", 20),
                     SimpleCondition.make(ICondition.SimpleType.EQ, "int", 10));
             assertEquals(condition, conditionService.parse("OR(int GT 30;int EQ 10;int GT 20;int EQ 40)"));
         }
         {
-            final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                     SimpleCondition.make(ICondition.SimpleType.EQ, "int", 40),
                     SimpleCondition.make(ICondition.SimpleType.EQ, "int", 30),
                     SimpleCondition.make(ICondition.SimpleType.EQ, "int", 10));
@@ -2257,7 +2257,7 @@ public class ConditionServiceTest {
             assertEquals(condition, conditionService.parse("OR(OR(int GTE 20;int LT 40);OR(int NOT 35;int LTE 100);OR(int LT 80;int GT 30;OR(int NOT 37;int NOT 100)))"));
         }
         {
-            final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                     SimpleCondition.make(ICondition.SimpleType.GTE, "int", 200),
                     SimpleCondition.make(ICondition.SimpleType.LTE, "int", 100));
             assertEquals(condition, conditionService.parse("OR(OR(int GTE 200;int LT 40);OR(int LTE 100);OR(int LT 80;int GT 300))"));
@@ -2283,7 +2283,7 @@ public class ConditionServiceTest {
             assertEquals(condition, conditionService.parse("OR(String LIKE test;String LIKE test; String LIKE te;String EQ test)"));
         }
         {
-            final ICondition condition = FieldComplexCondition.make(ICondition.ComplexType.OR,
+            final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,
                     SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "te"),
                     SimpleCondition.make(ICondition.SimpleType.LIKE, "String", "tst"),
                     SimpleCondition.make(ICondition.SimpleType.EQ, "String", "t"));

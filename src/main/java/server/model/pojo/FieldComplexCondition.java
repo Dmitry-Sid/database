@@ -69,7 +69,7 @@ public class FieldComplexCondition extends AbstractComplexCondition<SimpleCondit
 
     @Override
     public String toString() {
-        return "FieldConditionImpl{" +
+        return "FieldComplexCondition{" +
                 "field='" + field + '\'' +
                 ", type=" + type +
                 ", conditions=" + conditions +

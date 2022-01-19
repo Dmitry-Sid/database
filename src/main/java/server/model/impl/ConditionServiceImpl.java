@@ -438,7 +438,7 @@ public class ConditionServiceImpl implements ConditionService {
         if (conditionSet.size() == 1) {
             return conditionSet.iterator().next();
         }
-        if (hasSameField) {
+        if (hasSameField && ICondition.ComplexType.AND == complexType) {
             return FieldComplexCondition.make(complexType, conditionSet);
         }
         return MultiComplexCondition.make(complexType, conditionSet);
