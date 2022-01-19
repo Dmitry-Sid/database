@@ -8,6 +8,7 @@ import server.model.lock.ReadWriteLock;
 import server.model.pojo.ICondition;
 import server.model.pojo.Row;
 import server.model.pojo.RowAddress;
+import server.model.pojo.TableType;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -80,26 +81,47 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
 
     private StoppableStream<Row> stream(ICondition iCondition, int from, int size) {
         final IndexService.SearchResult searchResult = indexService.search(iCondition, size);
+        final Set<Integer> idSet = searchResult.found ?
+                searchResult.idSet.stream().sorted(Integer::compareTo).collect(Collectors.toCollection(LinkedHashSet::new)) : null;
         return new BaseStoppableStream<Row>() {
-            private final StoppableBatchStream<RowAddress> rowAddressStream = searchResult.found ?
-                    rowIdRepository.batchStream(searchResult.idSet, RowIdRepository.StreamType.Read) : rowIdRepository.batchStream();
+            private StoppableBatchStream<RowAddress> rowAddressStream;
             private StoppableStream<Buffer.Element<Row>> bufferStream;
 
             @Override
             public void forEach(Consumer<Row> consumer) {
                 final Set<Integer> processedIdSet = new HashSet<>();
                 final AtomicInteger skipped = new AtomicInteger();
-                try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
-                    final Consumer<RowAddress> rowAddressConsumer = processRow(chainInputStream, row -> {
-                        if (conditionService.check(row, iCondition)) {
-                            if (skipped.get() == from) {
-                                consumer.accept(row);
-                                processedIdSet.add(row.getId());
-                            } else {
-                                skipped.getAndIncrement();
-                            }
+                final Consumer<Row> rowConsumer = row -> {
+                    if (conditionService.check(row, iCondition)) {
+                        if (skipped.get() == from) {
+                            consumer.accept(row);
+                            processedIdSet.add(row.getId());
+                        } else {
+                            skipped.getAndIncrement();
                         }
-                    });
+                    }
+                };
+                if (searchResult.found) {
+                    for (Iterator<Integer> iterator = idSet.iterator(); iterator.hasNext(); ) {
+                        if (stopChecker.get()) {
+                            return;
+                        }
+                        final Integer id = iterator.next();
+                        final Buffer.Element<Row> rowElement = buffer.get(id);
+                        if (rowElement != null) {
+                            if (!Buffer.State.DELETED.equals(rowElement.getState())) {
+                                rowConsumer.accept(objectConverter.clone(rowElement.getValue()));
+                            }
+                            iterator.remove();
+                        }
+                    }
+                }
+                if (searchResult.found && idSet.isEmpty()) {
+                    return;
+                }
+                rowAddressStream = searchResult.found ?
+                        rowIdRepository.batchStream(idSet, RowIdRepository.StreamType.Read) : rowIdRepository.batchStream();
+                try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
                     rowAddressStream.addOnBatchEnd(() -> {
                         try {
                             chainInputStream.close();
@@ -107,19 +129,20 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                             throw new RuntimeException(e);
                         }
                     });
-                    rowAddressStream.forEach(rowAddressConsumer);
+                    rowAddressStream.forEach(processRow(chainInputStream, rowConsumer));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
                 if (stopChecker.get()) {
                     return;
                 }
+                if (searchResult.found) {
+                    return;
+                }
                 bufferStream = buffer.stream();
                 bufferStream.forEach(rowElement -> {
                     final Row row = rowElement.getValue();
-                    final boolean inSet = !searchResult.found || (searchResult.idSet != null && searchResult.idSet.contains(row.getId()));
-                    if (Buffer.State.ADDED.equals(rowElement.getState()) && !processedIdSet.contains(row.getId()) &&
-                            inSet && (conditionService.check(row, iCondition))) {
+                    if (Buffer.State.ADDED.equals(rowElement.getState()) && !processedIdSet.contains(row.getId()) && (conditionService.check(row, iCondition))) {
                         consumer.accept(row);
                     }
                 });
@@ -127,7 +150,9 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
 
             @Override
             public void stop() {
-                rowAddressStream.stop();
+                if (rowAddressStream != null) {
+                    rowAddressStream.stop();
+                }
                 if (bufferStream != null) {
                     bufferStream.stop();
                 }
@@ -190,6 +215,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
             }
             rows.add(row);
         });
+        rows.sort(Comparator.comparingInt(TableType::getId));
         return rows;
     }
 
