@@ -2,10 +2,7 @@ package server.model.impl;
 
 import server.model.*;
 import server.model.lock.LockService;
-import server.model.pojo.FieldCondition;
-import server.model.pojo.ICondition;
-import server.model.pojo.Pair;
-import server.model.pojo.SimpleCondition;
+import server.model.pojo.*;
 
 import java.io.File;
 import java.io.Serializable;
@@ -269,7 +266,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
     @Override
     public void conditionSearchNotNull(FieldCondition condition, Set<V> set, int size) {
         LockService.doInReadWriteLock(readWriteLock.readLock(), () -> {
-            new ConditionSearcher(condition, set, size).search(getVariables().root, 0);
+            new ConditionSearcher(condition, set, size).search(getVariables().root, null, 0);
         });
     }
 
@@ -454,14 +451,16 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
         private final FieldCondition condition;
         private final Set<V> set;
         private final int size;
+        private final boolean isOrCondition;
 
         private ConditionSearcher(FieldCondition condition, Set<V> set, int size) {
             this.condition = condition;
             this.set = set;
             this.size = size;
+            this.isOrCondition = this.condition instanceof ComplexCondition && ICondition.ComplexType.OR == ((ComplexCondition) this.condition).getType();
         }
 
-        private void search(Node<U, V> node, int index) {
+        private void search(Node<U, V> node, U parentKey, int index) {
             if (node == null || Utils.isFull(set, size) || node.pairs.size() <= index) {
                 return;
             }
@@ -474,24 +473,27 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
             if (index == node.pairs.size() - 1 && isLeaf(node)) {
                 return;
             }
-            final Set<SearchDirection> searchDirections = Utils.collectConditions(condition, condition -> determineDirections(condition, node, index));
+            final Set<SearchDirection> searchDirections = Utils.collectConditions(condition, condition -> determineDirections(condition, node, parentKey, index));
             if (searchDirections.isEmpty()) {
                 return;
             }
             if (searchDirections.contains(SearchDirection.RIGHT) && index < node.pairs.size() - 1) {
-                search(node, index + 1);
+                search(node, parentKey, index + 1);
             }
             if (!isLeaf(node)) {
                 if (searchDirections.contains(SearchDirection.LEFT_DOWN) && index == 0) {
-                    search(read(getChildren(node).get(index)), 0);
+                    search(read(getChildren(node).get(index)), pair.getFirst(), 0);
                 }
                 if (searchDirections.contains(SearchDirection.RIGHT_DOWN) && index < node.pairs.size()) {
-                    search(read(getChildren(node).get(index + 1)), 0);
+                    search(read(getChildren(node).get(index + 1)), pair.getFirst(), 0);
                 }
             }
         }
 
-        private Set<SearchDirection> determineDirections(SimpleCondition condition, Node<U, V> node, int index) {
+        private Collection<SearchDirection> determineDirections(SimpleCondition condition, Node<U, V> node, U parentKey, int index) {
+            if (isOrCondition && parentKey != null && Utils.skipTreeSearch(condition, parentKey, node.pairs.get(index).getFirst())) {
+                return NONE;
+            }
             if (condition.getValue() == null) {
                 return SimpleCondition.SimpleType.EQ.equals(condition.getType()) ? NONE : ALL;
             }
@@ -568,7 +570,7 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
                         return new HashSet<>(Arrays.asList(SearchDirection.RIGHT, SearchDirection.RIGHT_DOWN));
                     case GT:
                     case GTE:
-                        if (compareResultNext >= 0) {
+                        if (compareResultNext > 0) {
                             set.add(SearchDirection.RIGHT_DOWN);
                         }
                         set.add(SearchDirection.RIGHT);
@@ -576,8 +578,9 @@ public class BPlusTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V>
                     case LT:
                     case LTE:
                         if (compareResultNext <= 0) {
-                            set.addAll(Arrays.asList(SearchDirection.RIGHT, SearchDirection.RIGHT_DOWN));
-                            break;
+                            if (compareResultNext < 0 || ICondition.SimpleType.LTE == condition.getType()) {
+                                set.add(SearchDirection.RIGHT);
+                            }
                         }
                         if (compareResult < 0) {
                             set.add(SearchDirection.RIGHT_DOWN);

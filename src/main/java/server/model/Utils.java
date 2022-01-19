@@ -104,6 +104,25 @@ public class Utils {
         return set;
     }
 
+    public static <T> boolean checkStopConditions(boolean isFirst, ICondition.ComplexType complexType, T value, Function<T, Boolean> function) {
+        if (value == null) {
+            return false;
+        }
+        if (!isFirst && ICondition.ComplexType.AND == complexType && function.apply(value)) {
+            return true;
+        }
+        return !isFirst && ICondition.ComplexType.OR == complexType && !function.apply(value);
+    }
+
+    public static <T extends Comparable<T>> boolean skipTreeSearch(SimpleCondition condition, T parentKey, T key) {
+        if (ICondition.SimpleType.GT == condition.getType() || ICondition.SimpleType.GTE == condition.getType()) {
+            return parentKey.compareTo(key) > 0 && condition.getValue().compareTo(parentKey) >= 0;
+        } else if (ICondition.SimpleType.LT == condition.getType() || ICondition.SimpleType.LTE == condition.getType()) {
+            return parentKey.compareTo(key) < 0 && condition.getValue().compareTo(parentKey) <= 0;
+        }
+        return false;
+    }
+
 
     private static boolean isWindows() {
         return OSType.WIN.equals(OS_TYPE);

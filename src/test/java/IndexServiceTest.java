@@ -173,7 +173,11 @@ public class IndexServiceTest {
             final IndexService.SearchResult searchResult = indexService.search(condition, 25);
             assertTrue(searchResult.found);
             assertEquals(25, searchResult.idSet.size());
-            final AtomicInteger i = new AtomicInteger();
+            final AtomicInteger i = new AtomicInteger(20);
+            searchResult.idSet.stream().sorted().forEach(id -> {
+                assertEquals((Integer) i.get(), id);
+                i.getAndIncrement();
+            });
         }
         {
             final ICondition condition = MultiComplexCondition.make(ICondition.ComplexType.OR,

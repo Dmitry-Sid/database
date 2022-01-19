@@ -4,6 +4,7 @@ import org.apache.commons.lang3.StringUtils;
 import server.model.ConditionException;
 import server.model.ConditionService;
 import server.model.ModelService;
+import server.model.Utils;
 import server.model.pojo.*;
 
 import java.util.*;
@@ -589,9 +590,14 @@ public class ConditionServiceImpl implements ConditionService {
 
     private <T> boolean check(T value, ComplexCondition<ICondition> condition) {
         Boolean result = null;
+        boolean isFirst = true;
         for (ICondition innerCondition : condition.getConditions()) {
-            if (result == null) {
+            if (Utils.checkStopConditions(isFirst, condition.getType(), result, r -> !r)) {
+                break;
+            }
+            if (isFirst) {
                 result = check(value, innerCondition);
+                isFirst = false;
                 continue;
             }
             switch (condition.getType()) {

@@ -99,7 +99,13 @@ public class IndexServiceImpl extends BaseDestroyable implements IndexService {
         SearchResult searchResult = null;
         boolean isFirst = true;
         for (ICondition innerCondition : condition.getConditions()) {
-            if (!isFirst && ICondition.ComplexType.AND == condition.getType() && searchResult.idSet.isEmpty()) {
+            SearchResult finalSearchResult = searchResult;
+            if (Utils.checkStopConditions(isFirst, condition.getType(), finalSearchResult, r -> {
+                if (ICondition.ComplexType.AND == condition.getType()) {
+                    return r.idSet.isEmpty();
+                }
+                return !(size >= 0 && r.idSet.size() >= size);
+            })) {
                 break;
             }
             final SearchResult searchResultInner = searchResult(innerCondition, ICondition.ComplexType.OR == condition.getType() ? size : -1);

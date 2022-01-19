@@ -5,10 +5,7 @@ import server.model.ConditionService;
 import server.model.ObjectConverter;
 import server.model.Utils;
 import server.model.lock.LockService;
-import server.model.pojo.FieldCondition;
-import server.model.pojo.ICondition;
-import server.model.pojo.Pair;
-import server.model.pojo.SimpleCondition;
+import server.model.pojo.*;
 
 import java.io.Serializable;
 import java.util.*;
@@ -16,7 +13,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V> {
-    private static final Collection<SearchDirection> BOTH = Collections.unmodifiableList(Arrays.asList(SearchDirection.LEFT, SearchDirection.RIGHT));
+    private static final Set<SearchDirection> BOTH = new HashSet<>(Arrays.asList(SearchDirection.LEFT, SearchDirection.RIGHT));
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     public BinaryTree(String field, String path, ObjectConverter objectConverter, ConditionService conditionService) {
@@ -206,11 +203,13 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
         private final FieldCondition condition;
         private final Set<V> set;
         private final int size;
+        private final boolean isOrCondition;
 
         private ConditionSearcher(FieldCondition condition, Set<V> set, int size) {
             this.condition = condition;
             this.set = set;
             this.size = size;
+            this.isOrCondition = this.condition instanceof ComplexCondition && ICondition.ComplexType.OR == ((ComplexCondition) this.condition).getType();
         }
 
         private void search(Node<U, V> node) {
@@ -225,7 +224,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
             if (node.left == null && node.right == null) {
                 return;
             }
-            final Set<SearchDirection> searchDirections = Utils.collectConditions(condition, condition -> determineDirections(condition, node.key));
+            final Set<SearchDirection> searchDirections = Utils.collectConditions(condition, condition -> determineDirections(condition, node));
             if (searchDirections.contains(SearchDirection.NONE)) {
                 return;
             }
@@ -237,7 +236,11 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
             }
         }
 
-        private Collection<SearchDirection> determineDirections(SimpleCondition condition, U value) {
+        private Collection<SearchDirection> determineDirections(SimpleCondition condition, Node<U, V> node) {
+            final U key = node.key;
+            if (isOrCondition && node.parent != null && Utils.skipTreeSearch(condition, node.parent.key, key)) {
+                return Collections.emptySet();
+            }
             if (condition.getValue() == null) {
                 return SimpleCondition.SimpleType.EQ.equals(condition.getType()) ? Collections.singletonList(SearchDirection.NONE) : BOTH;
             }
@@ -247,7 +250,7 @@ public class BinaryTree<U extends Comparable<U>, V> extends BaseFieldKeeper<U, V
                 }
                 return BOTH;
             }
-            final int compareResult = value.compareTo((U) condition.getValue());
+            final int compareResult = key.compareTo((U) condition.getValue());
             switch (condition.getType()) {
                 case EQ:
                     if (compareResult == 0) {

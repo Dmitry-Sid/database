@@ -273,6 +273,41 @@ public abstract class FieldKeeperTest {
                         assertEquals(Arrays.asList(2, 3, 5), list);
                     }
                     {
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(FieldComplexCondition.make(ICondition.ComplexType.OR,
+                                SimpleCondition.make(ICondition.SimpleType.GT, "int", 32),
+                                SimpleCondition.make(ICondition.SimpleType.LT, "int", 8)), -1));
+                        list.sort(Integer::compareTo);
+                        assertEquals(Arrays.asList(4, 5, 33, 34), list);
+                    }
+                    {
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(FieldComplexCondition.make(ICondition.ComplexType.OR,
+                                SimpleCondition.make(ICondition.SimpleType.GT, "int", 7),
+                                SimpleCondition.make(ICondition.SimpleType.LT, "int", 9)), -1));
+                        list.sort(Integer::compareTo);
+                        assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34), list);
+                    }
+                    {
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(FieldComplexCondition.make(ICondition.ComplexType.OR,
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "int", 32),
+                                SimpleCondition.make(ICondition.SimpleType.LT, "int", 8)), -1));
+                        list.sort(Integer::compareTo);
+                        assertEquals(Arrays.asList(4, 5, 32, 33, 34), list);
+                    }
+                    {
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(FieldComplexCondition.make(ICondition.ComplexType.OR,
+                                SimpleCondition.make(ICondition.SimpleType.GT, "int", 32),
+                                SimpleCondition.make(ICondition.SimpleType.LTE, "int", 8)), -1));
+                        list.sort(Integer::compareTo);
+                        assertEquals(Arrays.asList(2, 4, 5, 33, 34), list);
+                    }
+                    {
+                        final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(FieldComplexCondition.make(ICondition.ComplexType.OR,
+                                SimpleCondition.make(ICondition.SimpleType.GTE, "int", 32),
+                                SimpleCondition.make(ICondition.SimpleType.LTE, "int", 8)), -1));
+                        list.sort(Integer::compareTo);
+                        assertEquals(Arrays.asList(2, 4, 5, 32, 33, 34), list);
+                    }
+                    {
                         final List<Integer> list = new ArrayList<>(fieldKeeper.conditionSearch(SimpleCondition.make(ICondition.SimpleType.GTE, "int", 9), -1));
                         list.sort(Integer::compareTo);
                         assertEquals(Arrays.asList(1, 3, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34), list);
