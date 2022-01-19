@@ -35,7 +35,7 @@ public class MultiComplexCondition extends AbstractComplexCondition<ICondition> 
 
     @Override
     public String toString() {
-        return "MultiComplexCondition{" +
+        return "ComplexCondition{" +
                 "type=" + type +
                 ", conditions=" + conditions +
                 '}';
