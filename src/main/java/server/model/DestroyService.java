@@ -6,4 +6,6 @@ public interface DestroyService extends Destroyable {
     void unregister(Destroyable destroyable);
 
     long getSleepTime();
+
+    void wakeUp();
 }

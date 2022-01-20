@@ -441,7 +441,7 @@ public class RowIdRepositoryTest {
             {
                 final Set<Integer> idSet = new HashSet<>(Arrays.asList(10, 55, 155, 44, 749, 750, 900));
                 final AtomicInteger counter = new AtomicInteger();
-                final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(idSet, RowIdRepository.StreamType.Read);
+                final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(idSet, RowIdRepository.ProcessType.Read);
                 final boolean[] batchEnd = new boolean[]{false, false, false, false};
                 final boolean[] streamEnd = new boolean[]{false, false};
                 stream.addOnBatchEnd(() -> {
@@ -505,7 +505,7 @@ public class RowIdRepositoryTest {
         Thread.sleep(3000);
         final ExecutorService executorService = Executors.newCachedThreadPool();
         {
-            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(new HashSet<>(Collections.singletonList(1)), RowIdRepository.StreamType.Read);
+            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(new HashSet<>(Collections.singletonList(1)), RowIdRepository.ProcessType.Read);
             final Future<Void> future = executorService.submit(() -> {
                 stream.forEach(rowAddress -> rowIdRepository.delete(rowAddress.getId()));
                 return null;
@@ -520,7 +520,7 @@ public class RowIdRepositoryTest {
             }
         }
         {
-            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(new HashSet<>(Collections.singletonList(750)), RowIdRepository.StreamType.Write);
+            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(new HashSet<>(Collections.singletonList(750)), RowIdRepository.ProcessType.Write);
             final Future<Void> future = executorService.submit(() -> {
                 stream.forEach(rowAddress -> rowIdRepository.delete(rowAddress.getId()));
                 return null;

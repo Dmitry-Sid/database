@@ -37,7 +37,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
         this.fileHelper = fileHelper;
         this.indexService = indexService;
         this.conditionService = conditionService;
-        this.buffer = new BufferImpl<>(bufferSize, bufferConsumer());
+        this.buffer = new BufferImpl<>(bufferSize, destroyService::wakeUp, bufferConsumer());
         this.modelService = modelService;
         this.fields.addAll(modelService.getFields().stream().map(ModelService.FieldInfo::getName).collect(Collectors.toSet()));
         modelService.subscribeOnFieldsChanges(fields -> {
@@ -120,7 +120,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     return;
                 }
                 rowAddressStream = searchResult.found ?
-                        rowIdRepository.batchStream(idSet, RowIdRepository.StreamType.Read) : rowIdRepository.batchStream();
+                        rowIdRepository.batchStream(idSet, RowIdRepository.ProcessType.Read) : rowIdRepository.batchStream();
                 try (final FileHelper.ChainStream<InputStream> chainInputStream = fileHelper.getChainInputStream()) {
                     rowAddressStream.addOnBatchEnd(() -> {
                         try {
@@ -231,9 +231,9 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                     }
                     return;
                 }
-                Utils.compareAndRun(rowAddress.getFilePath(), fileName.get(), () -> {
+                Utils.compareAndRun(rowAddress.getFilePath(), fileName.get(), actual -> {
                     lastPosition.set(0);
-                    fileName.set(rowAddress.getFilePath());
+                    fileName.set(actual);
                     chainInputStream.init(fileName.get());
                 });
                 fileHelper.skip(chainInputStream.getStream(), rowAddress.getPosition() - lastPosition.get());
@@ -321,7 +321,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
             }
             final Map<Integer, Buffer.Element<Row>> map = list.stream().collect(Collectors.toMap(element -> element.getValue().getId(), Function.identity()));
             final List<Runnable> afterBatchActions = new ArrayList<>();
-            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(map.keySet(), RowIdRepository.StreamType.Write);
+            final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream(map.keySet(), RowIdRepository.ProcessType.Write);
             stream.addOnBatchEnd(() -> {
                 afterBatchActions.forEach(Runnable::run);
                 afterBatchActions.clear();

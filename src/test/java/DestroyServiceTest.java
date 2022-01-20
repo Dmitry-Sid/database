@@ -18,7 +18,10 @@ public class DestroyServiceTest {
         destroyService.register(destroyable1);
         assertEquals(0, values[0]);
         assertEquals(0, values[1]);
-        Thread.sleep(1200);
+        Thread.sleep(600);
+        assertEquals(0, values[0]);
+        assertEquals(0, values[1]);
+        Thread.sleep(600);
         assertEquals(1, values[0]);
         assertEquals(0, values[1]);
         destroyService.register(destroyable2);
@@ -29,5 +32,24 @@ public class DestroyServiceTest {
         Thread.sleep(1200);
         assertEquals(2, values[0]);
         assertEquals(2, values[1]);
+    }
+
+    @Test
+    public void wakeUpTest() throws InterruptedException {
+        final int[] values = {0, 0};
+        final Destroyable destroyable1 = () -> values[0]++;
+        final Destroyable destroyable2 = () -> values[1]++;
+        final DestroyService destroyService = new DestroyServiceImpl(10000);
+        destroyService.register(destroyable1);
+        destroyService.register(destroyable2);
+        assertEquals(0, values[0]);
+        assertEquals(0, values[1]);
+        Thread.sleep(1000);
+        assertEquals(0, values[0]);
+        assertEquals(0, values[1]);
+        destroyService.wakeUp();
+        Thread.sleep(1000);
+        assertEquals(1, values[0]);
+        assertEquals(1, values[1]);
     }
 }

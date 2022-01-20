@@ -124,13 +124,13 @@ public class FileHelperImpl implements FileHelper {
             stoppableStream.addOnBatchEnd(saveTempFileRunnable);
             stoppableStream.forEach(rowAddress -> {
                 try {
-                    Utils.compareAndRun(rowAddress.getFilePath(), inputFileName[0], () -> {
+                    Utils.compareAndRun(rowAddress.getFilePath(), inputFileName[0], actual -> {
                         saveTempFileRunnable.run();
                         inputLastPosition[0] = 0;
-                        inputFileName[0] = rowAddress.getFilePath();
+                        inputFileName[0] = actual;
                         tempFileName[0] = getTempFile(inputFileName[0]);
-                        chainInputStream.init(rowAddress.getFilePath());
-                        chainOutputStream.init(getTempFile(rowAddress.getFilePath()));
+                        chainInputStream.init(actual);
+                        chainOutputStream.init(getTempFile(actual));
                     });
                     boolean found = false;
                     if (chainInputStream.getStream() != null) {

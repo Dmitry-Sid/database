@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -62,9 +63,9 @@ public class Utils {
         return sb.toString();
     }
 
-    public static <T> void compareAndRun(T actual, T previous, Runnable action) {
+    public static <T> void compareAndRun(T actual, T previous, Consumer<T> consumer) {
         if (!actual.equals(previous)) {
-            action.run();
+            consumer.accept(actual);
         }
     }
 

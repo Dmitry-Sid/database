@@ -116,8 +116,8 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     }
 
     @Override
-    public StoppableBatchStream<RowAddress> batchStream(Set<Integer> idSet, StreamType streamType) {
-        return new BatchStream(idSet, streamType);
+    public StoppableBatchStream<RowAddress> batchStream(Set<Integer> idSet, ProcessType ProcessType) {
+        return new BatchStream(idSet, ProcessType);
     }
 
     private RowAddress createRowAddress(int id) {
@@ -296,10 +296,10 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
             this.lock = readWriteLock.readLock();
         }
 
-        private BatchStream(Set<Integer> idSet, StreamType streamType) {
+        private BatchStream(Set<Integer> idSet, ProcessType ProcessType) {
             this.full = false;
             this.idSet = idSet;
-            this.lock = streamType == StreamType.Write ? readWriteLock.writeLock() : readWriteLock.readLock();
+            this.lock = ProcessType == ProcessType.Write ? readWriteLock.writeLock() : readWriteLock.readLock();
         }
 
         @Override
@@ -322,7 +322,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
                     if (stopChecker.get()) {
                         return;
                     }
-                    Utils.compareAndRun(fileFunction.apply(value), fileName[0], () -> {
+                    Utils.compareAndRun(fileFunction.apply(value), fileName[0], actual -> {
                         if (fileName[0] != null) {
                             onBatchEnd.forEach(Runnable::run);
                         }

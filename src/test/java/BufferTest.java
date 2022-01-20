@@ -251,4 +251,35 @@ public class BufferTest {
         buffer.flush();
         assertTrue(flushed[0]);
     }
+
+    @Test
+    public void filledTest() {
+        final int[] size = new int[]{0};
+        final boolean[] processed = new boolean[]{false};
+        final Buffer<Row> buffer = new BufferImpl<>(2, () -> {
+            assertEquals(0, size[0]);
+            processed[0] = true;
+        }, list -> size[0] = list.size());
+        assertFalse(processed[0]);
+        {
+            final Map<String, Comparable> map = new HashMap<>();
+            map.put("field", Integer.toString(1));
+            buffer.add(new Row(1, map), Buffer.State.ADDED);
+        }
+        assertFalse(processed[0]);
+        {
+            final Map<String, Comparable> map = new HashMap<>();
+            map.put("field", Integer.toString(1));
+            buffer.add(new Row(2, map), Buffer.State.ADDED);
+        }
+        assertFalse(processed[0]);
+        {
+            final Map<String, Comparable> map = new HashMap<>();
+            map.put("field", Integer.toString(1));
+            buffer.add(new Row(3, map), Buffer.State.ADDED);
+        }
+        assertTrue(processed[0]);
+        buffer.flush();
+        assertEquals(3, size[0]);
+    }
 }

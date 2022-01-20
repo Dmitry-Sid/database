@@ -17,10 +17,18 @@ import java.util.stream.Collectors;
 public class BufferImpl<V extends TableType> implements Buffer<V> {
     private final Map<Integer, Element<V>> map = new ConcurrentHashMap<>();
     private final int maxSize;
+    private final Runnable onFilledAction;
     private final Consumer<List<Element<V>>> flushConsumer;
 
     public BufferImpl(int maxSize, Consumer<List<Element<V>>> flushConsumer) {
         this.maxSize = maxSize;
+        this.onFilledAction = null;
+        this.flushConsumer = flushConsumer;
+    }
+
+    public BufferImpl(int maxSize, Runnable onFilledAction, Consumer<List<Element<V>>> flushConsumer) {
+        this.maxSize = maxSize;
+        this.onFilledAction = onFilledAction;
         this.flushConsumer = flushConsumer;
     }
 
@@ -41,6 +49,9 @@ public class BufferImpl<V extends TableType> implements Buffer<V> {
             }
             return new Element<>(value, finalState);
         });
+        if (map.size() > maxSize && onFilledAction != null) {
+            onFilledAction.run();
+        }
     }
 
     @Override

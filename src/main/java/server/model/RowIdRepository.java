@@ -15,11 +15,11 @@ public interface RowIdRepository extends Repository<RowAddress> {
 
     StoppableBatchStream<RowAddress> batchStream();
 
-    StoppableBatchStream<RowAddress> batchStream(Set<Integer> idSet, StreamType streamType);
+    StoppableBatchStream<RowAddress> batchStream(Set<Integer> idSet, ProcessType processType);
 
     String getRowFileName(int rowId);
 
-    enum StreamType {
+    enum ProcessType {
         Read, Write
     }
 }
