@@ -16,6 +16,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -68,7 +69,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     }
 
     public void add(int id, boolean save, Consumer<RowAddress> rowAddressConsumer) {
-        processRowAddresses(rowReadWriteLock.writeLock(), id, true, (rowAddresses, rowFileNumber) -> {
+        processRowAddresses(rowReadWriteLock.writeLock(), id, true, (rowFileNumber, rowAddresses) -> {
             if (rowAddresses == null) {
                 final int rowIdFileNumber = getRowIdFileNumber(id);
                 if (variables.idBatches.contains(rowIdFileNumber)) {
@@ -139,7 +140,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
 
     @Override
     public void delete(int id) {
-        processRowAddresses(rowReadWriteLock.writeLock(), id, false, (rowAddresses, rowFileNumber) -> {
+        processRowAddresses(rowReadWriteLock.writeLock(), id, false, (rowFileNumber, rowAddresses) -> {
             final RowAddressBasket rowAddressBasket = rowAddresses.baskets.get(rowFileNumber);
             if (rowAddressBasket == null) {
                 throw new IllegalStateException("rowAddressBasket not found, id : " + id);
@@ -166,7 +167,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     @Override
     public boolean process(int id, Consumer<RowAddress> consumer) {
         final AtomicBoolean processed = new AtomicBoolean();
-        processRowAddresses(rowReadWriteLock.readLock(), id, false, (rowAddresses, rowFileNumber) -> {
+        processRowAddresses(rowReadWriteLock.readLock(), id, false, (rowFileNumber, rowAddresses) -> {
             final RowAddressBasket rowAddressBasket = rowAddresses.baskets.get(rowFileNumber);
             if (rowAddressBasket == null) {
                 return;
@@ -202,10 +203,10 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         return filesIdPath + getRowIdFileNumber(id);
     }
 
-    private void processRowAddresses(Lock<Integer> lock, int id, boolean acceptNull, BiConsumer<RowAddresses, Integer> consumer) {
+    private void processRowAddresses(Lock<Integer> lock, int id, boolean acceptNull, BiConsumer<Integer, RowAddresses> consumer) {
         final int rowIdFileNumber = getRowIdFileNumber(id);
         final int rowFileNumber = getRowFileNumber(id);
-        processRowAddresses(rowIdFileNumber, acceptNull, rowAddresses -> LockService.doInLock(lock, rowFileNumber, () -> consumer.accept(rowAddresses, rowFileNumber)));
+        processRowAddresses(rowIdFileNumber, acceptNull, rowAddresses -> LockService.doInLock(lock, rowFileNumber, () -> consumer.accept(rowFileNumber, rowAddresses)));
     }
 
     private void processRowAddresses(int rowIdFileNumber, boolean acceptNull, Consumer<RowAddresses> consumer) {
@@ -332,33 +333,37 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         @Override
         public void forEach(Consumer<RowAddress> consumer) {
             if (full) {
-                forEach(variables.idBatches, (rowFileNumber, basket) -> stream(basket, consumer, stopChecker));
+                forEach(variables.idBatches, (rowIdFileNumber, map) -> map, (rowIdFileNumber, rowFileNumber, basket) -> stream(basket, consumer, stopChecker));
             } else {
                 if (idSet == null) {
                     return;
                 }
-                final Map<Integer, Set<Integer>> basketMap = makeBaskets(idSet);
-                forEach(makeBathes(idSet), (rowFileNumber, basket) -> {
-                    final Set<Integer> set = basketMap.get(rowFileNumber);
-                    if (set == null) {
-                        return;
+                final Map<Integer, Map<Integer, Set<Integer>>> basketMap = makeBaskets(idSet);
+                forEach(basketMap.keySet(), (rowIdFileNumber, map) -> {
+                    final Map<Integer, Set<Integer>> basketIdes = basketMap.get(rowIdFileNumber);
+                    if (basketIdes == null) {
+                        return Collections.emptyMap();
                     }
-                    sortedSet(set).forEach(id -> process(basket, id, true, consumer));
-                });
+                    final Map<Integer, RowAddressBasket> result = new HashMap<>();
+                    basketIdes.keySet().forEach(key -> {
+                        final RowAddressBasket basket = map.get(key);
+                        if (basket == null) {
+                            return;
+                        }
+                        result.put(key, basket);
+                    });
+                    return result;
+                }, (rowIdFileNumber, rowFileNumber, basket) -> sortedSet(basketMap.get(rowIdFileNumber).get(rowFileNumber)).forEach(id -> process(basket, id, true, consumer)));
             }
         }
 
-        private Map<Integer, Set<Integer>> makeBaskets(Set<Integer> idSet) {
-            final Map<Integer, Set<Integer>> map = new LinkedHashMap<>();
-            idSet.forEach(id -> map.computeIfAbsent(getRowFileNumber(id), k -> new LinkedHashSet<>()).add(id));
+        private Map<Integer, Map<Integer, Set<Integer>>> makeBaskets(Set<Integer> idSet) {
+            final Map<Integer, Map<Integer, Set<Integer>>> map = new LinkedHashMap<>();
+            idSet.forEach(id -> map.computeIfAbsent(getRowIdFileNumber(id), k -> new HashMap<>()).computeIfAbsent(getRowFileNumber(id), k -> new LinkedHashSet<>()).add(id));
             return map;
         }
 
-        private Set<Integer> makeBathes(Set<Integer> idSet) {
-            return idSet.stream().map(RowIdRepositoryImpl.this::getRowIdFileNumber).collect(Collectors.toSet());
-        }
-
-        private void forEach(Set<Integer> batches, BiConsumer<Integer, RowAddressBasket> consumer) {
+        private void forEach(Set<Integer> batches, BiFunction<Integer, Map<Integer, RowAddressBasket>, Map<Integer, RowAddressBasket>> mapFunction, TripleConsumer<Integer, Integer, RowAddressBasket> consumer) {
             if (batches == null) {
                 return;
             }
@@ -378,7 +383,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
                     if (rowAddresses == null) {
                         continue;
                     }
-                    for (Map.Entry<Integer, RowAddressBasket> entry : rowAddresses.baskets.entrySet().stream().sorted(Comparator.comparing(Map.Entry::getKey)).collect(Collectors.toList())) {
+                    for (Map.Entry<Integer, RowAddressBasket> entry : mapFunction.apply(value, rowAddresses.baskets).entrySet().stream().sorted(Comparator.comparing(Map.Entry::getKey)).collect(Collectors.toList())) {
                         if (stopChecker.get()) {
                             return;
                         }
@@ -389,7 +394,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
                             rowFileNumber[0] = actual;
                             rowChainedLock.init(rowFileNumber[0]);
                         });
-                        consumer.accept(entry.getKey(), entry.getValue());
+                        consumer.accept(value, entry.getKey(), entry.getValue());
                     }
                     if (rowFileNumber[0] != null) {
                         onBatchEnd.forEach(Runnable::run);
@@ -412,5 +417,9 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
                 }
             }
         }
+    }
+
+    interface TripleConsumer<T, U, V> {
+        void accept(T t, U u, V v);
     }
 }
