@@ -92,7 +92,7 @@ public class RowRepositoryImpl extends BaseDestroyable implements RowRepository 
                 final Set<Integer> processedIdSet = new HashSet<>();
                 final AtomicInteger skipped = new AtomicInteger();
                 final Consumer<Row> rowConsumer = row -> {
-                    if (conditionService.check(row, iCondition)) {
+                    if (!processedIdSet.contains(row.getId()) && conditionService.check(row, iCondition)) {
                         if (skipped.get() == from) {
                             consumer.accept(row);
                             processedIdSet.add(row.getId());
