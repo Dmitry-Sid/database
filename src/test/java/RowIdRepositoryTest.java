@@ -400,22 +400,26 @@ public class RowIdRepositoryTest {
             {
                 final AtomicInteger counter = new AtomicInteger();
                 final StoppableBatchStream<RowAddress> stream = rowIdRepository.batchStream();
-                final boolean[] batchEnd = new boolean[]{false, false, false, false};
+                final boolean[] batchEnd = new boolean[]{false, false, false, false, false, false};
                 final boolean[] streamEnd = new boolean[]{false, false};
                 stream.addOnBatchEnd(() -> {
-                    assertTrue(counter.get() == maxIdSize || counter.get() == lastId);
-                    if (counter.get() == maxIdSize) {
+                    assertTrue(counter.get() == maxIdSize / compressSize || counter.get() == maxIdSize || counter.get() == lastId);
+                    if (counter.get() == maxIdSize / compressSize) {
                         batchEnd[0] = true;
-                    } else {
+                    } else if (counter.get() == maxIdSize) {
                         batchEnd[1] = true;
+                    } else {
+                        batchEnd[2] = true;
                     }
                 });
                 stream.addOnBatchEnd(() -> {
-                    assertTrue(counter.get() == maxIdSize || counter.get() == lastId);
-                    if (counter.get() == maxIdSize) {
-                        batchEnd[2] = true;
-                    } else {
+                    assertTrue(counter.get() == maxIdSize / compressSize || counter.get() == maxIdSize || counter.get() == lastId);
+                    if (counter.get() == maxIdSize / compressSize) {
                         batchEnd[3] = true;
+                    } else if (counter.get() == maxIdSize) {
+                        batchEnd[4] = true;
+                    } else {
+                        batchEnd[5] = true;
                     }
                 });
                 stream.addOnStreamEnd(() -> {
@@ -435,6 +439,8 @@ public class RowIdRepositoryTest {
                 assertTrue(batchEnd[1]);
                 assertTrue(batchEnd[2]);
                 assertTrue(batchEnd[3]);
+                assertTrue(batchEnd[4]);
+                assertTrue(batchEnd[5]);
                 assertTrue(streamEnd[0]);
                 assertTrue(streamEnd[1]);
             }
@@ -484,9 +490,7 @@ public class RowIdRepositoryTest {
                 final AtomicInteger counter = new AtomicInteger();
                 final StoppableStream<RowAddress> stream = rowIdRepository.batchStream();
                 stream.forEach(rowAddress -> {
-                    assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> {
-                        assertEquals(rowAddress, rowAddressProcessed);
-                    }));
+                    assertTrue(rowIdRepository.process(rowAddress.getId(), rowAddressProcessed -> assertEquals(rowAddress, rowAddressProcessed)));
                     if (counter.incrementAndGet() == 500) {
                         stream.stop();
                     }
@@ -497,7 +501,7 @@ public class RowIdRepositoryTest {
     }
 
     @Test
-    public void streamTypeTest() throws InterruptedException {
+    public void processTypeTest() throws InterruptedException {
         final int lastId = 750;
         createFiles(lastId);
         final RowIdRepository rowIdRepository = prepareRowIdRepository(maxIdSize);

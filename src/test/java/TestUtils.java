@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -57,23 +56,26 @@ public class TestUtils {
         final int maxRowSize = maxIdSize / compressSize;
         final Set<Integer> boundsBatch = prepareBoundsBatch(lastId, maxIdSize);
         final ObjectConverter objectConverter = new ObjectConverterImpl(new DataCompressorImpl());
-        RowIdRepositoryImpl.CachedRowAddresses cachedRowAddresses = null;
         int id = 1;
         int lastRowFileNumber = 1;
         for (Integer value : boundsBatch) {
-            final Map<Integer, RowAddress> rowAddressMap = new ConcurrentHashMap<>();
             int lastEndPosition = 0;
             RowAddress rowAddress = null;
             RowAddress rowAddressPrevious = null;
             final int max = Math.min(value * maxIdSize, lastId);
+            final RowIdRepositoryImpl.RowAddresses rowAddresses = new RowIdRepositoryImpl.RowAddresses();
+            RowIdRepositoryImpl.RowAddressBasket basket = null;
             for (int i = (value - 1) * maxIdSize + 1; i <= max; i++) {
                 final int rowFileNumber = getRowFileNumber(id, maxRowSize);
                 if (lastRowFileNumber != rowFileNumber) {
                     lastRowFileNumber = rowFileNumber;
                     lastEndPosition = 0;
                     rowAddressPrevious = null;
+                    if (basket != null) {
+                        basket.lastRowAddress = rowAddress;
+                    }
                 }
-                rowAddress = new RowAddress(filesRowPath + getRowFileNumber(id, maxRowSize), id, lastEndPosition, rowMap == null ? rowAddressSize : rowMap.get(id).length);
+                rowAddress = new RowAddress(filesRowPath + rowFileNumber, id, lastEndPosition, rowMap == null ? rowAddressSize : rowMap.get(id).length);
                 rowAddress.setSaved(true);
                 lastEndPosition += rowAddress.getSize();
                 if (rowAddressPrevious != null) {
@@ -81,13 +83,16 @@ public class TestUtils {
                     rowAddress.setPrevious(rowAddressPrevious.getId());
                 }
                 rowAddressPrevious = rowAddress;
-                rowAddressMap.put(id, rowAddress);
+                basket = rowAddresses.baskets.computeIfAbsent(rowFileNumber, k -> new RowIdRepositoryImpl.RowAddressBasket());
+                basket.rowAddressMap.put(id, rowAddress);
                 id++;
             }
-            cachedRowAddresses = new RowIdRepositoryImpl.CachedRowAddresses(rowAddressMap, rowAddress);
-            objectConverter.toFile(cachedRowAddresses, filesIdPath + value);
+            if (basket != null) {
+                basket.lastRowAddress = rowAddress;
+            }
+            objectConverter.toFile(rowAddresses, filesIdPath + value);
         }
-        final RowIdRepositoryImpl.Variables variables = new RowIdRepositoryImpl.Variables(new AtomicInteger(lastId), boundsBatch, new ConcurrentHashMap<>());
+        final RowIdRepositoryImpl.Variables variables = new RowIdRepositoryImpl.Variables(new AtomicInteger(lastId), boundsBatch);
         objectConverter.toFile(variables, fileName);
     }
 

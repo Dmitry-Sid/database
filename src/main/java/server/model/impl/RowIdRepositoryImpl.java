@@ -15,8 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdRepository {
@@ -25,8 +25,9 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     private static final String ROW_ID_NAME = "rowId";
     private static final String VARIABLES_NAME = "rowIdVariables";
 
-    private final ReadWriteLock<String> readWriteLock = LockService.createReadWriteLock(String.class);
-    private final Lock<String> rowIdLock = LockService.createLock(String.class);
+    private final ReadWriteLock<Integer> rowIdReadWriteLock = LockService.createReadWriteLock(Integer.class);
+    private final ReadWriteLock<Integer> rowReadWriteLock = LockService.createReadWriteLock(Integer.class);
+    private final Lock<Integer> rowIdLock = LockService.createLock(Integer.class);
     private final Variables variables;
     private final String variablesFileName;
     private final String filesIdPath;
@@ -45,7 +46,7 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         if (file.exists()) {
             this.variables = objectConverter.fromFile(Variables.class, this.variablesFileName);
         } else {
-            this.variables = new Variables(new AtomicInteger(0), new CopyOnWriteArraySet<>(), new ConcurrentHashMap<>());
+            this.variables = new Variables(new AtomicInteger(0), new CopyOnWriteArraySet<>());
         }
         this.maxIdSize = maxIdSize;
     }
@@ -67,33 +68,34 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     }
 
     public void add(int id, boolean save, Consumer<RowAddress> rowAddressConsumer) {
-        final String fileName = getRowIdFileName(id);
-        processRowAddresses(readWriteLock.writeLock(), fileName, true, cachedRowAddresses -> {
-            if (cachedRowAddresses == null) {
+        processRowAddresses(rowReadWriteLock.writeLock(), id, true, (rowAddresses, rowFileNumber) -> {
+            if (rowAddresses == null) {
                 final int rowIdFileNumber = getRowIdFileNumber(id);
                 if (variables.idBatches.contains(rowIdFileNumber)) {
                     throw new IllegalStateException("idBatches contains rowIdFileNumber " + rowIdFileNumber);
                 }
                 variables.idBatches.add(rowIdFileNumber);
-                final Map<Integer, RowAddress> rowAddressMap = emptyRowAddressMap();
                 final RowAddress rowAddress = createRowAddress(id);
                 rowAddressConsumer.accept(rowAddress);
                 rowAddress.setSaved(save);
-                rowAddressMap.put(id, rowAddress);
-                variables.cachedRowAddressesMap.put(fileName, new CachedRowAddresses(rowAddressMap, rowAddress));
+                final RowAddresses createdRowAddresses = new RowAddresses();
+                final RowAddressBasket rowAddressBasket = createdRowAddresses.baskets.computeIfAbsent(rowFileNumber, k -> new RowAddressBasket(rowAddress));
+                rowAddressBasket.rowAddressMap.put(id, rowAddress);
+                variables.cachedRowAddressesMap.put(rowIdFileNumber, createdRowAddresses);
             } else {
-                final RowAddress rowAddressFromMap = cachedRowAddresses.rowAddressMap.get(id);
+                final RowAddressBasket rowAddressBasket = rowAddresses.baskets.computeIfAbsent(getRowFileNumber(id), k -> new RowAddressBasket());
+                final RowAddress rowAddressFromMap = rowAddressBasket.rowAddressMap.get(id);
                 final RowAddress rowAddress;
                 if (rowAddressFromMap == null) {
                     rowAddress = createRowAddress(id);
-                    if (cachedRowAddresses.lastRowAddress != null && cachedRowAddresses.lastRowAddress.getFilePath().equals(getRowFileName(id))) {
-                        final RowAddress lastRowAddress = cachedRowAddresses.lastRowAddress;
+                    if (rowAddressBasket.lastRowAddress != null && rowAddressBasket.lastRowAddress.getFilePath().equals(getRowFileName(id))) {
+                        final RowAddress lastRowAddress = rowAddressBasket.lastRowAddress;
                         lastRowAddress.setNext(rowAddress.getId());
                         rowAddress.setPosition(lastRowAddress.getPosition() + lastRowAddress.getSize());
                         rowAddress.setPrevious(lastRowAddress.getId());
                     }
                     rowAddressConsumer.accept(rowAddress);
-                    cachedRowAddresses.lastRowAddress = rowAddress;
+                    rowAddressBasket.lastRowAddress = rowAddress;
                 } else {
                     if (!save) {
                         throw new IllegalArgumentException("cannot add existing rowId " + id);
@@ -101,13 +103,13 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
                     rowAddress = rowAddressFromMap;
                     final int sizeBefore = rowAddress.getSize();
                     rowAddressConsumer.accept(rowAddress);
-                    transform(cachedRowAddresses, rowAddress, sizeBefore, rowAddress.getSize());
+                    transform(rowAddressBasket, rowAddress, sizeBefore, rowAddress.getSize());
                 }
                 rowAddress.setSaved(save);
-                cachedRowAddresses.rowAddressMap.put(rowAddress.getId(), rowAddress);
+                rowAddressBasket.rowAddressMap.put(rowAddress.getId(), rowAddress);
             }
+            changed = true;
         });
-        changed = true;
     }
 
     @Override
@@ -116,47 +118,46 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     }
 
     @Override
-    public StoppableBatchStream<RowAddress> batchStream(Set<Integer> idSet, ProcessType ProcessType) {
-        return new BatchStream(idSet, ProcessType);
+    public StoppableBatchStream<RowAddress> batchStream(Set<Integer> idSet, ProcessType processType) {
+        return new BatchStream(idSet, processType);
     }
 
     private RowAddress createRowAddress(int id) {
         return new RowAddress(getRowFileName(id), id, 0, 0);
     }
 
-    private void transform(CachedRowAddresses cachedRowAddresses, RowAddress rowAddress, int sizeBefore, int sizeAfter) {
+    private void transform(RowAddressBasket rowAddressBasket, RowAddress rowAddress, int sizeBefore, int sizeAfter) {
         if (sizeBefore == sizeAfter) {
             return;
         }
         RowAddress rowAddressNext = rowAddress;
         rowAddressNext.setSize(sizeAfter);
-        while ((rowAddressNext = cachedRowAddresses.rowAddressMap.get(rowAddressNext.getNext())) != null) {
+        while ((rowAddressNext = rowAddressBasket.rowAddressMap.get(rowAddressNext.getNext())) != null) {
             rowAddressNext.setPosition(rowAddressNext.getPosition() + (sizeAfter - sizeBefore));
         }
     }
 
     @Override
     public void delete(int id) {
-        final String rowIdFileName = getRowIdFileName(id);
-        processRowAddresses(readWriteLock.writeLock(), rowIdFileName, false, cachedRowAddresses -> {
-            final RowAddress rowAddress = cachedRowAddresses.rowAddressMap.get(id);
+        processRowAddresses(rowReadWriteLock.writeLock(), id, false, (rowAddresses, rowFileNumber) -> {
+            final RowAddressBasket rowAddressBasket = rowAddresses.baskets.get(rowFileNumber);
+            if (rowAddressBasket == null) {
+                throw new IllegalStateException("rowAddressBasket not found, id : " + id);
+            }
+            final RowAddress rowAddress = rowAddressBasket.rowAddressMap.get(id);
             if (rowAddress == null) {
                 throw new IllegalStateException("rowAddress not found, id : " + id);
             }
-            transform(cachedRowAddresses, rowAddress, rowAddress.getSize(), 0);
-            if (cachedRowAddresses.rowAddressMap.get(rowAddress.getPrevious()) != null) {
-                cachedRowAddresses.rowAddressMap.get(rowAddress.getPrevious()).setNext(rowAddress.getNext());
+            transform(rowAddressBasket, rowAddress, rowAddress.getSize(), 0);
+            if (rowAddressBasket.rowAddressMap.get(rowAddress.getPrevious()) != null) {
+                rowAddressBasket.rowAddressMap.get(rowAddress.getPrevious()).setNext(rowAddress.getNext());
             }
-            if (cachedRowAddresses.rowAddressMap.get(rowAddress.getNext()) != null) {
-                cachedRowAddresses.rowAddressMap.get(rowAddress.getNext()).setPrevious(rowAddress.getPrevious());
+            if (rowAddressBasket.rowAddressMap.get(rowAddress.getNext()) != null) {
+                rowAddressBasket.rowAddressMap.get(rowAddress.getNext()).setPrevious(rowAddress.getPrevious());
             }
-            cachedRowAddresses.rowAddressMap.remove(id);
-            if (cachedRowAddresses.rowAddressMap.isEmpty()) {
-                variables.idBatches.remove(getRowIdFileNumber(id));
-                variables.cachedRowAddressesMap.remove(rowIdFileName);
-                if (!new File(rowIdFileName).delete()) {
-                    throw new RuntimeException("cannot delete file " + rowIdFileName);
-                }
+            rowAddressBasket.rowAddressMap.remove(id);
+            if (rowAddressBasket.rowAddressMap.isEmpty()) {
+                rowAddresses.baskets.remove(rowFileNumber);
             }
             changed = true;
         });
@@ -164,19 +165,24 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
 
     @Override
     public boolean process(int id, Consumer<RowAddress> consumer) {
-        return process(id, false, consumer);
-    }
-
-    private boolean process(int id, boolean includeAll, Consumer<RowAddress> consumer) {
         final AtomicBoolean processed = new AtomicBoolean();
-        processRowAddresses(readWriteLock.readLock(), getRowIdFileName(id), false, cachedRowAddresses -> {
-            final RowAddress rowAddress = cachedRowAddresses.rowAddressMap.get(id);
-            if (rowAddress != null && (rowAddress.isSaved() || includeAll)) {
-                consumer.accept(objectConverter.clone(rowAddress));
-                processed.set(true);
+        processRowAddresses(rowReadWriteLock.readLock(), id, false, (rowAddresses, rowFileNumber) -> {
+            final RowAddressBasket rowAddressBasket = rowAddresses.baskets.get(rowFileNumber);
+            if (rowAddressBasket == null) {
+                return;
             }
+            processed.set(process(rowAddressBasket, id, false, consumer));
         });
         return processed.get();
+    }
+
+    private boolean process(RowAddressBasket basket, int id, boolean includeAll, Consumer<RowAddress> consumer) {
+        final RowAddress rowAddress = basket.rowAddressMap.get(id);
+        if (rowAddress != null && (rowAddress.isSaved() || includeAll)) {
+            consumer.accept(objectConverter.clone(rowAddress));
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -196,51 +202,65 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         return filesIdPath + getRowIdFileNumber(id);
     }
 
-    private Map<Integer, RowAddress> emptyRowAddressMap() {
-        return new ConcurrentHashMap<>();
+    private void processRowAddresses(Lock<Integer> lock, int id, boolean acceptNull, BiConsumer<RowAddresses, Integer> consumer) {
+        final int rowIdFileNumber = getRowIdFileNumber(id);
+        final int rowFileNumber = getRowFileNumber(id);
+        processRowAddresses(rowIdFileNumber, acceptNull, rowAddresses -> LockService.doInLock(lock, rowFileNumber, () -> consumer.accept(rowAddresses, rowFileNumber)));
     }
 
-    private void processRowAddresses(Lock<String> lock, String fileName, boolean acceptNull, Consumer<CachedRowAddresses> consumer) {
+    private void processRowAddresses(int rowIdFileNumber, boolean acceptNull, Consumer<RowAddresses> consumer) {
         try {
-            LockService.doInLock(lock, fileName, () -> {
-                CachedRowAddresses cachedRowAddresses = variables.cachedRowAddressesMap.get(fileName);
-                if (cachedRowAddresses == null) {
-                    rowIdLock.lock(fileName);
-                    try {
-                        cachedRowAddresses = variables.cachedRowAddressesMap.get(fileName);
-                        if (cachedRowAddresses == null) {
-                            cachedRowAddresses = objectConverter.fromFile(CachedRowAddresses.class, fileName);
-                            if (cachedRowAddresses != null) {
-                                variables.cachedRowAddressesMap.put(fileName, cachedRowAddresses);
-                            }
-                        }
-                    } finally {
-                        rowIdLock.unlock(fileName);
-                    }
-                }
-                if (acceptNull || cachedRowAddresses != null) {
-                    consumer.accept(cachedRowAddresses);
+            LockService.doInLock(rowIdReadWriteLock.readLock(), rowIdFileNumber, () -> {
+                final RowAddresses rowAddresses = getRowAddresses(rowIdFileNumber);
+                if (acceptNull || rowAddresses != null) {
+                    consumer.accept(rowAddresses);
                 }
             });
         } catch (Exception e) {
-            log.error("failed process rowAddresses file " + fileName, e);
+            log.error("failed process rowAddresses file " + filesIdPath + rowIdFileNumber, e);
             throw e;
         }
     }
 
-    private void saveAndClearMap() {
-        if (variables.cachedRowAddressesMap == null) {
+    private RowAddresses getRowAddresses(int rowIdFileNumber) {
+        RowAddresses rowAddresses = variables.cachedRowAddressesMap.get(rowIdFileNumber);
+        if (rowAddresses == null) {
+            rowIdLock.lock(rowIdFileNumber);
+            try {
+                rowAddresses = variables.cachedRowAddressesMap.get(rowIdFileNumber);
+                if (rowAddresses == null) {
+                    rowAddresses = objectConverter.fromFile(RowAddresses.class, filesIdPath + rowIdFileNumber);
+                    if (rowAddresses != null) {
+                        variables.cachedRowAddressesMap.put(rowIdFileNumber, rowAddresses);
+                    }
+                }
+            } finally {
+                rowIdLock.unlock(rowIdFileNumber);
+            }
+        }
+        return rowAddresses;
+    }
+
+    private synchronized void saveAndClearMap() {
+        if (variables.cachedRowAddressesMap.isEmpty()) {
             return;
         }
-        final Set<Map.Entry<String, CachedRowAddresses>> entrySet = variables.cachedRowAddressesMap.entrySet();
-        for (Iterator<Map.Entry<String, CachedRowAddresses>> iterator = entrySet.iterator(); iterator.hasNext(); ) {
-            final Map.Entry<String, CachedRowAddresses> entry = iterator.next();
-            LockService.doInLock(readWriteLock.writeLock(), entry.getKey(), () -> {
-                final CachedRowAddresses cachedRowAddresses = entry.getValue();
-                if (!cachedRowAddresses.rowAddressMap.isEmpty() && changed) {
-                    objectConverter.toFile(entry.getValue(), entry.getKey());
+        final Set<Map.Entry<Integer, RowAddresses>> entrySet = variables.cachedRowAddressesMap.entrySet();
+        for (Iterator<Map.Entry<Integer, RowAddresses>> iterator = entrySet.iterator(); iterator.hasNext(); ) {
+            final Map.Entry<Integer, RowAddresses> entry = iterator.next();
+            LockService.doInLock(rowIdReadWriteLock.writeLock(), entry.getKey(), () -> {
+                final RowAddresses rowAddresses = entry.getValue();
+                final String rowIdFileName = filesIdPath + entry.getKey();
+                if (rowAddresses.baskets.isEmpty()) {
+                    variables.idBatches.remove(entry.getKey());
+                    variables.cachedRowAddressesMap.remove(entry.getKey());
+                    if (!new File(rowIdFileName).delete()) {
+                        throw new RuntimeException("cannot delete file " + rowIdFileName);
+                    }
+                } else if (changed) {
+                    objectConverter.toFile(entry.getValue(), rowIdFileName);
                 }
-                if (entrySet.size() > 1 || cachedRowAddresses.rowAddressMap.isEmpty()) {
+                if (entrySet.size() > 1 || rowAddresses.baskets.isEmpty()) {
                     iterator.remove();
                 }
             });
@@ -265,22 +285,29 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
         private static final long serialVersionUID = 1228422981455428546L;
         private final AtomicInteger lastId;
         private final Set<Integer> idBatches;
-        private Map<String, CachedRowAddresses> cachedRowAddressesMap;
+        private final Map<Integer, RowAddresses> cachedRowAddressesMap = new ConcurrentHashMap<>();
 
-        public Variables(AtomicInteger lastId, Set<Integer> idBatches, Map<String, CachedRowAddresses> cachedRowAddressesMap) {
+        public Variables(AtomicInteger lastId, Set<Integer> idBatches) {
             this.lastId = lastId;
             this.idBatches = idBatches;
-            this.cachedRowAddressesMap = cachedRowAddressesMap;
         }
     }
 
-    public static class CachedRowAddresses implements Serializable {
-        private static final long serialVersionUID = 6741511503259730900L;
-        private final Map<Integer, RowAddress> rowAddressMap;
-        private volatile RowAddress lastRowAddress;
+    public static class RowAddresses implements Serializable {
+        private static final long serialVersionUID = 554239746175423526L;
+        public final Map<Integer, RowAddressBasket> baskets = new ConcurrentHashMap<>();
+    }
 
-        public CachedRowAddresses(Map<Integer, RowAddress> rowAddressMap, RowAddress lastRowAddress) {
-            this.rowAddressMap = rowAddressMap;
+    public static class RowAddressBasket implements Serializable {
+        private static final long serialVersionUID = 6741511503259730900L;
+        public final Map<Integer, RowAddress> rowAddressMap = new ConcurrentHashMap<>();
+        public volatile RowAddress lastRowAddress;
+
+        public RowAddressBasket() {
+
+        }
+
+        public RowAddressBasket(RowAddress lastRowAddress) {
             this.lastRowAddress = lastRowAddress;
         }
     }
@@ -288,58 +315,94 @@ public class RowIdRepositoryImpl extends BaseDestroyable implements RowIdReposit
     private class BatchStream extends BaseStoppableBatchStream<RowAddress> {
         private final boolean full;
         private final Set<Integer> idSet;
-        private final Lock<String> lock;
+        private final Lock<Integer> lock;
 
         private BatchStream(boolean full) {
             this.full = full;
             this.idSet = null;
-            this.lock = readWriteLock.readLock();
+            this.lock = rowReadWriteLock.readLock();
         }
 
-        private BatchStream(Set<Integer> idSet, ProcessType ProcessType) {
+        private BatchStream(Set<Integer> idSet, ProcessType processType) {
             this.full = false;
             this.idSet = idSet;
-            this.lock = ProcessType == ProcessType.Write ? readWriteLock.writeLock() : readWriteLock.readLock();
+            this.lock = processType == ProcessType.Write ? rowReadWriteLock.writeLock() : rowReadWriteLock.readLock();
         }
 
         @Override
         public void forEach(Consumer<RowAddress> consumer) {
             if (full) {
-                forEach(variables.idBatches, value -> filesIdPath + value, value -> processRowAddresses(lock, filesIdPath + value, false,
-                        cachedRowAddresses -> stream(cachedRowAddresses.rowAddressMap, consumer, stopChecker)));
+                forEach(variables.idBatches, (rowFileNumber, basket) -> stream(basket, consumer, stopChecker));
             } else {
-                forEach(idSet, RowIdRepositoryImpl.this::getRowIdFileName, value -> process(value, true, consumer));
+                if (idSet == null) {
+                    return;
+                }
+                final Map<Integer, Set<Integer>> basketMap = makeBaskets(idSet);
+                forEach(makeBathes(idSet), (rowFileNumber, basket) -> {
+                    final Set<Integer> set = basketMap.get(rowFileNumber);
+                    if (set == null) {
+                        return;
+                    }
+                    sortedSet(set).forEach(id -> process(basket, id, true, consumer));
+                });
             }
         }
 
-        private void forEach(Set<Integer> set, Function<Integer, String> fileFunction, Consumer<Integer> consumer) {
-            if (set == null) {
+        private Map<Integer, Set<Integer>> makeBaskets(Set<Integer> idSet) {
+            final Map<Integer, Set<Integer>> map = new LinkedHashMap<>();
+            idSet.forEach(id -> map.computeIfAbsent(getRowFileNumber(id), k -> new LinkedHashSet<>()).add(id));
+            return map;
+        }
+
+        private Set<Integer> makeBathes(Set<Integer> idSet) {
+            return idSet.stream().map(RowIdRepositoryImpl.this::getRowIdFileNumber).collect(Collectors.toSet());
+        }
+
+        private void forEach(Set<Integer> batches, BiConsumer<Integer, RowAddressBasket> consumer) {
+            if (batches == null) {
                 return;
             }
-            final String[] fileName = {null};
-            try (ChainedLock<String> chainedLock = new ChainedLock<>(lock)) {
-                for (int value : sortedSet(set)) {
+            final Integer[] rowIdFileNumber = {null};
+            final Integer[] rowFileNumber = {null};
+            try (ChainedLock<Integer> rowIdChainedLock = new ChainedLock<>(rowIdReadWriteLock.readLock());
+                 ChainedLock<Integer> rowChainedLock = new ChainedLock<>(lock)) {
+                for (int value : sortedSet(batches)) {
                     if (stopChecker.get()) {
                         return;
                     }
-                    Utils.compareAndRun(fileFunction.apply(value), fileName[0], actual -> {
-                        if (fileName[0] != null) {
-                            onBatchEnd.forEach(Runnable::run);
-                        }
-                        fileName[0] = fileFunction.apply(value);
-                        chainedLock.init(fileName[0]);
+                    Utils.compareAndRun(value, rowIdFileNumber[0], actual -> {
+                        rowIdFileNumber[0] = actual;
+                        rowIdChainedLock.init(rowIdFileNumber[0]);
                     });
-                    consumer.accept(value);
+                    final RowAddresses rowAddresses = getRowAddresses(rowIdFileNumber[0]);
+                    if (rowAddresses == null) {
+                        continue;
+                    }
+                    for (Map.Entry<Integer, RowAddressBasket> entry : rowAddresses.baskets.entrySet().stream().sorted(Comparator.comparing(Map.Entry::getKey)).collect(Collectors.toList())) {
+                        if (stopChecker.get()) {
+                            return;
+                        }
+                        Utils.compareAndRun(entry.getKey(), rowFileNumber[0], actual -> {
+                            if (rowFileNumber[0] != null) {
+                                onBatchEnd.forEach(Runnable::run);
+                            }
+                            rowFileNumber[0] = actual;
+                            rowChainedLock.init(rowFileNumber[0]);
+                        });
+                        consumer.accept(entry.getKey(), entry.getValue());
+                    }
+                    if (rowFileNumber[0] != null) {
+                        onBatchEnd.forEach(Runnable::run);
+                    }
                 }
-                if (fileName[0] != null) {
+                if (rowFileNumber[0] != null) {
                     onStreamEnd.forEach(Runnable::run);
-                    onBatchEnd.forEach(Runnable::run);
                 }
             }
         }
 
-        private void stream(Map<Integer, RowAddress> rowAddressMap, Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker) {
-            for (Map.Entry<Integer, RowAddress> entry : rowAddressMap.entrySet().stream().sorted(Comparator.comparing(Map.Entry::getKey))
+        private void stream(RowAddressBasket basket, Consumer<RowAddress> rowAddressConsumer, AtomicBoolean stopChecker) {
+            for (Map.Entry<Integer, RowAddress> entry : basket.rowAddressMap.entrySet().stream().sorted(Comparator.comparing(Map.Entry::getKey))
                     .collect(Collectors.toCollection(LinkedHashSet::new))) {
                 if (stopChecker != null && stopChecker.get()) {
                     return;
